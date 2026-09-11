@@ -189,7 +189,7 @@ unsigned promptUnsigned(const std::string& label,unsigned current,unsigned minVa
 
 bool editProfileInteractive(SipProfile& p,const std::filesystem::path& path)
 {
-    std::cout<<"\nS.I.P.H.E.R. SIP Profile Editor\nProfile: "<<path
+    std::cout<<"\nSIPHER SIP Profile Editor\nProfile: "<<path
              <<"\nPress Enter to keep the current value. Type - to clear a field. Ctrl+D cancels.\n\n";
     try{
         p.name=promptValue("Profile name",p.name);
@@ -248,7 +248,7 @@ bool activeCalls(const SipEngine& engine)
 
 std::string helpText()
 {
-    return R"(S.I.P.H.E.R. Operator Mode (recommended):
+    return R"(SIPHER Operator Mode (recommended):
   1  Place a call
   2  Manage active calls
   3  Queue / call-blast test
@@ -269,7 +269,7 @@ Call slash commands:
 
 Advanced Commands:
  status | calls | refresh
- profile-show | profile-edit | profile-reload    (profile dial_prefix is only the startup default)
+ accounts | account-use <id> | profile-show | profile-edit | profile-reload
  prefix [value|off]              show/change the current main-screen dial prefix without reloading profile
  dial <dest> [cid]               current runtime prefix is prepended to plain numbers
  dial-raw <dest> [cid]           bypass current runtime prefix for this call
@@ -446,7 +446,7 @@ std::string guidedOperatorWorkflow(CliDashboard& dashboard,SipEngine& engine,int
 {
     dashboard.clear(std::cout);
     if(category==0){
-        category=askOperatorChoice("S.I.P.H.E.R. — Operator Menu",{
+        category=askOperatorChoice("SIPHER — Operator Menu",{
             "Place a call",
             "Manage active calls",
             "Run a queue / call-blast test",
@@ -705,13 +705,13 @@ bool readInteractiveCommand(bool dashboardEnabled,std::string& line,int& altPage
 
 void plainBanner()
 {
-    std::cout<<"\nS.I.P.H.E.R. By GITSC "<<TRUNKMONKEY_VERSION<<"\n"
+    std::cout<<"\nSIPHER "<<TRUNKMONKEY_VERSION<<"\n"
              <<"SIP / RTP Troubleshooting & PBX Diagnostics\n"
              <<"Type 'menu' for guided workflows or 'help' for advanced commands.\n\n";
 }
 }
 
-int main(int argc,char** argv)
+int sipherRunCli(int argc,char** argv)
 {
     runtime::configurePortableEnvironment();
     try{
@@ -730,26 +730,33 @@ int main(int argc,char** argv)
 
     const std::filesystem::path executable=argc>0?std::filesystem::path(argv[0]):std::filesystem::path{};
     const std::filesystem::path profilePath=argc>=2?std::filesystem::path(argv[1]):runtime::defaultProfilePath(executable);
-    try{
-        const bool created=ProfileStore::createDefaultIfMissing(profilePath.string());
-        SipProfile draft=ProfileStore::loadDraft(profilePath.string());
-        if(created || !ProfileStore::isConfigured(draft)){
-            dashboard.clear(std::cout);
-            std::cout<<(created?"Created":"Found unconfigured")<<" SIP profile: "<<profilePath<<"\n";
-            std::cout<<"Configure it now; S.I.P.H.E.R. will not overwrite it on future builds.\n";
-            if(!editProfileInteractive(draft,profilePath)) return 0;
-        }
-    }catch(const std::exception& error){
-        std::cerr<<error.what()<<'\n';
-        return 2;
-    }
-
+    const std::filesystem::path accountsDir=profilePath.parent_path()/"accounts";
     Logger log(runtime::logPath().string());
     log.setConsoleEnabled(!dashboard.enabled());
     SipEngine engine(log);
     MultiCallManager multi(engine,log);
     try{
-        engine.start(ProfileStore::load(profilePath.string()),kMaxCalls);
+        engine.start(kMaxCalls);
+        std::filesystem::create_directories(accountsDir);
+        bool loadedAny=false;
+        for(const auto& entry:std::filesystem::directory_iterator(accountsDir)){
+            if(!entry.is_regular_file() || entry.path().extension()!=".conf")continue;
+            try{
+                const auto draft=ProfileStore::loadDraft(entry.path().string());
+                if(!ProfileStore::isConfigured(draft))continue;
+                engine.addAccount(ProfileStore::load(entry.path().string()),entry.path().stem().string());
+                loadedAny=true;
+            }catch(const std::exception& e){log.warn("Unable to load SIP account "+entry.path().filename().string()+": "+e.what());}
+        }
+        if(!loadedAny && std::filesystem::exists(profilePath)){
+            try{
+                const auto draft=ProfileStore::loadDraft(profilePath.string());
+                if(ProfileStore::isConfigured(draft)){
+                    engine.addAccount(ProfileStore::load(profilePath.string()),"legacy");
+                    loadedAny=true;
+                }
+            }catch(const std::exception& e){log.warn(std::string("Legacy SIP profile skipped: ")+e.what());}
+        }
     }catch(const pj::Error& error){
         std::cerr<<error.info()<<'\n';
         return 1;
@@ -768,7 +775,7 @@ int main(int argc,char** argv)
         notices.push_back({std::move(text),level});
         if(!dashboard.enabled()) std::cout<<notices.back().text<<'\n';
     };
-    addNotice("S.I.P.H.E.R. ready. Select 1-9 for guided workflows, or type 'help' for advanced commands.",DashboardNotice::Level::Success);
+    addNotice(engine.hasAccounts()?"SIPHER ready with SIP account registration enabled.":"SIPHER ready in zero-account mode; SIP registration/calling is optional.",DashboardNotice::Level::Success);
 
     const auto makeDashboardState=[&](){
         DashboardState state;
@@ -848,7 +855,7 @@ int main(int argc,char** argv)
                 if(cmd=="quit" || cmd=="exit") break;
             }
             if(cmd=="help"){
-                dashboard.showOverlay("S.I.P.H.E.R. ADVANCED COMMAND REFERENCE",helpText(),std::cout);
+                dashboard.showOverlay("SIPHER ADVANCED COMMAND REFERENCE",helpText(),std::cout);
                 dashboard.pauseForEnter(std::cin,std::cout);
                 continue;
             }
@@ -861,7 +868,7 @@ int main(int argc,char** argv)
                 std::ostringstream names;
                 names<<"CLI themes:";
                 for(const auto& name:CliDashboard::themeNames()) names<<" "<<name;
-                dashboard.showOverlay("S.I.P.H.E.R. THEMES",names.str(),std::cout);
+                dashboard.showOverlay("SIPHER THEMES",names.str(),std::cout);
                 dashboard.pauseForEnter(std::cin,std::cout);
                 continue;
             }else if(cmd=="theme"){
@@ -897,39 +904,54 @@ int main(int argc,char** argv)
             }else if(cmd=="calls"){
                 if(dashboard.enabled()) addNotice("Active-call table refreshed.");
                 else std::cout<<callsText(engine);
+            }else if(cmd=="accounts"){
+                std::ostringstream out;const auto list=engine.accounts();
+                if(list.empty())out<<"No SIP accounts configured. SIPHER is running in zero-account mode.\n";
+                for(const auto& a:list)out<<(a.activeOutbound?"* ":"  ")<<a.id<<"  "<<a.name<<"  sip:"<<a.username<<"@"<<a.sipDomain<<"  "<<toString(a.transport)<<":"<<a.localSipPort<<"  "<<a.registrationText<<"\n";
+                out<<"\n* = outbound account\n";dashboard.showOverlay("SIP ACCOUNTS",out.str(),std::cout);dashboard.pauseForEnter(std::cin,std::cout);
+            }else if(cmd=="account-use"){
+                const auto id=readArg(in);if(id.empty())throw std::runtime_error("account-use requires an account ID");engine.setActiveAccount(id);addNotice("Outbound SIP account: "+id,DashboardNotice::Level::Success);
             }else if(cmd=="profile-show"){
                 currentPage=DashboardPage::Profile;
-                const auto text=profileText(ProfileStore::loadDraft(profilePath.string()),profilePath);
-                dashboard.showOverlay("SIP PROFILE",text,std::cout);
+                const auto id=engine.activeAccountId();
+                const auto shown=id.empty()?profilePath:(accountsDir/(id+".conf"));
+                const auto text=profileText(engine.profile(),shown);
+                dashboard.showOverlay(id.empty()?"NO ACTIVE SIP ACCOUNT":"ACTIVE SIP ACCOUNT",text,std::cout);
                 dashboard.pauseForEnter(std::cin,std::cout);
             }else if(cmd=="profile-edit"){
-                if(activeCalls(engine)) throw std::runtime_error("hang up active calls before editing the SIP profile");
+                if(activeCalls(engine)) throw std::runtime_error("hang up active calls before editing a SIP account");
                 multi.cancelLaunching();
+                const auto existingId=engine.activeAccountId();
                 SipProfile oldProfile=engine.profile();
-                SipProfile edited=ProfileStore::loadDraft(profilePath.string());
+                SipProfile edited=existingId.empty()?ProfileStore::defaults():engine.accountProfile(existingId);
+                const std::string id=existingId.empty()?"cli":existingId;
+                const auto editPath=accountsDir/(id+".conf");
                 dashboard.clear(std::cout);
-                if(editProfileInteractive(edited,profilePath)){
+                if(editProfileInteractive(edited,editPath)){
                     try{
-                        engine.stop();
-                        engine.start(ProfileStore::load(profilePath.string()),kMaxCalls);
-                        addNotice("SIP profile saved and reloaded; dial prefix reset to profile default.",DashboardNotice::Level::Success);
+                        if(!existingId.empty())engine.removeAccount(existingId);
+                        engine.addAccount(ProfileStore::load(editPath.string()),id);
+                        engine.setActiveAccount(id);
+                        addNotice("SIP account saved and reloaded; other accounts stayed registered.",DashboardNotice::Level::Success);
                     }catch(...){
-                        ProfileStore::save(oldProfile,profilePath.string());
-                        try{engine.stop();engine.start(oldProfile,kMaxCalls);}catch(...){}
+                        if(!existingId.empty()){
+                            try{ProfileStore::save(oldProfile,editPath.string());const auto cur=engine.accounts();bool present=false;for(const auto&a:cur)if(a.id==existingId)present=true;if(!present)engine.addAccount(oldProfile,existingId);engine.setActiveAccount(existingId);}catch(...){}
+                        }
                         throw;
                     }
                 }
             }else if(cmd=="profile-reload"){
-                if(activeCalls(engine)) throw std::runtime_error("hang up active calls before reloading the SIP profile");
+                if(activeCalls(engine)) throw std::runtime_error("hang up active calls before reloading a SIP account");
                 multi.cancelLaunching();
-                SipProfile oldProfile=engine.profile();
+                const auto id=engine.activeAccountId();if(id.empty())throw std::runtime_error("no active SIP account to reload");
+                const auto path=accountsDir/(id+".conf");
+                const auto oldProfile=engine.accountProfile(id);
                 try{
-                    const auto updated=ProfileStore::load(profilePath.string());
-                    engine.stop();
-                    engine.start(updated,kMaxCalls);
-                    addNotice("SIP profile reloaded; dial prefix reset to profile default.",DashboardNotice::Level::Success);
+                    const auto updated=ProfileStore::load(std::filesystem::exists(path)?path.string():profilePath.string());
+                    engine.removeAccount(id);engine.addAccount(updated,id);engine.setActiveAccount(id);
+                    addNotice("Active SIP account reloaded; other accounts stayed registered.",DashboardNotice::Level::Success);
                 }catch(...){
-                    try{engine.stop();engine.start(oldProfile,kMaxCalls);}catch(...){}
+                    try{const auto cur=engine.accounts();bool present=false;for(const auto&a:cur)if(a.id==id)present=true;if(!present)engine.addAccount(oldProfile,id);engine.setActiveAccount(id);}catch(...){}
                     throw;
                 }
             }else if(cmd=="dial" || cmd=="dial-raw"){
@@ -1212,3 +1234,10 @@ int main(int argc,char** argv)
     dashboard.clear(std::cout);
     return 0;
 }
+
+#ifndef SIPHER_UNIFIED_ENTRY
+int main(int argc, char** argv)
+{
+    return sipherRunCli(argc, argv);
+}
+#endif

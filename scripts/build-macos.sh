@@ -5,10 +5,9 @@ cd "$ROOT_DIR"
 [ "$(uname -s)" = Darwin ] || { echo "build-macos.sh must run on macOS." >&2; exit 2; }
 
 PRODUCT="SIPHER"
-VERSION="1.0.0-r18"
+VERSION="2.0"
 SLUG="sipher"
-CLI_NAME="sipher"
-GUI_NAME="sipher-gui"
+BINARY_NAME="sipher"
 BUNDLE_ID="org.sipher.client"
 APP_NAME="SIPHER.app"
 BUILD_DIR=${BUILD_DIR:-$ROOT_DIR/build-macos}
@@ -85,7 +84,6 @@ done
 
 case "$JOBS" in ''|*[!0-9]*|0) echo "--jobs requires a positive integer" >&2; exit 2 ;; esac
 INSTALL_BIN="$INSTALL_PREFIX/bin/$SLUG"
-INSTALL_GUI_BIN="$INSTALL_PREFIX/bin/$SLUG-gui"
 INSTALL_APP="$APP_INSTALL_DIR/$APP_NAME"
 DMG_PATH="$BUILD_DIR/$PRODUCT-$VERSION-macOS.dmg"
 
@@ -106,8 +104,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
   say "Removing installed $PRODUCT"
   [ -e "$INSTALL_APP" ] && run_admin rm -rf "$INSTALL_APP" || true
   [ -e "$INSTALL_BIN" ] || [ -L "$INSTALL_BIN" ] && run_admin rm -f "$INSTALL_BIN" || true
-  [ -e "$INSTALL_GUI_BIN" ] || [ -L "$INSTALL_GUI_BIN" ] && run_admin rm -f "$INSTALL_GUI_BIN" || true
-  echo "$PRODUCT application files removed. User configuration was preserved."
+    echo "$PRODUCT application files removed. User configuration was preserved."
   exit 0
 fi
 
@@ -230,12 +227,11 @@ cmake --build "$BUILD_DIR" --parallel "$JOBS"
 
 APP=
 if [ "$BUILD_GUI" -eq 1 ]; then
-  built_app="$BUILD_DIR/$GUI_NAME.app"
+  built_app="$BUILD_DIR/$BINARY_NAME.app"
   [ -d "$built_app" ] || fail "Expected macOS app bundle was not built: $built_app"
   APP="$BUILD_DIR/$APP_NAME"
   [ "$built_app" = "$APP" ] || { rm -rf "$APP"; ditto "$built_app" "$APP"; }
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-  if [ "$BUILD_CLI" -eq 1 ] && [ -x "$BUILD_DIR/$CLI_NAME" ]; then cp -f "$BUILD_DIR/$CLI_NAME" "$APP/Contents/MacOS/$CLI_NAME"; chmod +x "$APP/Contents/MacOS/$CLI_NAME"; fi
   MACDEPLOYQT="$QTTOOLS_PREFIX/bin/macdeployqt"
   [ -x "$MACDEPLOYQT" ] || MACDEPLOYQT=$(find "$QTTOOLS_PREFIX" -type f -name macdeployqt -perm -111 -print -quit 2>/dev/null || true)
   [ -n "$MACDEPLOYQT" ] && [ -x "$MACDEPLOYQT" ] || fail "macdeployqt not found under $QTTOOLS_PREFIX"
@@ -292,7 +288,7 @@ QTCONF
   fi
   [ -f "$APP/Contents/PlugIns/platforms/libqcocoa.dylib" ] || fail "Bundle verification failed: Cocoa plugin is missing."
   [ -d "$APP/Contents/Frameworks" ] || fail "Bundle verification failed: Contents/Frameworks is missing."
-  [ -x "$APP/Contents/MacOS/$GUI_NAME" ] || fail "Bundle verification failed: GUI executable is missing."
+  [ -x "$APP/Contents/MacOS/$BINARY_NAME" ] || fail "Bundle verification failed: unified SIPHER executable is missing."
   codesign --force --deep --sign - "$APP"
   codesign --verify --deep --strict "$APP"
   if [ "$MAKE_DMG" -eq 1 ]; then
@@ -309,14 +305,17 @@ if [ "$INSTALL_MODE" = ask ]; then
 fi
 if [ "$INSTALL_MODE" = yes ]; then
   run_admin mkdir -p "$INSTALL_PREFIX/bin" "$APP_INSTALL_DIR"
-  if [ "$BUILD_GUI" -eq 1 ]; then run_admin rm -rf "$INSTALL_APP"; run_admin ditto "$APP" "$INSTALL_APP"; run_admin ln -sf "$INSTALL_APP/Contents/MacOS/$GUI_NAME" "$INSTALL_GUI_BIN"; fi
-  if [ "$BUILD_CLI" -eq 1 ]; then
-    if [ "$BUILD_GUI" -eq 1 ] && [ -x "$INSTALL_APP/Contents/MacOS/$CLI_NAME" ]; then run_admin ln -sf "$INSTALL_APP/Contents/MacOS/$CLI_NAME" "$INSTALL_BIN"; else run_admin cp -f "$BUILD_DIR/$CLI_NAME" "$INSTALL_BIN"; fi
+  if [ "$BUILD_GUI" -eq 1 ]; then
+    run_admin rm -rf "$INSTALL_APP"
+    run_admin ditto "$APP" "$INSTALL_APP"
+    run_admin ln -sf "$INSTALL_APP/Contents/MacOS/$BINARY_NAME" "$INSTALL_BIN"
+  else
+    run_admin cp -f "$BUILD_DIR/$BINARY_NAME" "$INSTALL_BIN"
   fi
 fi
 
 echo
 echo "$PRODUCT $VERSION macOS build complete."
 [ "$BUILD_GUI" -eq 0 ] || echo "App: $APP"
-[ "$BUILD_CLI" -eq 0 ] || echo "CLI: $BUILD_DIR/$CLI_NAME"
+[ "$BUILD_GUI" -ne 0 ] || echo "Binary: $BUILD_DIR/$BINARY_NAME"
 [ "$BUILD_GUI" -eq 0 ] || [ "$MAKE_DMG" -eq 0 ] || echo "DMG: $DMG_PATH"

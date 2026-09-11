@@ -59,6 +59,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <filesystem>
 #include <sstream>
 #include <QStringList>
 #include <vector>
@@ -105,10 +106,23 @@ QStringList sipHeaderValues(const std::string& raw,const QString& wanted)
 }
 
 void appendUnique(QStringList&dst,const QStringList&src){for(const auto&v:src)if(!dst.contains(v))dst.push_back(v);}
+
+std::string safeAccountId(QString seed,const std::vector<SipAccountStatus>& existing)
+{
+    seed=seed.trimmed();
+    if(seed.isEmpty())seed=QStringLiteral("account");
+    seed.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_.-]+")),QStringLiteral("_"));
+    if(seed.isEmpty())seed=QStringLiteral("account");
+    std::string base=seed.toStdString(),candidate=base;
+    auto used=[&](const std::string&id){return std::any_of(existing.begin(),existing.end(),[&](const SipAccountStatus&a){return a.id==id;});};
+    for(unsigned n=2;used(candidate);++n)candidate=base+"-"+std::to_string(n);
+    return candidate;
+}
 }
 
 MainWindow::MainWindow(SipEngine&e,MultiCallManager&m,Logger&l,std::string profilePath,QWidget*p):QMainWindow(p),engine_(e),multi_(m),logger_(l),profilePath_(std::move(profilePath)){
-    network_=new QNetworkAccessManager(this);buildUi();setWindowTitle("S.I.P.H.E.R. r18 — DID Intelligence / Route Audit");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
+    accountsDir_=(std::filesystem::path(profilePath_).parent_path()/"accounts").string();
+    network_=new QNetworkAccessManager(this);buildUi();setWindowTitle("SIPHER 2.0 — Multi-Account / DID Intelligence / Route Audit");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
 }
 void MainWindow::buildUi(){
     auto* fileMenu=menuBar()->addMenu(QStringLiteral("&File"));
@@ -117,8 +131,8 @@ void MainWindow::buildUi(){
     connect(exitAction,&QAction::triggered,qApp,&QApplication::quit);
 
     auto* settingsMenu=menuBar()->addMenu(QStringLiteral("&Settings"));
-    auto* profileAction=settingsMenu->addAction(QStringLiteral("SIP &Profile..."));
-    connect(profileAction,&QAction::triggered,this,&MainWindow::editProfile);
+    auto* profileAction=settingsMenu->addAction(QStringLiteral("SIP &Accounts..."));
+    connect(profileAction,&QAction::triggered,this,&MainWindow::manageAccounts);
     auto* audioAction=settingsMenu->addAction(QStringLiteral("&Audio Devices..."));
     connect(audioAction,&QAction::triggered,this,&MainWindow::showAudioDevices);
     auto* audioStatusAction=settingsMenu->addAction(QStringLiteral("Audio &Status..."));
@@ -158,12 +172,12 @@ void MainWindow::buildUi(){
 
     auto*sidebar=new QFrame(c);sidebar->setObjectName(QStringLiteral("PhreakRail"));sidebar->setFixedWidth(228);
     auto*side=new QVBoxLayout(sidebar);side->setContentsMargins(18,22,18,18);side->setSpacing(8);
-    auto*brand=new QLabel(sidebar);brand->setObjectName(QStringLiteral("BrandLogo"));brand->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);brand->setMinimumHeight(50);brand->setToolTip(QStringLiteral("S.I.P.H.E.R."));
+    auto*brand=new QLabel(sidebar);brand->setObjectName(QStringLiteral("BrandLogo"));brand->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);brand->setMinimumHeight(50);brand->setToolTip(QStringLiteral("SIPHER"));
     const QPixmap brandPixmap(QStringLiteral(":/sipher/logo.png"));
     if(!brandPixmap.isNull()) brand->setPixmap(brandPixmap.scaledToWidth(192,Qt::SmoothTransformation));
-    else { brand->setText(QStringLiteral("S.I.P.H.E.R.")); brand->setObjectName(QStringLiteral("BrandTitle")); }
+    else { brand->setText(QStringLiteral("SIPHER")); brand->setObjectName(QStringLiteral("BrandTitle")); }
     side->addWidget(brand);
-    auto*edition=new QLabel(QStringLiteral("r18 // DID INTEL / CARRIER ACCESS"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
+    auto*edition=new QLabel(QStringLiteral("r19 // MULTI-SIP / DID INTEL"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
     auto*tagline=new QLabel(QStringLiteral("DID INTEL / SIGNAL TAP / SWITCH AUDIT"),sidebar);tagline->setObjectName(QStringLiteral("Muted"));tagline->setWordWrap(true);side->addWidget(tagline);
     side->addSpacing(14);
     auto*navHost=new QWidget(sidebar);auto*nav=new QVBoxLayout(navHost);nav->setContentsMargins(0,0,0,0);nav->setSpacing(4);side->addWidget(navHost);
@@ -176,7 +190,7 @@ void MainWindow::buildUi(){
     const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());QSettings themeSettings(settingsPath,QSettings::IniFormat);const QString savedTheme=themeSettings.value(QStringLiteral("ui/theme"),QStringLiteral("system")).toString().toCaseFolded();int themeIndex=theme_->findData(savedTheme);if(themeIndex<0)themeIndex=0;theme_->setCurrentIndex(themeIndex);
     connect(theme_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int){applyTheme(theme_->currentData().toString());});
     side->addWidget(theme_);
-    auto*sideProfile=new QPushButton(QStringLiteral("EDIT IDENTITY / SIP"),sidebar);connect(sideProfile,&QPushButton::clicked,this,&MainWindow::editProfile);side->addWidget(sideProfile);
+    auto*sideProfile=new QPushButton(QStringLiteral("SIP ACCOUNTS"),sidebar);connect(sideProfile,&QPushButton::clicked,this,&MainWindow::manageAccounts);side->addWidget(sideProfile);
     shell->addWidget(sidebar);
 
     auto*content=new QWidget(c);auto*outer=new QVBoxLayout(content);outer->setContentsMargins(24,18,24,18);outer->setSpacing(12);
@@ -188,7 +202,7 @@ void MainWindow::buildUi(){
 
     // MAIN: phone controls, selected media and packet capture in one compact workspace.
     auto*mainPage=new QWidget;auto*ml=new QVBoxLayout(mainPage);ml->setContentsMargins(7,7,7,7);ml->setSpacing(6);
-    auto*f=new QFormLayout;dialEdit_=new QLineEdit;dialEdit_->setPlaceholderText("3305551212 or sip:user@example.net");callerIdEdit_=new QLineEdit;callerIdEdit_->setPlaceholderText("Optional caller identity");dialPrefixEdit_=new QLineEdit(QString::fromStdString(engine_.dialPrefix()));dialPrefixEdit_->setPlaceholderText("Optional per-PBX prefix, e.g. 9 or 4071");dialPrefixEdit_->setToolTip("Session routing prefix. Change it here whenever you move to another PBX. Blank means no prefix. Explicit sip:/sips: URIs and user@domain destinations are never modified.");connect(dialPrefixEdit_,&QLineEdit::editingFinished,this,[this](){try{engine_.setDialPrefix(dialPrefixEdit_->text().trimmed().toStdString());statusBar()->showMessage(QString("Dial prefix: %1").arg(dialPrefixEdit_->text().trimmed().isEmpty()?QStringLiteral("<none>"):dialPrefixEdit_->text().trimmed()),3000);}catch(const std::exception&e){QMessageBox::warning(this,"Dial prefix",e.what());dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));}});f->addRow("Destination",dialEdit_);f->addRow("Dial prefix",dialPrefixEdit_);f->addRow("Caller ID",callerIdEdit_);ml->addLayout(f);
+    auto*f=new QFormLayout;accountSelector_=new QComboBox;accountSelector_->setToolTip("Select which simultaneously registered SIP account is used for new outbound calls. Other accounts remain registered and can still receive calls.");connect(accountSelector_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int index){if(index<0)return;const auto id=accountSelector_->itemData(index).toString().toStdString();if(id.empty())return;try{engine_.setActiveAccount(id);if(dialPrefixEdit_)dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));statusBar()->showMessage(QString("Outbound SIP account: %1").arg(accountSelector_->currentText()),4000);}catch(const std::exception&e){QMessageBox::warning(this,"SIP account",e.what());}});dialEdit_=new QLineEdit;dialEdit_->setPlaceholderText("3305551212 or sip:user@example.net");callerIdEdit_=new QLineEdit;callerIdEdit_->setPlaceholderText("Optional caller identity");dialPrefixEdit_=new QLineEdit(QString::fromStdString(engine_.dialPrefix()));dialPrefixEdit_->setPlaceholderText("Optional per-PBX prefix, e.g. 9 or 4071");dialPrefixEdit_->setToolTip("Session routing prefix. Change it here whenever you move to another PBX. Blank means no prefix. Explicit sip:/sips: URIs and user@domain destinations are never modified.");connect(dialPrefixEdit_,&QLineEdit::editingFinished,this,[this](){try{engine_.setDialPrefix(dialPrefixEdit_->text().trimmed().toStdString());statusBar()->showMessage(QString("Dial prefix: %1").arg(dialPrefixEdit_->text().trimmed().isEmpty()?QStringLiteral("<none>"):dialPrefixEdit_->text().trimmed()),3000);}catch(const std::exception&e){QMessageBox::warning(this,"Dial prefix",e.what());dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));}});f->addRow("SIP account",accountSelector_);f->addRow("Destination",dialEdit_);f->addRow("Dial prefix",dialPrefixEdit_);f->addRow("Caller ID",callerIdEdit_);ml->addLayout(f);
     auto*r=new QGridLayout;auto*b=new QPushButton("CALL");b->setProperty("role","primary");connect(b,&QPushButton::clicked,this,&MainWindow::dial);r->addWidget(b,0,0);b=new QPushButton("ANSWER");connect(b,&QPushButton::clicked,this,&MainWindow::answerSelected);r->addWidget(b,0,1);b=new QPushButton("HANGUP");b->setProperty("role","danger");connect(b,&QPushButton::clicked,this,&MainWindow::hangupSelected);r->addWidget(b,0,2);b=new QPushButton("DTMF PAD...");connect(b,&QPushButton::clicked,this,&MainWindow::showDtmfPad);r->addWidget(b,0,3);muteButton_=new QPushButton("MUTE MIC");connect(muteButton_,&QPushButton::clicked,this,&MainWindow::toggleMuteSelected);r->addWidget(muteButton_,0,4);b=new QPushButton("HANGUP ALL");connect(b,&QPushButton::clicked,this,&MainWindow::hangupAll);r->addWidget(b,0,5);b=new QPushButton("EXIT");connect(b,&QPushButton::clicked,qApp,&QApplication::quit);r->addWidget(b,0,6);ml->addLayout(r);
 
     auto*mediaBox=new QGroupBox("Selected Call Media");auto*media=new QGridLayout(mediaBox);callIdLabel_=new QLabel("--");mediaTarget_=new QLabel("--");mediaSource_=new QLabel("--");mediaLocal_=new QLabel("--");mediaCodec_=new QLabel("--");mediaQuality_=new QLabel("--");mediaQuality_->setTextInteractionFlags(Qt::TextSelectableByMouse);media->addWidget(new QLabel("SIP Call-ID:"),0,0);media->addWidget(callIdLabel_,0,1,1,3);media->addWidget(new QLabel("RTP target:"),1,0);media->addWidget(mediaTarget_,1,1);media->addWidget(new QLabel("RTP source:"),1,2);media->addWidget(mediaSource_,1,3);media->addWidget(new QLabel("Local RTP:"),2,0);media->addWidget(mediaLocal_,2,1);media->addWidget(new QLabel("Codec:"),2,2);media->addWidget(mediaCodec_,2,3);media->addWidget(new QLabel("Quality:"),3,0);media->addWidget(mediaQuality_,3,1,1,3);media->setColumnStretch(1,1);media->setColumnStretch(3,1);ml->addWidget(mediaBox);auto*diagButtons=new QGridLayout;b=new QPushButton("SIP LADDER...");connect(b,&QPushButton::clicked,this,&MainWindow::showSipLadder);diagButtons->addWidget(b,0,0);b=new QPushButton("EXPORT CALL REPORT...");connect(b,&QPushButton::clicked,this,&MainWindow::exportCallReport);diagButtons->addWidget(b,0,1);ml->addLayout(diagButtons);
@@ -198,13 +212,13 @@ void MainWindow::buildUi(){
     auto*mainNote=new QLabel("Recommended: START FULL VOIP PCAP before dialing. It keeps the initial INVITE, SDP, responses, RTP/RTCP, BYE, and final response in one file so Wireshark Telephony > VoIP Calls can correlate signaling and media. SIP-only and RTP-only captures remain available for focused troubleshooting.");mainNote->setWordWrap(true);ml->addWidget(mainNote);ml->addStretch();tabs_->addTab(mainPage,"Main");
 
     // ACTIVE CALLS
-    auto*active=new QWidget;auto*al=new QVBoxLayout(active);calls_=new QTableWidget(0,12);calls_->setHorizontalHeaderLabels({"ID","Mode","Dir","FG","State","SIP","Remote","Caller ID","RTP Target","RTP Source","Codec","Reason"});calls_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);calls_->horizontalHeader()->setStretchLastSection(true);calls_->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);calls_->setColumnWidth(0,48);calls_->setColumnWidth(1,72);calls_->setColumnWidth(2,48);calls_->setColumnWidth(3,38);calls_->setColumnWidth(4,110);calls_->setColumnWidth(5,58);calls_->setColumnWidth(6,190);calls_->setColumnWidth(7,120);calls_->setSelectionBehavior(QAbstractItemView::SelectRows);calls_->setSelectionMode(QAbstractItemView::SingleSelection);connect(calls_,&QTableWidget::itemSelectionChanged,this,&MainWindow::refreshDiagnostics);al->addWidget(calls_,1);
+    auto*active=new QWidget;auto*al=new QVBoxLayout(active);calls_=new QTableWidget(0,13);calls_->setHorizontalHeaderLabels({"ID","Account","Mode","Dir","FG","State","SIP","Remote","Caller ID","RTP Target","RTP Source","Codec","Reason"});calls_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);calls_->horizontalHeader()->setStretchLastSection(true);calls_->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);calls_->setColumnWidth(0,48);calls_->setColumnWidth(1,110);calls_->setColumnWidth(2,72);calls_->setColumnWidth(3,48);calls_->setColumnWidth(4,38);calls_->setColumnWidth(5,110);calls_->setColumnWidth(6,58);calls_->setColumnWidth(7,190);calls_->setColumnWidth(8,120);calls_->setSelectionBehavior(QAbstractItemView::SelectRows);calls_->setSelectionMode(QAbstractItemView::SingleSelection);connect(calls_,&QTableWidget::itemSelectionChanged,this,&MainWindow::refreshDiagnostics);al->addWidget(calls_,1);
     r=new QGridLayout;b=new QPushButton("FOREGROUND");connect(b,&QPushButton::clicked,this,&MainWindow::foregroundSelected);r->addWidget(b,0,0);b=new QPushButton("HOLD");connect(b,&QPushButton::clicked,this,&MainWindow::holdSelected);r->addWidget(b,0,1);b=new QPushButton("RESUME");connect(b,&QPushButton::clicked,this,&MainWindow::resumeSelected);r->addWidget(b,0,2);b=new QPushButton("MUTE / UNMUTE MIC");connect(b,&QPushButton::clicked,this,&MainWindow::toggleMuteSelected);r->addWidget(b,0,3);b=new QPushButton("DTMF PAD...");connect(b,&QPushButton::clicked,this,&MainWindow::showDtmfPad);r->addWidget(b,0,4);al->addLayout(r);tabs_->addTab(active,"Active Calls");
 
     // SIP LOG
     auto*sipPage=new QWidget;auto*sl=new QVBoxLayout(sipPage);diagnosticNote_=new QLabel("Select a normal Phone call on Active Calls to inspect its SIP dialog.");diagnosticNote_->setWordWrap(true);sl->addWidget(diagnosticNote_);
     auto*sipButtons=new QGridLayout;sipTraceStart_=new QPushButton("START RAW SIP TRACE...");connect(sipTraceStart_,&QPushButton::clicked,this,&MainWindow::startSipTrace);sipButtons->addWidget(sipTraceStart_,0,0);sipTraceStop_=new QPushButton("STOP RAW SIP TRACE");connect(sipTraceStop_,&QPushButton::clicked,this,&MainWindow::stopSipTrace);sipButtons->addWidget(sipTraceStop_,0,1);sl->addLayout(sipButtons);
-    sipLog_=new QTableWidget(0,7);sipLog_->setHorizontalHeaderLabels({"Time","Flow","Peer","Signal","CSeq","Code","Reason"});sipLog_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);sipLog_->horizontalHeader()->setStretchLastSection(true);sipLog_->setSelectionBehavior(QAbstractItemView::SelectRows);sipLog_->setSelectionMode(QAbstractItemView::SingleSelection);connect(sipLog_,&QTableWidget::itemSelectionChanged,this,&MainWindow::showRawSip);sl->addWidget(sipLog_,2);rawSipFlow_=new QLabel("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");rawSipFlow_->setWordWrap(true);rawSipFlow_->setStyleSheet(QStringLiteral("font-weight:700;"));sl->addWidget(rawSipFlow_);rawSip_=new QPlainTextEdit;rawSip_->setReadOnly(true);rawSip_->setPlaceholderText("Select a SIP transaction above to inspect the full message.");rawSip_->setMaximumBlockCount(10000);sl->addWidget(rawSip_,2);tabs_->addTab(sipPage,"SIP Log");
+    sipLog_=new QTableWidget(0,7);sipLog_->setHorizontalHeaderLabels({"Time","Flow","Peer","Signal","CSeq","Code","Reason"});sipLog_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);sipLog_->horizontalHeader()->setStretchLastSection(true);sipLog_->setSelectionBehavior(QAbstractItemView::SelectRows);sipLog_->setSelectionMode(QAbstractItemView::SingleSelection);connect(sipLog_,&QTableWidget::itemSelectionChanged,this,&MainWindow::showRawSip);sl->addWidget(sipLog_,2);rawSipFlow_=new QLabel("Select a SIP signal above. SENT means SIPHER transmitted it to the PBX; RECEIVED means it came from the PBX.");rawSipFlow_->setWordWrap(true);rawSipFlow_->setStyleSheet(QStringLiteral("font-weight:700;"));sl->addWidget(rawSipFlow_);rawSip_=new QPlainTextEdit;rawSip_->setReadOnly(true);rawSip_->setPlaceholderText("Select a SIP transaction above to inspect the full message.");rawSip_->setMaximumBlockCount(10000);sl->addWidget(rawSip_,2);tabs_->addTab(sipPage,"SIP Log");
 
     // DID INTELLIGENCE / CARRIER HANDOFF
     auto*didPage=new QWidget;auto*didLayout=new QVBoxLayout(didPage);
@@ -233,19 +247,47 @@ void MainWindow::buildUi(){
     auto*aub=new QGridLayout;b=new QPushButton("PBX FINGERPRINT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFingerprint);aub->addWidget(b,0,0);b=new QPushButton("CVE / EXPLOIT-DB LOOKUP");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditVulns);aub->addWidget(b,0,1);b=new QPushButton("SAVE REPORT...");connect(b,&QPushButton::clicked,this,&MainWindow::saveAuditReport);aub->addWidget(b,0,2);
     b=new QPushButton("SERVICE PROBE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditProbe);aub->addWidget(b,1,0);b=new QPushButton("DISCOVER CIDR");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditDiscover);aub->addWidget(b,1,1);b=new QPushButton("METHOD POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditMethods);aub->addWidget(b,1,2);b=new QPushButton("AUTH POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditAuth);aub->addWidget(b,2,0);b=new QPushButton("EXTENSION AUDIT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditExtensions);aub->addWidget(b,2,1);b=new QPushButton("COMPLIANCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditCompliance);aub->addWidget(b,2,2);b=new QPushButton("PARSER ABUSE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditParser);aub->addWidget(b,3,0);b=new QPushButton("RATE RESILIENCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditResilience);aub->addWidget(b,3,1);b=new QPushButton("ATTACK SCENARIO");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditScenario);aub->addWidget(b,3,2);b=new QPushButton("TLS 5061");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTls);aub->addWidget(b,4,0);b=new QPushButton("TRANSPORT PARITY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTransportParity);aub->addWidget(b,4,1);b=new QPushButton("TOPOLOGY EXPOSURE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTopologyExposure);aub->addWidget(b,4,2);b=new QPushButton("AUTOMATED FULL (DEFAULTS)");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFull);aub->addWidget(b,5,0,1,3);aul->addLayout(aub);auditOutput_=new QPlainTextEdit;auditOutput_->setReadOnly(true);auditOutput_->setPlaceholderText("Audit results appear here. The automated audit is recommended; individual tools remain available for focused troubleshooting.");aul->addWidget(auditOutput_,1);tabs_->addTab(auditPage,"PBX Audit");
 
-    // PROFILE / CONFIG
-    auto*profilePage=new QWidget;auto*pfl=new QVBoxLayout(profilePage);profileSummary_=new QLabel;profileSummary_->setTextInteractionFlags(Qt::TextSelectableByMouse);profileSummary_->setAlignment(Qt::AlignTop|Qt::AlignLeft);profileSummary_->setWordWrap(true);pfl->addWidget(profileSummary_);b=new QPushButton("EDIT SIP PROFILE...");connect(b,&QPushButton::clicked,this,&MainWindow::editProfile);pfl->addWidget(b);pfl->addStretch();tabs_->addTab(profilePage,"Profile");
+    // SIP ACCOUNTS / CONFIG
+    auto*profilePage=new QWidget;auto*pfl=new QVBoxLayout(profilePage);profileSummary_=new QLabel;profileSummary_->setTextInteractionFlags(Qt::TextSelectableByMouse);profileSummary_->setAlignment(Qt::AlignTop|Qt::AlignLeft);profileSummary_->setWordWrap(true);pfl->addWidget(profileSummary_);b=new QPushButton("MANAGE SIP ACCOUNTS...");connect(b,&QPushButton::clicked,this,&MainWindow::manageAccounts);pfl->addWidget(b);auto*zeroNote=new QLabel("SIPHER does not require a SIP account at startup. DID Intelligence, Switch Audit+, Legacy labs, and other offline/network tools remain available with zero accounts configured.");zeroNote->setWordWrap(true);pfl->addWidget(zeroNote);pfl->addStretch();tabs_->addTab(profilePage,"Accounts");
 
     // ACTIVITY
     auto*activityPage=new QWidget;auto*actl=new QVBoxLayout(activityPage);activityLog_=new QPlainTextEdit;activityLog_->setReadOnly(true);activityLog_->setMaximumBlockCount(2000);actl->addWidget(activityLog_);tabs_->addTab(activityPage,"Activity");
 
     const QStringList navNames={QStringLiteral("// LINE ACCESS"),QStringLiteral("// ACTIVE LINES"),QStringLiteral("// SIGNAL TAP"),QStringLiteral("// NUMBER INTEL"),QStringLiteral("// BLAST DECK"),QStringLiteral("// SWITCH AUDIT+"),QStringLiteral("// IDENTITY"),QStringLiteral("// WIRE LOG")};
     const QStringList navText={QStringLiteral("[01] LINE ACCESS"),QStringLiteral("[02] ACTIVE LINES"),QStringLiteral("[03] SIGNAL TAP"),QStringLiteral("[04] NUMBER INTEL"),QStringLiteral("[05] BLAST DECK"),QStringLiteral("[06] SWITCH AUDIT+"),QStringLiteral("[07] IDENTITY"),QStringLiteral("[08] WIRE LOG")};
-    const QStringList subtitles={QStringLiteral("Dial, tap and capture carrier sessions."),QStringLiteral("Control live dialogs, media and DTMF."),QStringLiteral("Read raw SIP traffic and transaction flow."),QStringLiteral("DID carrier/reputation dip and carrier handoff analysis."),QStringLiteral("Queue and call-blast lab traffic."),QStringLiteral("Authorized PBX / SBC recon, exposure and transport audit bench."),QStringLiteral("SIP account, route and audio identity."),QStringLiteral("Local operator and engine activity trail.")};
+    const QStringList subtitles={QStringLiteral("Dial, tap and capture carrier sessions."),QStringLiteral("Control live dialogs, media and DTMF."),QStringLiteral("Read raw SIP traffic and transaction flow."),QStringLiteral("DID carrier/reputation dip and carrier handoff analysis."),QStringLiteral("Queue and call-blast lab traffic."),QStringLiteral("Authorized PBX / SBC recon, exposure and transport audit bench."),QStringLiteral("Multiple simultaneous SIP registrations, outbound identity and audio routing."),QStringLiteral("Local operator and engine activity trail.")};
     std::vector<QPushButton*> navButtons;
     for(int i=0;i<navText.size();++i){auto*button=new QPushButton(navText[i],navHost);button->setCheckable(true);button->setProperty("nav",true);button->setChecked(i==0);nav->addWidget(button);navButtons.push_back(button);connect(button,&QPushButton::clicked,this,[this,i](){tabs_->setCurrentIndex(i);});}
     connect(tabs_,&QTabWidget::currentChanged,this,[pageTitle,pageSubtitle,navButtons,navNames,subtitles](int index){if(index>=0&&index<navNames.size()){pageTitle->setText(navNames[index]);pageSubtitle->setText(subtitles[index]);}for(int i=0;i<(int)navButtons.size();++i)navButtons[(std::size_t)i]->setChecked(i==index);});
-    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("S.I.P.H.E.R. r18 // DID INTEL // SIP + RTP + NEXT-OUT + SWITCH AUDIT+");setDiagnosticsEnabled(false);
+    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("SIPHER 2.0 // MULTI-SIP // DID INTEL // NEXT-OUT // SWITCH AUDIT+");refreshAccountSelector();setDiagnosticsEnabled(false);
+}
+
+void MainWindow::refreshAccountSelector()
+{
+    if(!accountSelector_)return;
+    const auto list=engine_.accounts();
+    const auto active=QString::fromStdString(engine_.activeAccountId());
+    accountSelector_->blockSignals(true);
+    accountSelector_->clear();
+    if(list.empty()){
+        accountSelector_->addItem(QStringLiteral("No SIP accounts configured"),QString{});
+        accountSelector_->setEnabled(false);
+    }else{
+        accountSelector_->setEnabled(true);
+        int select=0;
+        for(int i=0;i<(int)list.size();++i){
+            const auto& a=list[(std::size_t)i];
+            const QString label=QString("%1 — %2@%3 — %4")
+                .arg(QString::fromStdString(a.name.empty()?a.id:a.name))
+                .arg(QString::fromStdString(a.username))
+                .arg(QString::fromStdString(a.sipDomain))
+                .arg(QString::fromStdString(a.registrationText));
+            accountSelector_->addItem(label,QString::fromStdString(a.id));
+            if(QString::fromStdString(a.id)==active)select=i;
+        }
+        accountSelector_->setCurrentIndex(select);
+    }
+    accountSelector_->blockSignals(false);
 }
 
 void MainWindow::refresh(){
@@ -255,14 +297,33 @@ void MainWindow::refresh(){
         statusBar()->showMessage(QString("Audio hot-plug recovery failed: %1").arg(e.what()),7000);
     }
     registration_->setText(QString::fromStdString(engine_.registrationText()));
-    if(profileSummary_){const auto&p=engine_.profile();profileSummary_->setText(QString("<b>%1</b><br>File: %2<br>SIP URI: sip:%3@%4<br>Registrar: %5<br>Profile default prefix: %6<br>Current dial prefix: %7<br>Transport: %8<br>ICE: %9 &nbsp; SRTP: %10")
-        .arg(QString::fromStdString(p.name)).arg(QString::fromStdString(profilePath_)).arg(QString::fromStdString(p.username)).arg(QString::fromStdString(p.sipDomain)).arg(QString::fromStdString(p.registrar)).arg(p.dialPrefix.empty()?QStringLiteral("<none>"):QString::fromStdString(p.dialPrefix)).arg(engine_.dialPrefix().empty()?QStringLiteral("<none>"):QString::fromStdString(engine_.dialPrefix())).arg(QString::fromStdString(toString(p.transport)).toUpper()).arg(p.useIce?"enabled":"disabled").arg(p.enableSrtp?"enabled":"disabled"));}
-    if(activityLog_){QString summary=QString("Registration: %1\nCalls known: %2\n%3\nLog file: %4")
-        .arg(QString::fromStdString(engine_.registrationText())).arg((int)engine_.calls().size()).arg(QString::fromStdString(engine_.captureStatus())).arg(QString::fromStdString(trunkmonkey::runtime::logPath().string()));if(activityLog_->toPlainText()!=summary)activityLog_->setPlainText(summary);}
+    refreshAccountSelector();
+    const auto accountStates=engine_.accounts();
+    if(profileSummary_){
+        QString summary;
+        if(accountStates.empty()) summary=QStringLiteral("<b>No SIP accounts configured.</b><br><br>SIPHER is running in zero-account mode. Add an account only when you need registration/calling.");
+        else{
+            summary=QString("<b>%1 SIP account%2 loaded</b><br>Accounts directory: %3<br><br>").arg(static_cast<qulonglong>(accountStates.size())).arg(accountStates.size()==1?"":"s").arg(QString::fromStdString(accountsDir_).toHtmlEscaped());
+            for(const auto& a:accountStates){
+                summary+=QString("%1<b>%2</b> — sip:%3@%4 — %5/%6 — %7<br>")
+                    .arg(a.activeOutbound?QStringLiteral("▶ "):QStringLiteral(""))
+                    .arg(QString::fromStdString(a.name.empty()?a.id:a.name).toHtmlEscaped())
+                    .arg(QString::fromStdString(a.username).toHtmlEscaped())
+                    .arg(QString::fromStdString(a.sipDomain).toHtmlEscaped())
+                    .arg(QString::fromStdString(toString(a.transport)).toUpper())
+                    .arg(a.localSipPort)
+                    .arg(QString::fromStdString(a.registrationText).toHtmlEscaped());
+            }
+            summary+=QString("<br>▶ = outbound account<br>Current dial prefix: %1").arg(engine_.dialPrefix().empty()?QStringLiteral("<none>"):QString::fromStdString(engine_.dialPrefix()).toHtmlEscaped());
+        }
+        profileSummary_->setText(summary);
+    }
+    if(activityLog_){QString summary=QString("SIP accounts: %1\nRegistration: %2\nCalls known: %3\n%4\nLog file: %5")
+        .arg(static_cast<qulonglong>(accountStates.size())).arg(QString::fromStdString(engine_.registrationText())).arg((int)engine_.calls().size()).arg(QString::fromStdString(engine_.captureStatus())).arg(QString::fromStdString(trunkmonkey::runtime::logPath().string()));if(activityLog_->toPlainText()!=summary)activityLog_->setPlainText(summary);}
     int keep=pendingSelectId_>=0?pendingSelectId_:selectedCallId();pendingSelectId_=-1;
     auto v=engine_.calls();calls_->blockSignals(true);calls_->setRowCount((int)v.size());int row=0,selectRow=-1;for(auto&x:v){
         QString codec=x.codecName.empty()?"--":QString::fromStdString(x.codecName)+(x.codecClockRate?QString("/%1").arg(x.codecClockRate):QString{});
-        QStringList s={QString::number(x.id),x.purpose==CallPurpose::Phone?"PHONE":"QUEUE",x.direction==CallDirection::Incoming?"IN":"OUT",x.foreground?"*":"",QString::fromStdString(x.state),QString::number(x.lastStatusCode),QString::fromStdString(x.remoteUri),QString::fromStdString(x.callerId),showAddr(x.remoteRtpAddress),showAddr(x.sourceRtpAddress),codec,QString::fromStdString(x.lastReason)};
+        QStringList s={QString::number(x.id),QString::fromStdString(x.accountId),x.purpose==CallPurpose::Phone?"PHONE":"QUEUE",x.direction==CallDirection::Incoming?"IN":"OUT",x.foreground?"*":"",QString::fromStdString(x.state),QString::number(x.lastStatusCode),QString::fromStdString(x.remoteUri),QString::fromStdString(x.callerId),showAddr(x.remoteRtpAddress),showAddr(x.sourceRtpAddress),codec,QString::fromStdString(x.lastReason)};
         for(int col=0;col<s.size();++col)calls_->setItem(row,col,new QTableWidgetItem(s[col]));if(x.id==keep)selectRow=row;++row;
     }
     calls_->blockSignals(false);if(selectRow>=0)calls_->selectRow(selectRow);else if(v.size()==1&&v.front().purpose==CallPurpose::Phone)calls_->selectRow(0);refreshDiagnostics();
@@ -279,13 +340,13 @@ void MainWindow::setDiagnosticsEnabled(bool e)
     for(auto*w:{sipTraceStart_,sipTraceStop_,rtpPcapStart_}) if(w) w->setEnabled(e);
 }
 void MainWindow::refreshDiagnostics(){
-    int id=selectedCallId();captureStatus_->setText(QString::fromStdString(engine_.captureStatus()));if(id<0){setDiagnosticsEnabled(false);if(muteButton_){muteButton_->setEnabled(false);muteButton_->setText("MUTE MIC");}callIdLabel_->setText("--");mediaTarget_->setText("--");mediaSource_->setText("--");mediaLocal_->setText("--");mediaCodec_->setText("--");if(mediaQuality_)mediaQuality_->setText("--");diagnosticNote_->setText("Select a normal Phone call to view its SIP dialog and media endpoints.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
+    int id=selectedCallId();captureStatus_->setText(QString::fromStdString(engine_.captureStatus()));if(id<0){setDiagnosticsEnabled(false);if(muteButton_){muteButton_->setEnabled(false);muteButton_->setText("MUTE MIC");}callIdLabel_->setText("--");mediaTarget_->setText("--");mediaSource_->setText("--");mediaLocal_->setText("--");mediaCodec_->setText("--");if(mediaQuality_)mediaQuality_->setText("--");diagnosticNote_->setText("Select a normal Phone call to view its SIP dialog and media endpoints.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means SIPHER transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
     try{
         auto c=engine_.callSnapshot(id);callIdLabel_->setText(showAddr(c.callIdString));mediaTarget_->setText(showAddr(c.remoteRtpAddress));mediaSource_->setText(showAddr(c.sourceRtpAddress));mediaLocal_->setText(showAddr(c.localRtpAddress));
         mediaCodec_->setText(c.codecName.empty()?"--":QString::fromStdString(c.codecName)+(c.codecClockRate?QString(" / %1 Hz").arg(c.codecClockRate):QString{}));
         if(mediaQuality_){const double den=(double)(c.rtpRxPackets+c.rtpRxLoss);const double loss=den>0.0?100.0*c.rtpRxLoss/den:0.0;mediaQuality_->setText(QString("RX %1 pkts | loss %2% | jitter %3 ms | RTT %4 ms | R %5 | MOS %6").arg((qulonglong)c.rtpRxPackets).arg(loss,0,'f',2).arg(c.rxJitterMs,0,'f',1).arg(c.rttMs,0,'f',1).arg(c.estimatedRFactor,0,'f',1).arg(c.estimatedMos,0,'f',2));}
         if(muteButton_){muteButton_->setEnabled(c.purpose==CallPurpose::Phone&&!c.disconnected);muteButton_->setText(c.microphoneMuted?"UNMUTE MIC":"MUTE MIC");}
-        if(c.purpose!=CallPurpose::Phone){setDiagnosticsEnabled(false);diagnosticNote_->setText("Queue-test call selected. 2.0 keeps detailed SIP/RTP trace controls on normal single Phone calls only.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
+        if(c.purpose!=CallPurpose::Phone){setDiagnosticsEnabled(false);diagnosticNote_->setText("Queue-test call selected. 2.0 keeps detailed SIP/RTP trace controls on normal single Phone calls only.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means SIPHER transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
         setDiagnosticsEnabled(true);auto rec=engine_.sipTraceRecording(id);sipTraceStart_->setEnabled(!rec);sipTraceStop_->setEnabled(rec);diagnosticNote_->setText(rec?QString("Raw SIP trace recording: %1").arg(QString::fromStdString(engine_.sipTracePath(id))):"Live SIP dialog logging active. Later INVITE transactions are labeled RE-INVITE.");
         auto t=engine_.sipTrace(id);if(displayedTraceCallId_!=id||displayedTraceCount_!=t.size()){
             sipLog_->blockSignals(true);sipLog_->setRowCount((int)t.size());for(int r=0;r<(int)t.size();++r){auto&e=t[(std::size_t)r];QString peer=e.peerAddress.empty()?QStringLiteral("--"):QString::fromStdString(e.peerAddress)+(e.peerPort?QString(":%1").arg(e.peerPort):QString{});QStringList s={QDateTime::fromMSecsSinceEpoch((qint64)e.timestampMs).toString("HH:mm:ss.zzz"),e.direction==SipDirection::Sent?"SENT →":"← RECEIVED",peer,QString::fromStdString(e.label),QString::number(e.cseq),e.statusCode?QString::number(e.statusCode):QString{},QString::fromStdString(e.reason)};for(int col=0;col<s.size();++col){auto*i=new QTableWidgetItem(s[col]);if(col==0){i->setData(Qt::UserRole,QString::fromStdString(e.rawMessage));i->setData(Qt::UserRole+1,e.direction==SipDirection::Sent?QStringLiteral("SENT → PBX (TX)"):QStringLiteral("← RECEIVED FROM PBX (RX)"));}sipLog_->setItem(r,col,i);}}
@@ -392,7 +453,7 @@ void MainWindow::showAudioOutput()
         }
         form->addRow("Output device",playback);
         layout->addLayout(form);
-        auto* hint=new QLabel("Changes only playback/output; the microphone is left unchanged. S.I.P.H.E.R. now closes and reopens PJSIP audio after selection so the change affects an already-open call stream. On Linux, ALSA / pipewire is the preferred desktop route.");
+        auto* hint=new QLabel("Changes only playback/output; the microphone is left unchanged. SIPHER now closes and reopens PJSIP audio after selection so the change affects an already-open call stream. On Linux, ALSA / pipewire is the preferred desktop route.");
         hint->setWordWrap(true);
         layout->addWidget(hint);
         auto* buttons=new QGridLayout;
@@ -453,7 +514,7 @@ void MainWindow::lookupDid()
     QString key=didApiKey_?didApiKey_->text().trimmed():QString{};
     if(key.isEmpty())key=QString::fromUtf8(qgetenv("SIPHER_IPQS_API_KEY")).trimmed();
     if(key.isEmpty()){
-        QMessageBox::information(this,"DID Intelligence","An IPQualityScore API key is required for live carrier/reputation data. Enter it in the DID Intelligence panel or set SIPHER_IPQS_API_KEY before starting S.I.P.H.E.R.");
+        QMessageBox::information(this,"DID Intelligence","An IPQualityScore API key is required for live carrier/reputation data. Enter it in the DID Intelligence panel or set SIPHER_IPQS_API_KEY before starting SIPHER");
         return;
     }
 
@@ -461,7 +522,7 @@ void MainWindow::lookupDid()
     QUrlQuery query;query.addQueryItem(QStringLiteral("phone"),number);query.addQueryItem(QStringLiteral("strictness"),QStringLiteral("1"));
     const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QString{};if(!country.isEmpty())query.addQueryItem(QStringLiteral("country[]"),country);
     url.setQuery(query);
-    QNetworkRequest request(url);request.setRawHeader("IPQS-KEY",key.toUtf8());request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("S.I.P.H.E.R./1.0.0-r18"));
+    QNetworkRequest request(url);request.setRawHeader("IPQS-KEY",key.toUtf8());request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0"));
     didOutput_->setPlainText(QString("Looking up %1...\n\nProvider: IPQualityScore Phone Number Validation API\nThe API key is being sent in the IPQS-KEY header, not embedded in the URL.").arg(number));
     auto*reply=network_->get(request);
     connect(reply,&QNetworkReply::finished,this,[this,reply,number](){
@@ -477,7 +538,7 @@ void MainWindow::lookupDid()
         else verdict="No major spam/abuse flag returned by this provider at lookup time.";
         auto textValue=[&](const char*key){const auto v=o.value(key);return v.isString()?v.toString():QStringLiteral("N/A");};
         QString out;
-        out+="S.I.P.H.E.R. r18 — DID / NUMBER INTELLIGENCE\n";
+        out+="SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n";
         out+="================================================\n";
         out+=QString("Query:              %1\n").arg(number);
         out+=QString("Provider message:   %1\n").arg(textValue("message"));
@@ -500,7 +561,7 @@ void MainWindow::lookupDid()
         out+=QString("Do Not Call:        %1\n").arg(jsonTriState(o.value("do_not_call")));
         out+=QString("Leaked/compromised:%1\n").arg(QString(" %1").arg(jsonTriState(o.value("leaked"))));
         out+=QString("\nVERDICT\n-------\n%1\n").arg(verdict);
-        out+="\nInterpretation: reputation scores and flags are indicators from a third-party data set, not proof of criminal activity or caller identity. S.I.P.H.E.R. intentionally does not display reverse-owner identity enrichment or associated email/address data.\n";
+        out+="\nInterpretation: reputation scores and flags are indicators from a third-party data set, not proof of criminal activity or caller identity. SIPHER intentionally does not display reverse-owner identity enrichment or associated email/address data.\n";
         didOutput_->setPlainText(out);statusBar()->showMessage("DID intelligence lookup complete",5000);
     });
 }
@@ -517,7 +578,7 @@ void MainWindow::analyzeNextOut()
         else if(!p.registrar.empty()){configured=QString::fromStdString(p.registrar);source="Registrar (no outbound proxy configured)";}
         else{configured=QString::fromStdString(p.sipDomain);source="SIP domain (direct/RFC3263-style resolution)";}
         const auto target=parseSipTarget(configured,p.transport);
-        QString out="S.I.P.H.E.R. r18 — CARRIER HANDOFF / NEXT-OUT\n================================================\n";
+        QString out="SIPHER 2.0 — CARRIER HANDOFF / NEXT-OUT\n================================================\n";
         out+=QString("Destination input:       %1\n").arg(destination.isEmpty()?QStringLiteral("<none>"):destination);
         out+=QString("Normalized Request-URI:  %1\n").arg(requestUri);
         out+=QString("Profile transport:       %1\n").arg(QString::fromStdString(toString(p.transport)).toUpper());
@@ -550,14 +611,14 @@ void MainWindow::analyzeNextOut()
                 appendHeaderList("Route headers:",routes);appendHeaderList("Record-Route headers:",recordRoutes);appendHeaderList("Via headers:",vias);appendHeaderList("Contact headers:",contacts);
             }catch(const std::exception&e){out+=QString("Selected call trace unavailable: %1\n").arg(e.what());}
         }
-        out+="\nROUTE NOTE\n----------\nThe configured/resolved peer above is the expected SIP handoff from S.I.P.H.E.R. Once the carrier SBC accepts the INVITE, additional carrier-internal proxies, tandems or terminating-network hops may be intentionally hidden by topology-hiding. IP traceroute to the SBC is a network path, not a PSTN/SIP call-route trace.\n";
+        out+="\nROUTE NOTE\n----------\nThe configured/resolved peer above is the expected SIP handoff from SIPHER Once the carrier SBC accepts the INVITE, additional carrier-internal proxies, tandems or terminating-network hops may be intentionally hidden by topology-hiding. IP traceroute to the SBC is a network path, not a PSTN/SIP call-route trace.\n";
         routeOutput_->setPlainText(out);statusBar()->showMessage("Next-out / carrier handoff analysis complete",5000);
     }catch(const std::exception&e){QMessageBox::warning(this,"Carrier handoff analysis",e.what());}
 }
 
 void MainWindow::showBlueBoxLegacy()
 {
-    QDialog d(this);d.setWindowTitle("Legacy — Blue Tone / Blue Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("BLUE TONE / BLUE BOX // HISTORICAL SIGNALING LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Blue boxes are historically associated with in-band telephone network-control signaling on older long-distance systems. This S.I.P.H.E.R. panel is an offline visual/history simulator only: it does not generate network-control audio, inject signaling into calls, or provide live carrier manipulation functions.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QGridLayout;for(int i=0;i<12;++i){auto*b=new QPushButton(QString("LEGACY KEY %1").arg(i+1));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: legacy control %1 selected — visualization only; nothing transmitted.").arg(i+1));});g->addWidget(b,i/3,i%3);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
+    QDialog d(this);d.setWindowTitle("Legacy — Blue Tone / Blue Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("BLUE TONE / BLUE BOX // HISTORICAL SIGNALING LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Blue boxes are historically associated with in-band telephone network-control signaling on older long-distance systems. This SIPHER panel is an offline visual/history simulator only: it does not generate network-control audio, inject signaling into calls, or provide live carrier manipulation functions.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QGridLayout;for(int i=0;i<12;++i){auto*b=new QPushButton(QString("LEGACY KEY %1").arg(i+1));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: legacy control %1 selected — visualization only; nothing transmitted.").arg(i+1));});g->addWidget(b,i/3,i%3);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
 }
 
 void MainWindow::showRedBoxLegacy()
@@ -594,29 +655,84 @@ void MainWindow::runAuditTopologyExposure(){try{const auto host=auditHost_->text
 void MainWindow::runAuditFull(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");AutomatedAuditOptions opt;opt.host=host;opt.port=(std::uint16_t)auditPort_->value();opt.transport=guiAuditTransport(auditTransport_);opt.username=auditUser_->text().trimmed().toStdString();if(opt.username.empty())opt.username=engine_.profile().username;auto result=PbxAudit::automatedAudit(opt);lastAuditReport_=result.toText();auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));if(auditProgress_)auditProgress_->setText(QString("Complete — %1 HIGH, %2 WARN, %3 PASS, %4 INFO").arg(result.highCount).arg(result.warnCount).arg(result.passCount).arg(result.infoCount));}catch(const std::exception&e){QMessageBox::warning(this,"PBX audit",e.what());}}
 void MainWindow::saveAuditReport(){if(lastAuditReport_.empty()){QMessageBox::information(this,"PBX audit","Run an audit first.");return;}auto path=QFileDialog::getSaveFileName(this,"Save PBX audit report","sipher-pbx-audit.txt","Text reports (*.txt);;All files (*)");if(path.isEmpty())return;try{PbxAudit::saveReport(path.toStdString(),lastAuditReport_);statusBar()->showMessage("PBX audit report saved",5000);}catch(const std::exception&e){QMessageBox::warning(this,"PBX audit",e.what());}}
 
-void MainWindow::editProfile(){
-    try{
-        for(const auto& c:engine_.calls()){
-            if(!c.disconnected){QMessageBox::warning(this,"SIP Profile","Hang up active calls before changing the SIP profile.");return;}
-        }
-        multi_.cancelLaunching();
-        SipProfile oldProfile=engine_.profile();
-        SipProfile edited=ProfileStore::loadDraft(profilePath_);
-        if(!editSipProfileDialog(this,edited,QString::fromStdString(profilePath_),false))return;
-        ProfileStore::save(edited,profilePath_);
-        try{
-            engine_.stop();
-            engine_.start(ProfileStore::load(profilePath_),50);
-            if(dialPrefixEdit_) dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));
-            statusBar()->showMessage("SIP profile saved and reloaded; dial prefix reset to profile default",5000);
-        }catch(...){
-            ProfileStore::save(oldProfile,profilePath_);
-            try{engine_.stop();engine_.start(oldProfile,50);}catch(...){}
-            throw;
-        }
-    }catch(const pj::Error&e){QMessageBox::critical(this,"SIP profile reload failed",QString::fromStdString(e.info()));}
-     catch(const std::exception&e){QMessageBox::critical(this,"SIP profile reload failed",e.what());}
+void MainWindow::editProfile()
+{
+    manageAccounts();
 }
+
+void MainWindow::manageAccounts()
+{
+    try{ std::filesystem::create_directories(accountsDir_); }
+    catch(const std::exception& e){ QMessageBox::critical(this,"SIP Accounts",QString("Unable to create account directory: %1").arg(e.what())); return; }
+
+    QDialog d(this);d.setWindowTitle("SIPHER — SIP Accounts");d.resize(920,500);
+    auto* layout=new QVBoxLayout(&d);
+    auto* intro=new QLabel("Accounts are independent and may all remain registered at the same time. Select one as the outbound account; the others stay online and can receive calls. SIP accounts are optional — closing this window with no accounts configured is valid.");intro->setWordWrap(true);layout->addWidget(intro);
+    auto* table=new QTableWidget(0,7,&d);table->setHorizontalHeaderLabels({"Outbound","Name","SIP URI","Transport","Local Port","Registration","ID"});table->setSelectionBehavior(QAbstractItemView::SelectRows);table->setSelectionMode(QAbstractItemView::SingleSelection);table->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);table->horizontalHeader()->setStretchLastSection(true);table->setColumnWidth(0,75);table->setColumnWidth(1,150);table->setColumnWidth(2,240);table->setColumnWidth(3,80);table->setColumnWidth(4,80);table->setColumnWidth(5,180);layout->addWidget(table,1);
+    auto* buttons=new QHBoxLayout;auto* add=new QPushButton("ADD...");auto* edit=new QPushButton("EDIT...");auto* remove=new QPushButton("REMOVE");auto* use=new QPushButton("USE FOR OUTBOUND");use->setProperty("role","primary");auto* close=new QPushButton("CLOSE");buttons->addWidget(add);buttons->addWidget(edit);buttons->addWidget(remove);buttons->addWidget(use);buttons->addStretch(1);buttons->addWidget(close);layout->addLayout(buttons);
+
+    const auto selectedId=[table]()->std::string{auto rows=table->selectionModel()->selectedRows();if(rows.isEmpty())return{};auto* item=table->item(rows.first().row(),6);return item?item->text().toStdString():std::string{};};
+    const auto rebuild=[this,table](){
+        const auto states=engine_.accounts();table->setRowCount((int)states.size());int row=0;
+        for(const auto& a:states){QStringList cells={a.activeOutbound?QStringLiteral("YES"):QStringLiteral(""),QString::fromStdString(a.name),QString("sip:%1@%2").arg(QString::fromStdString(a.username),QString::fromStdString(a.sipDomain)),QString::fromStdString(toString(a.transport)).toUpper(),QString::number(a.localSipPort),QString::fromStdString(a.registrationText),QString::fromStdString(a.id)};for(int col=0;col<cells.size();++col){auto* item=new QTableWidgetItem(cells[col]);table->setItem(row,col,item);}++row;}
+        refreshAccountSelector();
+    };
+    rebuild();
+
+    connect(close,&QPushButton::clicked,&d,&QDialog::accept);
+    connect(add,&QPushButton::clicked,&d,[&,this](){
+        SipProfile p=ProfileStore::defaults();p.name="New Account";
+        const auto states=engine_.accounts();
+        if(!editSipProfileDialog(&d,p,QString::fromStdString(accountsDir_),true))return;
+        const auto id=safeAccountId(QString::fromStdString(p.name.empty()?p.username:p.name),states);
+        const auto path=(std::filesystem::path(accountsDir_)/(id+".conf")).string();
+        try{
+            ProfileStore::save(p,path);
+            try{engine_.addAccount(ProfileStore::load(path),id);}catch(...){std::error_code ec;std::filesystem::remove(path,ec);throw;}
+            engine_.setActiveAccount(id);
+            rebuild();statusBar()->showMessage(QString("SIP account added: %1").arg(QString::fromStdString(id)),5000);
+        }catch(const pj::Error&e){QMessageBox::critical(&d,"Add SIP account",QString::fromStdString(e.info()));}
+        catch(const std::exception&e){QMessageBox::critical(&d,"Add SIP account",e.what());}
+    });
+    connect(edit,&QPushButton::clicked,&d,[&,this](){
+        const auto id=selectedId();if(id.empty()){QMessageBox::information(&d,"Edit SIP account","Select an account first.");return;}
+        for(const auto& c:engine_.calls())if(!c.disconnected&&c.accountId==id){QMessageBox::warning(&d,"Edit SIP account","Hang up calls using this SIP account before reloading it. Calls on other SIP accounts may stay active.");return;}
+        try{
+            const SipProfile old=engine_.accountProfile(id);SipProfile edited=old;
+            const auto path=(std::filesystem::path(accountsDir_)/(id+".conf")).string();
+            if(!editSipProfileDialog(&d,edited,QString::fromStdString(path),false))return;
+            ProfileStore::save(edited,path);
+            const bool wasActive=engine_.activeAccountId()==id;
+            try{engine_.removeAccount(id);engine_.addAccount(ProfileStore::load(path),id);if(wasActive)engine_.setActiveAccount(id);}
+            catch(...){
+                try{ProfileStore::save(old,path);const auto current=engine_.accounts();if(std::none_of(current.begin(),current.end(),[&](const SipAccountStatus&a){return a.id==id;}))engine_.addAccount(old,id);if(wasActive)engine_.setActiveAccount(id);}catch(...){}
+                throw;
+            }
+            rebuild();statusBar()->showMessage(QString("SIP account reloaded: %1").arg(QString::fromStdString(id)),5000);
+        }catch(const pj::Error&e){QMessageBox::critical(&d,"Edit SIP account",QString::fromStdString(e.info()));}
+        catch(const std::exception&e){QMessageBox::critical(&d,"Edit SIP account",e.what());}
+    });
+    connect(remove,&QPushButton::clicked,&d,[&,this](){
+        const auto id=selectedId();if(id.empty()){QMessageBox::information(&d,"Remove SIP account","Select an account first.");return;}
+        if(QMessageBox::question(&d,"Remove SIP account",QString("Remove SIP account '%1'? This deletes its local account profile file.").arg(QString::fromStdString(id)))!=QMessageBox::Yes)return;
+        try{
+            engine_.removeAccount(id);
+            const auto path=std::filesystem::path(accountsDir_)/(id+".conf");std::error_code ec;std::filesystem::remove(path,ec);
+            if(ec)logger_.warn("Unable to remove SIP account file "+path.string()+": "+ec.message());
+            rebuild();statusBar()->showMessage(QString("SIP account removed: %1").arg(QString::fromStdString(id)),5000);
+        }catch(const pj::Error&e){QMessageBox::critical(&d,"Remove SIP account",QString::fromStdString(e.info()));}
+        catch(const std::exception&e){QMessageBox::critical(&d,"Remove SIP account",e.what());}
+    });
+    connect(use,&QPushButton::clicked,&d,[&,this](){
+        const auto id=selectedId();if(id.empty()){QMessageBox::information(&d,"Outbound SIP account","Select an account first.");return;}
+        try{engine_.setActiveAccount(id);if(dialPrefixEdit_)dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));rebuild();}
+        catch(const std::exception&e){QMessageBox::warning(&d,"Outbound SIP account",e.what());}
+    });
+    connect(table,&QTableWidget::itemDoubleClicked,&d,[use](QTableWidgetItem*,int){use->click();});
+    d.exec();
+    refreshAccountSelector();
+}
+
 void MainWindow::applyTheme(const QString&t){
     const QString themeId=SipherModernStyle::normalizeThemeKey(t);
     const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());

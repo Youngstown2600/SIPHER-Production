@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BUILDER_REVISION="sipher-r18-did-route-audit-20260910"
+BUILDER_REVISION="sipher-2.0-unified-multi-sip-20260911"
 
 # A shell can keep an old logical $PWD after a desktop file manager moves the
 # directory to Trash. Building from that relocated inode is especially unsafe
@@ -11,11 +11,11 @@ BUILDER_REVISION="sipher-r18-did-route-audit-20260910"
 case "$ROOT_DIR" in
   */.local/share/Trash/*|*/.Trash/*|*/Trash/files/*)
     if [ "${TRUNKMONKEY_ALLOW_TRASH_SOURCE:-0}" != 1 ]; then
-      echo "ERROR: S.I.P.H.E.R. is being run from a directory that is physically inside Trash:" >&2
+      echo "ERROR: SIPHER is being run from a directory that is physically inside Trash:" >&2
       echo "  $ROOT_DIR" >&2
       echo >&2
       echo "Your shell prompt may still show the old directory name after a file manager moved it." >&2
-      echo "Open/cd into a freshly extracted S.I.P.H.E.R. directory and run ./build.sh there." >&2
+      echo "Open/cd into a freshly extracted SIPHER directory and run ./build.sh there." >&2
       echo "Set TRUNKMONKEY_ALLOW_TRASH_SOURCE=1 only if this is intentional." >&2
       exit 2
     fi
@@ -102,8 +102,8 @@ else
   PJSIP_BUILD_ID="2.17-tm64-pic-${OS_FAMILY}-${HOST_ARCH}-v9-exploitfix1"
 fi
 # FreeBSD ports/packages are normally rooted at LOCALBASE (/usr/local).
-# Keep this separate from S.I.P.H.E.R.'s own install prefix: PJSIP may link
-# against PortAudio/codecs installed by pkg(8) even when S.I.P.H.E.R. itself
+# Keep this separate from SIPHER's own install prefix: PJSIP may link
+# against PortAudio/codecs installed by pkg(8) even when SIPHER itself
 # is installed elsewhere.
 if [ "$OS_FAMILY" = freebsd ]; then
   FREEBSD_LOCALBASE=${LOCALBASE:-/usr/local}
@@ -124,7 +124,7 @@ case "$JOBS" in ''|*[!0-9]*) JOBS=1 ;; esac
 logo() {
 cat <<'LOGO'
 ============================================================
-                 S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit
+                 SIPHER 2.0
        MODERN SIP / RTP / PBX WORKSTATION — LINUX + FREEBSD
 ============================================================
 LOGO
@@ -136,14 +136,14 @@ cat <<'EOF2'
 ============================================================
  DEPENDENCY / ROOT NOTICE
 ============================================================
-S.I.P.H.E.R. checks this host for required build/runtime dependencies before
+SIPHER checks this host for required build/runtime dependencies before
 compiling. If required system packages are missing, this builder will install
 them automatically and WILL request root privileges via sudo, doas, or su.
 
 The builder also configures least-privilege packet capture, verifies ffmpeg/OpenSSL
 for queue audio and PBX/TLS diagnostics, and may apply a recognized, hardware-specific
 audio repair after backing up system files.
-Compilation and the local PJSIP build remain unprivileged; S.I.P.H.E.R. itself
+Compilation and the local PJSIP build remain unprivileged; SIPHER itself
 should not be run as root.
 EOF2
 }
@@ -162,25 +162,25 @@ With no build-target option, an interactive multi-select menu is shown.
 Selections may be comma- or space-separated (for example: 1,2 or P A).
 
 Build targets:
-  --cli             Build S.I.P.H.E.R. CLI
-  --gui             Build S.I.P.H.E.R. Qt GUI
+  --cli             Build SIPHER CLI
+  --gui             Build SIPHER Qt GUI
   --all             Build CLI + GUI
   --pjsip           Force/bootstrap PJSIP 2.17 with PJSUA_MAX_CALLS=64
-  --clean           Remove S.I.P.H.E.R. build directories before building
+  --clean           Remove SIPHER build directories before building
   --deps            Show host dependency requirements
   --audio-diagnose  Run the host audio preflight (standalone or with a build)
   --configure-capture Configure non-root SIP/RTP packet-capture permissions only
   --no-audio-fix    Diagnose audio but do not apply recognized safe audio repairs
   --dry-run         Show actions without changing/building anything
-  --uninstall       Remove an installed S.I.P.H.E.R. from --prefix
-  --purge-user-data With --uninstall, also remove this user's S.I.P.H.E.R. config/state
+  --uninstall       Remove an installed SIPHER from --prefix
+  --purge-user-data With --uninstall, also remove this user's SIPHER config/state
 
 Dependency handling:
   --auto-deps       Automatically install missing system packages (default)
   --no-auto-deps    Check dependencies but never install packages
 
 Installation:
-  --install         Install selected S.I.P.H.E.R. binaries after a successful build
+  --install         Install selected SIPHER binaries after a successful build
   --no-install      Do not install system-wide
   --prefix PATH     Installation prefix (default: /usr/local)
   --pjsip-prefix P  PJSIP local install prefix (default: $PJSIP_PREFIX)
@@ -189,7 +189,7 @@ PJSIP source directory:
   $PJSIP_SOURCE_DIR
 
 If CLI/GUI is selected and libpjproject is not found, the builder automatically
-bootstraps S.I.P.H.E.R.'s local 64-call PJSIP after system dependencies pass.
+bootstraps SIPHER's local 64-call PJSIP after system dependencies pass.
 
 After a successful CLI/GUI system install, the builder also creates:
   $PROFILE_TARGET
@@ -251,7 +251,7 @@ echo "Host platform:     $HOST_OS | $JOBS build job(s)"
     echo "Audio:            PJSIP uses external PortAudio (OSS backend on FreeBSD)."
     echo "PJSIP ABI:         base Clang/libc++; PortAudio + Opus + G.729 + libuuid are required; UPnP/WebRTC disabled."
   fi
-  echo "PJSIP:             managed local PJSIP 2.17 is validated/auto-bootstrapped for S.I.P.H.E.R."
+  echo "PJSIP:             managed local PJSIP 2.17 is validated/auto-bootstrapped for SIPHER"
   echo "PJSIP prefix:      $PJSIP_PREFIX"
   echo "Install prefix:    $INSTALL_PREFIX"
   echo "User profile:      $PROFILE_TARGET"
@@ -288,17 +288,17 @@ Select one, several, or all actions:
   2) Desktop interface     Qt 6 GUI
   A) Build both            Recommended
   P) Rebuild PJSIP         Force local PJSIP 2.17 / 64-call dependency build
-  X) Clean                 Remove S.I.P.H.E.R. build directories first
+  X) Clean                 Remove SIPHER build directories first
   D) Dependencies          Show host dependency information
   H) Audio Diagnose        Run audio/HDA preflight
   C) Capture Permissions   Configure non-root SIP/RTP capture access
-  R) Remove Install        Remove installed S.I.P.H.E.R. from the selected prefix
+  R) Remove Install        Remove installed SIPHER from the selected prefix
   Q) Quit
 
 Examples: press Enter for both     1     2     A     H     C     R
 
 NOTE: P is no longer required on a fresh host. Choosing 1, 2, or A will
-      automatically validate/build S.I.P.H.E.R.'s managed PJSIP 2.17 dependency.
+      automatically validate/build SIPHER's managed PJSIP 2.17 dependency.
 EOF2
   printf 'Selection [A]: '
   IFS= read -r answer
@@ -346,7 +346,7 @@ prepare_privileges_for() {
   echo " ROOT ACCESS REQUIRED: $purpose"
   echo "============================================================"
   echo "The privileged operation is limited to: $purpose"
-  echo "S.I.P.H.E.R. compilation and local PJSIP compilation remain unprivileged."
+  echo "SIPHER compilation and local PJSIP compilation remain unprivileged."
 
   if [ "$(id -u)" -eq 0 ]; then
     PRIV_METHOD=root
@@ -532,7 +532,7 @@ audio_info() {
 run_audio_preflight() {
   echo
   echo "============================================================"
-  echo " S.I.P.H.E.R. AUDIO PREFLIGHT"
+  echo " SIPHER AUDIO PREFLIGHT"
   echo "============================================================"
   echo "This check never rewrites mixer settings, HDA pin mappings, loader hints,"
   echo "or PulseAudio/PipeWire configuration. It only reports potential problems."
@@ -905,7 +905,7 @@ configure_freebsd_hda_output_compat() {
       run_privileged sysctl "dev.hdaa.${_fa_unit}.reconfig=1" >/dev/null 2>&1 || true
       sleep 1
       freebsd_resume_pulseaudio_after_hda
-      audio_warn "hdaa${_fa_unit}: no persistent changes were written. S.I.P.H.E.R. will continue using the host's existing audio configuration."
+      audio_warn "hdaa${_fa_unit}: no persistent changes were written. SIPHER will continue using the host's existing audio configuration."
       continue
     fi
 
@@ -993,7 +993,7 @@ configure_known_alc236_audio_fix() {
   prepare_privileges_for "verified FreeBSD ALC236 headset-mic repair"
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [dry-run] back up /etc/sysctl.conf and persist init_clear=1 + forcestereo,ivref80"
-    [ "$known_bad_hints" -eq 0 ] || echo "  [dry-run] back up /boot/device.hints and disable the exact known-bad S.I.P.H.E.R.-era pin override trio"
+    [ "$known_bad_hints" -eq 0 ] || echo "  [dry-run] back up /boot/device.hints and disable the exact known-bad SIPHER-era pin override trio"
     echo "  [dry-run] reconfigure hdaa${unit} and verify nid25 pin control 0x24"
     return 0
   fi
@@ -1024,9 +1024,9 @@ configure_known_alc236_audio_fix() {
     run_privileged cp -p /boot/device.hints "/boot/device.hints.trunkmonkey-backup-$stamp"
     tmp_hints=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-device.hints.XXXXXX")
     awk '
-      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
       {print}
     ' /boot/device.hints > "$tmp_hints"
     run_privileged install -m 0644 "$tmp_hints" /boot/device.hints
@@ -1124,7 +1124,7 @@ install_missing_dependencies() {
   [ -n "$MISSING_DESCRIPTIONS" ] || return 0
 
   echo
-  echo "==> Missing S.I.P.H.E.R. dependencies detected"
+  echo "==> Missing SIPHER dependencies detected"
   echo "    $MISSING_DESCRIPTIONS"
 
   if [ -z "$(printf '%s' "$SYSTEM_PACKAGES" | tr -d ' ')" ]; then
@@ -1160,7 +1160,7 @@ install_missing_dependencies() {
     return 0
   fi
 
-  prepare_privileges_for "S.I.P.H.E.R. dependency installation"
+  prepare_privileges_for "SIPHER dependency installation"
   case "$PKG_MANAGER" in
     apt)
       run_privileged env DEBIAN_FRONTEND=noninteractive apt-get update
@@ -1185,7 +1185,7 @@ install_missing_dependencies() {
 
 ensure_system_dependencies() {
   echo
-  echo "==> Checking S.I.P.H.E.R. system dependencies"
+  echo "==> Checking SIPHER system dependencies"
   detect_missing_dependencies
 
   if [ -z "$MISSING_DESCRIPTIONS" ]; then
@@ -1248,7 +1248,7 @@ configure_capture_permissions() {
   echo "============================================================"
   echo " PACKET CAPTURE PERMISSION SETUP"
   echo "============================================================"
-  echo "S.I.P.H.E.R. configures the capture helper/device instead of running the"
+  echo "SIPHER configures the capture helper/device instead of running the"
   echo "softphone as root. Root access is requested only while permissions are set."
 
   tool=
@@ -1319,7 +1319,7 @@ configure_capture_permissions() {
   if [ -z "$ruleset_id" ]; then
     ruleset_id=199
     used=$( { devfs rule showsets 2>/dev/null || true; sed -n 's/^\[[^=]*=\([0-9][0-9]*\)\].*/\1/p' /etc/devfs.rules /etc/defaults/devfs.rules 2>/dev/null || true; } | sort -nu )
-    while printf '%s\n' "$used" | grep -qx "$ruleset_id"; do ruleset_id=$((ruleset_id-1)); [ "$ruleset_id" -ge 150 ] || { echo "ERROR: unable to reserve a devfs ruleset for S.I.P.H.E.R.." >&2; return 1; }; done
+    while printf '%s\n' "$used" | grep -qx "$ruleset_id"; do ruleset_id=$((ruleset_id-1)); [ "$ruleset_id" -ge 150 ] || { echo "ERROR: unable to reserve a devfs ruleset for SIPHER." >&2; return 1; }; done
   fi
 
   tmp_rules=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-devfs.rules.XXXXXX")
@@ -1332,7 +1332,7 @@ configure_capture_permissions() {
   fi
   {
     echo "# BEGIN TRUNKMONKEY BPF"
-    echo "# Managed by S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit for non-root SIP/RTP packet capture."
+    echo "# Managed by SIPHER 2.0 for non-root SIP/RTP packet capture."
     echo "[trunkmonkey_bpf=$ruleset_id]"
     [ -z "$existing_id" ] || echo "add include $existing_id"
     echo "add path 'bpf*' user $capture_user mode 0600"
@@ -1367,7 +1367,7 @@ configure_capture_permissions() {
 
 clean_builds() {
   echo
-  echo "==> Cleaning S.I.P.H.E.R. build directories"
+  echo "==> Cleaning SIPHER build directories"
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [dry-run] rm -rf $ROOT_DIR/build"
   else
@@ -1404,7 +1404,7 @@ have_pjsip() {
   "$PKGCONF_BIN" --exists libpjproject 2>/dev/null || return 1
   [ "$("$PKGCONF_BIN" --modversion libpjproject 2>/dev/null || true)" = "2.17" ] || return 1
 
-  # S.I.P.H.E.R. deliberately uses its managed PJSIP build rather than
+  # SIPHER deliberately uses its managed PJSIP build rather than
   # an arbitrary system libpjproject. The managed build guarantees the 64-call
   # ceiling, PIC, deterministic codec/audio options, and our PJSUA2 lifetime
   # compatibility fix. A system PJSIP may be ABI-compatible yet still violate
@@ -1417,7 +1417,7 @@ have_pjsip() {
   pc_prefix=$("$PKGCONF_BIN" --variable=prefix libpjproject 2>/dev/null || true)
   [ "$pc_prefix" = "$PJSIP_PREFIX" ] || return 1
 
-  # S.I.P.H.E.R. links static PJSIP. A plain `pkg-config --libs` omits
+  # SIPHER links static PJSIP. A plain `pkg-config --libs` omits
   # Libs.private, which contains required codec/audio/crypto dependencies.
   static_flags=$("$PKGCONF_BIN" --libs --static libpjproject 2>/dev/null) || return 1
   if [ "$OS_FAMILY" = freebsd ]; then
@@ -1461,8 +1461,8 @@ validate_pjsip_static_link() {
 #include <pjsua2.hpp>
 #include <pjsua-lib/pjsua.h>
 #include <iostream>
-static_assert(PJSUA_MAX_CALLS >= 50, "S.I.P.H.E.R. requires PJSUA_MAX_CALLS >= 50");
-static_assert(PJ_IOQUEUE_MAX_HANDLES >= 192, "S.I.P.H.E.R. requires PJ_IOQUEUE_MAX_HANDLES >= 192 for 64-call PJSIP");
+static_assert(PJSUA_MAX_CALLS >= 50, "SIPHER requires PJSUA_MAX_CALLS >= 50");
+static_assert(PJ_IOQUEUE_MAX_HANDLES >= 192, "SIPHER requires PJ_IOQUEUE_MAX_HANDLES >= 192 for 64-call PJSIP");
 int main()
 {
     pj::Endpoint endpoint;
@@ -1503,7 +1503,7 @@ TM_PJSIP_LINK_EOF
   if [ "$OS_FAMILY" = freebsd ]; then
     case " $pjlibs " in
       *" -lstdc++ "*)
-        echo "PJSIP FreeBSD ABI mismatch: libpjproject requests libstdc++, but S.I.P.H.E.R./Qt use base Clang/libc++." >&2
+        echo "PJSIP FreeBSD ABI mismatch: libpjproject requests libstdc++, but SIPHER/Qt use base Clang/libc++." >&2
         echo "The local PJSIP must be rebuilt by this r12 builder." >&2
         rm -rf "$tmplink"; trap - 0 HUP INT TERM; return 1 ;;
     esac
@@ -1521,7 +1521,7 @@ TM_PJSIP_LINK_EOF
   # shellcheck disable=SC2086
   if ! "$cxx" -std=c++17 $pjcflags "$tmplink/check.cpp" -o "$tmplink/check" $tm_extra_ldflags $pjlibs >/dev/null 2>"$tmplink/link.err"; then
     echo "PJSIP is installed, but its complete static dependency chain does not link." >&2
-    echo "Command used by S.I.P.H.E.R.:" >&2
+    echo "Command used by SIPHER:" >&2
     echo "  $PKGCONF_BIN --cflags --libs --static libpjproject" >&2
     echo "Linker output:" >&2
     sed -n '1,120p' "$tmplink/link.err" >&2
@@ -1592,18 +1592,18 @@ ensure_pjsip() {
 
   if have_pjsip; then
     echo
-    echo "==> Managed PJSIP dependency found; validating S.I.P.H.E.R. requirements"
+    echo "==> Managed PJSIP dependency found; validating SIPHER requirements"
     if [ "$DRY_RUN" -eq 1 ] || validate_pjsip_static_link; then
       return 0
     fi
     echo
-    echo "==> Existing PJSIP is not compatible/link-complete; rebuilding the local S.I.P.H.E.R. PJSIP"
+    echo "==> Existing PJSIP is not compatible/link-complete; rebuilding the local SIPHER PJSIP"
     build_pjsip
     return 0
   fi
 
   echo
-  echo "==> PJSIP is missing/stale; automatically bootstrapping S.I.P.H.E.R. PJSIP 2.17 (64-call PIC build)"
+  echo "==> PJSIP is missing/stale; automatically bootstrapping SIPHER PJSIP 2.17 (64-call PIC build)"
   build_pjsip
 }
 
@@ -1649,17 +1649,17 @@ build_selected() {
     BUILD_DIR="$ROOT_DIR/build/all"
     GUI_OPT=ON
     CLI_OPT=ON
-    LABEL="S.I.P.H.E.R. CLI + GUI"
+    LABEL="SIPHER CLI + GUI"
   elif [ "$BUILD_GUI" -eq 1 ]; then
     BUILD_DIR="$ROOT_DIR/build/gui"
     GUI_OPT=ON
     CLI_OPT=OFF
-    LABEL="S.I.P.H.E.R. GUI"
+    LABEL="SIPHER GUI"
   else
     BUILD_DIR="$ROOT_DIR/build/cli"
     GUI_OPT=OFF
     CLI_OPT=ON
-    LABEL="S.I.P.H.E.R. CLI"
+    LABEL="SIPHER CLI"
   fi
 
   echo
@@ -1686,9 +1686,11 @@ build_selected() {
   export LAST_BUILD_DIR
 
   echo
-  echo "Build outputs:"
-  if [ "$BUILD_CLI" -eq 1 ]; then echo "  $BUILD_DIR/sipher"; fi
-  if [ "$BUILD_GUI" -eq 1 ]; then echo "  $BUILD_DIR/sipher-gui"; fi
+  echo "Build output:"
+  echo "  $BUILD_DIR/sipher"
+  if [ "$BUILD_CLI" -eq 1 ] && [ "$BUILD_GUI" -eq 1 ]; then
+    echo "  Auto UI: terminal/TTY -> CLI; desktop launch -> GUI (overrides: --cli / --gui)"
+  fi
 }
 
 seed_user_profile() {
@@ -1707,7 +1709,7 @@ seed_user_profile() {
   fi
 
   echo
-  echo "==> Creating first-run S.I.P.H.E.R. SIP profile"
+  echo "==> Creating first-run SIPHER SIP profile"
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "  [dry-run] mkdir -p $(dirname -- "$PROFILE_TARGET")"
     echo "  [dry-run] copy $installed_example -> $PROFILE_TARGET (fallback: $source_example; mode 600)"
@@ -1715,7 +1717,7 @@ seed_user_profile() {
   fi
 
   if [ ! -r "$profile_source" ]; then
-    echo "Unable to seed S.I.P.H.E.R. SIP profile: no readable profile.conf.example was found." >&2
+    echo "Unable to seed SIPHER SIP profile: no readable profile.conf.example was found." >&2
     echo "Checked: $installed_example" >&2
     echo "         $source_example" >&2
     return 1
@@ -1734,26 +1736,26 @@ seed_user_profile() {
   chmod 600 "$PROFILE_TARGET" 2>/dev/null || true
 
   if [ ! -s "$PROFILE_TARGET" ]; then
-    echo "S.I.P.H.E.R. SIP profile was not created correctly: $PROFILE_TARGET" >&2
+    echo "SIPHER SIP profile was not created correctly: $PROFILE_TARGET" >&2
     return 1
   fi
 
   echo "  Created generic SIP profile: $PROFILE_TARGET"
   echo "  Source template: $profile_source"
   echo "  Existing profiles will never be overwritten by future installs."
-  echo "  Launch S.I.P.H.E.R. and use its SIP Profile editor to enter your account details."
+  echo "  Launch SIPHER and use its SIP Profile editor to enter your account details."
 }
 
 uninstall_previous() {
   echo
-  echo "==> Removing installed S.I.P.H.E.R. from $INSTALL_PREFIX"
-  targets="$INSTALL_PREFIX/bin/sipher $INSTALL_PREFIX/bin/sipher-gui $INSTALL_PREFIX/bin/trunkmonkey-cli $INSTALL_PREFIX/bin/trunkmonkey-gui $INSTALL_PREFIX/share/trunkmonkey $INSTALL_PREFIX/share/doc/trunkmonkey"
+  echo "==> Removing installed SIPHER from $INSTALL_PREFIX"
+  targets="$INSTALL_PREFIX/bin/sipher $INSTALL_PREFIX/bin/sipher-gui $INSTALL_PREFIX/bin/trunkmonkey-cli $INSTALL_PREFIX/bin/trunkmonkey-gui $INSTALL_PREFIX/share/trunkmonkey $INSTALL_PREFIX/share/doc/trunkmonkey" # includes legacy pre-2.0 names for cleanup
   found=0
   for target in $targets; do [ -e "$target" ] && found=1; done
   if [ "$found" -eq 0 ]; then
-    echo "  No installed S.I.P.H.E.R. files were found under $INSTALL_PREFIX."
+    echo "  No installed SIPHER files were found under $INSTALL_PREFIX."
   else
-    prepare_privileges_for "removing installed S.I.P.H.E.R. from $INSTALL_PREFIX"
+    prepare_privileges_for "removing installed SIPHER from $INSTALL_PREFIX"
     for target in $targets; do
       if [ -e "$target" ]; then
         run_privileged rm -rf "$target"
@@ -1768,7 +1770,7 @@ uninstall_previous() {
     echo "User configuration and diagnostics are preserved by default:"
     echo "  $USER_CONFIG_BASE/trunkmonkey"
     echo "  $USER_STATE_BASE/trunkmonkey"
-    printf 'Also remove this user\047s S.I.P.H.E.R. profile/settings/logs? [y/N] '
+    printf 'Also remove this user\047s SIPHER profile/settings/logs? [y/N] '
     IFS= read -r answer
     case "$answer" in y|Y|yes|YES|Yes) purge=1 ;; esac
   fi
@@ -1793,8 +1795,8 @@ ask_install() {
   fi
   echo
   echo "System installation is OPTIONAL."
-  echo "If selected, the built S.I.P.H.E.R. client(s) will be installed under $INSTALL_PREFIX/bin."
-  printf 'Install selected client(s) into %s/bin after building? [y/N] ' "$INSTALL_PREFIX"
+  echo "If selected, the built SIPHER client will be installed under $INSTALL_PREFIX/bin."
+  printf 'Install selected client into %s/bin after building? [y/N] ' "$INSTALL_PREFIX"
   IFS= read -r answer
   case "$answer" in
     y|Y|yes|YES|Yes) INSTALL_MODE=yes ;;
@@ -1804,15 +1806,17 @@ ask_install() {
 
 install_selected() {
   [ "$INSTALL_MODE" = yes ] || return 0
-  [ -n "${LAST_BUILD_DIR:-}" ] || { echo "No successful S.I.P.H.E.R. build is available to install." >&2; return 1; }
+  [ -n "${LAST_BUILD_DIR:-}" ] || { echo "No successful SIPHER build is available to install." >&2; return 1; }
 
-  prepare_privileges_for "S.I.P.H.E.R. system installation into $INSTALL_PREFIX"
+  prepare_privileges_for "SIPHER system installation into $INSTALL_PREFIX"
 
   echo
-  echo "==> Installing selected S.I.P.H.E.R. clients"
+  echo "==> Installing selected SIPHER clients"
   run_privileged cmake --install "$LAST_BUILD_DIR" --prefix "$INSTALL_PREFIX"
-  if [ "$BUILD_CLI" -eq 1 ]; then echo "  Installed: $INSTALL_PREFIX/bin/sipher"; fi
-  if [ "$BUILD_GUI" -eq 1 ]; then echo "  Installed: $INSTALL_PREFIX/bin/sipher-gui"; fi
+  echo "  Installed: $INSTALL_PREFIX/bin/sipher"
+  if [ "$BUILD_CLI" -eq 1 ] && [ "$BUILD_GUI" -eq 1 ]; then
+    echo "  UI selection: TTY/terminal launches CLI; desktop launches GUI; --cli/--gui override."
+  fi
   echo "  User profile: ${XDG_CONFIG_HOME:-$USER_HOME/.config}/trunkmonkey/profile.conf"
   echo "  Examples:     $INSTALL_PREFIX/share/trunkmonkey/examples"
 }
@@ -1912,7 +1916,7 @@ if [ "$BUILD_CLI" -eq 1 ] || [ "$BUILD_GUI" -eq 1 ]; then
   if [ "$INSTALL_MODE" = yes ]; then
     echo "System installation selected; root privileges will be used only for the final install (dependency installation may already have requested root)."
   else
-    echo "Selected client(s) will be built but NOT installed system-wide."
+    echo "Selected client will be built but NOT installed system-wide."
   fi
 
   build_selected
@@ -1924,21 +1928,21 @@ fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
-  echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit dry run complete."
+  echo "SIPHER 2.0 dry run complete."
 else
   echo
   if [ "$BUILD_CLI" -eq 1 ] || [ "$BUILD_GUI" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit build complete."
-    [ "$INSTALL_MODE" = yes ] && echo "Selected client(s) installed under $INSTALL_PREFIX/bin."
+    echo "SIPHER 2.0 build complete."
+    [ "$INSTALL_MODE" = yes ] && echo "Selected client installed under $INSTALL_PREFIX/bin."
   elif [ "$BUILD_PJSIP" -eq 1 ]; then
-    echo "S.I.P.H.E.R. PJSIP dependency build complete."
+    echo "SIPHER PJSIP dependency build complete."
   elif [ "$CONFIGURE_CAPTURE_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit packet-capture permission setup complete."
+    echo "SIPHER 2.0 packet-capture permission setup complete."
   elif [ "$AUDIO_DIAG_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit audio diagnostic complete."
+    echo "SIPHER 2.0 audio diagnostic complete."
   elif [ "$UNINSTALL" -eq 1 ]; then
-    echo "S.I.P.H.E.R. installed files removed."
+    echo "SIPHER installed files removed."
   elif [ "$CLEAN" -eq 1 ]; then
-    echo "S.I.P.H.E.R. build directories cleaned."
+    echo "SIPHER build directories cleaned."
   fi
 fi

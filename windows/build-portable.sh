@@ -20,13 +20,13 @@ case "$TARGET" in
   win7)
     QT_MAJOR=5
     LABEL="Windows 7 SP1 x64"
-    DIST_NAME="SIPHER-1.0.0-Windows7-Portable-x64"
+    DIST_NAME="SIPHER-2.0-Windows7-Portable-x64"
     ;;
   win10|win11|modern|win10-11)
     TARGET=win10
     QT_MAJOR=6
     LABEL="Windows 10/11 x64"
-    DIST_NAME="SIPHER-1.0.0-r8-Windows10-11-Portable-x64"
+    DIST_NAME="SIPHER-2.0-Windows10-11-Portable-x64"
     ;;
   *) echo "Target must be win7 or win10" >&2; exit 2 ;;
 esac
@@ -69,7 +69,7 @@ for c in git make gcc g++ cmake ninja pkg-config; do need "$c"; done
 if (( CLEAN )); then rm -rf "$BUILD_ROOT" "$DIST"; fi
 mkdir -p "$BUILD_ROOT" "$ROOT/dist"
 
-say "Building S.I.P.H.E.R. managed PJSIP 2.17 for $LABEL"
+say "Building SIPHER managed PJSIP 2.17 for $LABEL"
 export CC=gcc CXX=g++
 export PJSIP_PREFIX PJSIP_SOURCE_DIR="$PJSIP_SRC"
 "$ROOT/scripts/bootstrap-pjsip.sh"
@@ -79,7 +79,7 @@ if [[ "$(pkg-config --modversion libpjproject)" != 2.17 ]]; then
   exit 1
 fi
 
-say "Configuring S.I.P.H.E.R. GUI + CLI ($LABEL / Qt $QT_MAJOR)"
+say "Configuring SIPHER 2.0 unified GUI + CLI ($LABEL / Qt $QT_MAJOR)"
 rm -rf "$APP_BUILD"
 cmake -S "$ROOT" -B "$APP_BUILD" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
@@ -90,7 +90,7 @@ cmake -S "$ROOT" -B "$APP_BUILD" -G Ninja \
 cmake --build "$APP_BUILD" --parallel
 
 if (( RUN_TESTS )); then
-  say "Running S.I.P.H.E.R. regression tests"
+  say "Running SIPHER 2.0 regression tests"
   ctest --test-dir "$APP_BUILD" --output-on-failure --timeout 60
 fi
 
@@ -98,11 +98,10 @@ say "Staging portable $LABEL package"
 rm -rf "$DIST"
 mkdir -p "$DIST"/{data/config,data/state/logs,data/state/cache,data/tmp,tools,docs,examples}
 cp "$APP_BUILD/sipher.exe" "$DIST/"
-cp "$APP_BUILD/sipher-gui.exe" "$DIST/"
 cp "$ROOT/examples/"* "$DIST/examples/"
 cp "$ROOT/README.md" "$ROOT/OPERATOR_GUIDE.md" "$ROOT/SECURITY_AUDIT.md" "$ROOT/windows/README-WINDOWS.md" "$ROOT/windows/FEATURE-PARITY.md" "$DIST/docs/"
 
-# Seed profile only as an example. S.I.P.H.E.R. creates data/config/profile.conf on first run.
+# Seed profile only as an example. SIPHER creates data/config/profile.conf on first run.
 cp "$ROOT/examples/profile.conf.example" "$DIST/data/config/profile.conf.example"
 
 # Deploy Qt runtime/plugins.
@@ -110,7 +109,7 @@ WINDEPLOY="$(command -v windeployqt${QT_MAJOR} 2>/dev/null || command -v windepl
 if [[ -z "$WINDEPLOY" ]]; then
   echo "windeployqt not found for Qt $QT_MAJOR" >&2; exit 1
 fi
-"$WINDEPLOY" --release --no-translations "$DIST/sipher-gui.exe"
+"$WINDEPLOY" --release --no-translations "$DIST/sipher.exe"
 
 # Copy the transitive MinGW DLL closure for a PE executable. Using objdump
 # avoids depending on a particular MSYS2 ldd implementation.
@@ -142,7 +141,6 @@ copy_pe_with_deps(){
 # Main MinGW runtime dependencies not handled by windeployqt.
 COPIED_DLLS=()
 copy_mingw_dll_closure "$DIST/sipher.exe" "$DIST"
-copy_mingw_dll_closure "$DIST/sipher-gui.exe" "$DIST"
 
 # Portable helper tools used by queue-audio normalization and vulnerability/TLS lookups.
 for tool in ffmpeg curl openssl; do
@@ -176,15 +174,7 @@ if [[ "$TARGET" == win7 ]]; then
   fi
 fi
 
-cat > "$DIST/SIPHER-GUI.cmd" <<'CMD'
-@echo off
-setlocal
-set "SIPHER_PORTABLE_ROOT=%~dp0"
-set "PATH=%~dp0tools;%~dp0;%PATH%"
-if exist "%~dp0tools\cacert.pem" set "CURL_CA_BUNDLE=%~dp0tools\cacert.pem"
-start "S.I.P.H.E.R. By GITSC" "%~dp0sipher-gui.exe" %*
-CMD
-cat > "$DIST/SIPHER-CLI.cmd" <<'CMD'
+cat > "$DIST/SIPHER.cmd" <<'CMD'
 @echo off
 setlocal
 set "SIPHER_PORTABLE_ROOT=%~dp0"
@@ -195,27 +185,27 @@ CMD
 
 if [[ "$TARGET" == win7 ]]; then
 cat > "$DIST/WINDOWS-7-NOTE.txt" <<'TXT'
-S.I.P.H.E.R. WINDOWS 7 SP1 x64 PORTABLE EDITION
+SIPHER WINDOWS 7 SP1 x64 PORTABLE EDITION
 
 This build uses the Qt 5 compatibility frontend and targets the Windows 7 API level.
-The GUI and CLI share the same S.I.P.H.E.R. SIP/PJSIP core and feature set as the modern build.
+The GUI and CLI share the same SIPHER SIP/PJSIP core and feature set as the modern build.
 
 Packet capture note:
 Windows 7 does not include pktmon. SIP/RTP PCAP capture therefore requires a compatible
 Npcap/WinPcap-class capture driver on the machine. If dumpcap.exe was available on the
 build host it is staged under tools; the kernel capture driver itself must be installed
 on the Win7 host. Calling, RTP media, PBX audit/fingerprinting, CVE lookup, TLS audit,
-queue testing and the rest of S.I.P.H.E.R. do not require that capture driver.
+queue testing and the rest of SIPHER do not require that capture driver.
 
-Native Win7 cmd.exe does not support modern ANSI VT sequences. S.I.P.H.E.R. automatically
+Native Win7 cmd.exe does not support modern ANSI VT sequences. SIPHER automatically
 uses a clean monochrome/native-console fallback there; commands and dashboard pages
 remain available.
 TXT
 else
 cat > "$DIST/WINDOWS-10-11-NOTE.txt" <<'TXT'
-S.I.P.H.E.R. WINDOWS 10/11 x64 PORTABLE EDITION
+SIPHER WINDOWS 10/11 x64 PORTABLE EDITION
 
-This build uses Qt 6 and the same S.I.P.H.E.R. SIP/PJSIP core as Linux/FreeBSD and the Win7 edition.
+This build uses Qt 6 and the same SIPHER SIP/PJSIP core as Linux/FreeBSD and the Win7 edition.
 The CLI enables Windows VT rendering when supported. Packet capture prefers dumpcap when
 available and otherwise can use Windows pktmon as the built-in fallback.
 TXT

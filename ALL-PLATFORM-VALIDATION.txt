@@ -1,7 +1,7 @@
-S.I.P.H.E.R. 1.0.0 r18 DID-Route-Audit — All-Platform Source Validation
-=======================================================================
-Release date: 2026-09-10
-Baseline: SIPHER 1.0.0 r17 Exploit-Fix Phreak Lab
+SIPHER 2.0 — All-Platform Source Validation
+==================================================================
+Release date: 2026-09-11
+Baseline: SIPHER 1.0.0-r19-Multi-SIP + r18 hotfixes
 
 Target platforms
 ----------------
@@ -9,13 +9,13 @@ Target platforms
 - FreeBSD: native CLI + Qt GUI.
 - macOS 13+: native CLI + Qt GUI .app + optional DMG.
 - Termux/Android: native CLI + Qt GUI via Termux:X11.
-- Windows: existing CMake/portable build path retained.
+- Windows: CMake/portable build path retained.
 
-r18 validation performed in this packaging environment
+SIPHER 2.0 validation targets in this packaging environment
 -------------------------------------------------------
-PASS - r18 core preservation/security gate (r17 exploit-fix invariants retained; only the intended PbxAudit/SipTrace/SipWireMonitor core modules changed).
-PASS - r18 DID/route/audit source contract.
-PASS - PJSIP 2.17 RX peer compatibility hotfix: SipWireMonitor uses pkt_info.src_name/src_port and rejects the nonexistent pkt_info.addr member.
+PASS - r19 multi-account / zero-account source contract.
+PASS - r17/r18 exploit-fix invariants explicitly checked by the r19 gate.
+PASS - DID/route/audit and offline Legacy safety invariants retained.
 PASS - all-platform builder shell/source contract.
 PASS - FreeBSD audio compatibility detector tests.
 PASS - profile/text-pool C++ tests.
@@ -24,23 +24,38 @@ PASS - runtime path C++ tests.
 PASS - CLI dashboard C++ tests.
 PASS - capture-manager C++ tests.
 PASS - PBX audit C++ tests, including topology exposure and UDP/TCP parity.
-PASS - Linux GUI builder dry-run reaches CMake configure/build/ctest flow with r18 identity.
+PASS - Linux all-platform builder dry-run identifies the SIPHER 2.0 release and dependency plan.
 
 Packaging-environment limitation
 --------------------------------
-A full Qt/PJSIP GUI link was not performed here because the packaging container does not have the Qt and PJSIP development packages installed. The builder is designed to install/bootstrap those dependencies on a supported target. The PJSIP next-hop fields used by r18 are part of the transport callback metadata; the source regression checks and non-Qt core tests pass.
+A full Qt/PJSIP GUI link was not performed here because the packaging container does not have the Qt and PJSIP development packages installed. The included all-platform builder installs/bootstrap those dependencies on supported targets. PJSIP 2.17 documents both multiple Account objects under one Endpoint and runtime STUN-server updates after libInit; r19 is structured around those APIs.
 
 Run the regression gate
 -----------------------
-  ./tests/run_r18_regression.sh
+  ./tests/run_2_0_regression.sh
 
-Dry-run the Linux GUI builder
------------------------------
-  ./build.sh --os linux --gui --dry-run --no-install
+Dry-run the Linux builder
+-------------------------
+  ./build.sh --os linux --all --dry-run --no-install
 
-r18 Linux CTest hotfix validation
----------------------------------
-PASS - CMake registers r18-core-preservation instead of the obsolete r15 hash gate.
-PASS - inherited r17 phreak UI source contract accepts the r18 release identity while preserving UI behavior.
-PASS - r18 DID/route/audit and all-platform builder source contracts are registered in CTest.
-PASS - full tests/run_r18_regression.sh suite after PJSIP 2.17, Qt emit, and CTest hotfixes.
+SIPHER 2.0 additions
+--------------------
+PASS target: unified public executable source contract (`sipher`).
+PASS target: r18 PJSIP RX metadata hotfix source guard.
+PASS target: Qt emit-macro collision source guard.
+PASS target: current CTest registration excludes stale r15/r17 release-version/hash gates.
+
+Validation completed for SIPHER 2.0 packaging
+---------------------------------------------
+PASS - `./tests/run_2_0_regression.sh` (r18/r19/2.0 source contracts + profile, SIP trace, runtime paths, CLI dashboard, capture manager, PBX audit).
+PASS - CMake configure/generate with PJSIP 2.17 metadata for current CTest registration.
+PASS - current source-contract CTest subset: 6/6 passed.
+PASS - unified dispatcher compile with `-std=c++17 -Wall -Wextra -Wpedantic`.
+PASS - dispatcher behavior: headless/non-TTY -> CLI; graphical DISPLAY/non-TTY -> GUI; explicit --cli -> CLI; explicit --gui -> GUI; TTY + DISPLAY -> CLI.
+PASS - shell syntax for Linux/FreeBSD, macOS, Termux, PJSIP and Windows portable builders.
+PASS - no current `pkt_info.addr` or `auto emit=` regression patterns remain in source.
+PASS - current CMake app output name is only `sipher`; old split binary names are retained only in legacy uninstall/history text.
+
+Target-native limitation
+------------------------
+The packaging host does not have a full Qt/PJSIP development stack, so a complete SIPHER 2.0 Qt/PJSIP application link was not performed here. The source/core regression gates and CMake/source contract validation pass; final target-native compile/runtime validation should still be performed on Linux/FreeBSD/macOS/Termux/Windows.

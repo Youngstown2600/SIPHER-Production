@@ -113,7 +113,7 @@ using AuditProgressCallback=std::function<void(unsigned phase,unsigned total,con
 class PbxAudit {
 public:
     static constexpr const char* warningText() {
-        return "AUTHORIZED SYSTEMS ONLY — USE AT YOUR OWN RISK. S.I.P.H.E.R. transmits active SIP probes, including bounded parser-abuse and rate-resilience simulations. Only test systems you own or have explicit authorization to assess. Tests can trigger IDS/IPS, rate limits, alarms, or service protections.";
+        return "AUTHORIZED SYSTEMS ONLY — USE AT YOUR OWN RISK. SIPHER transmits active SIP probes, including bounded parser-abuse and rate-resilience simulations. Only test systems you own or have explicit authorization to assess. Tests can trigger IDS/IPS, rate limits, alarms, or service protections.";
     }
 
     static AuditTransport transportFromString(const std::string& value);

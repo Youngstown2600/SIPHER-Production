@@ -49,7 +49,7 @@ std::string storeRawMessage(const char* raw, std::size_t rawLen, const pjsip_msg
     const auto stored = std::min(rawLen, kMaxStoredSipMessage);
     std::string value(raw, stored);
     if (stored < rawLen) {
-        value += "\n<S.I.P.H.E.R.: SIP message truncated at 128 KiB>\n";
+        value += "\n<SIPHER: SIP message truncated at 128 KiB>\n";
     }
     return value;
 }
@@ -94,7 +94,7 @@ void SipWireMonitor::start()
         if (active_ == this) {
             active_ = nullptr;
         }
-        throw std::runtime_error("Unable to register S.I.P.H.E.R. SIP monitor");
+        throw std::runtime_error("Unable to register SIPHER SIP monitor");
     }
 
     running_ = true;
@@ -133,11 +133,8 @@ void SipWireMonitor::dispatch(pjsip_msg* msg, bool sent, const char* raw, std::s
 pj_bool_t SipWireMonitor::onRxRequest(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
-        // PJSIP 2.17 exposes the receive peer as pkt_info.src_name/src_port
-        // (and the sockaddr as src_addr). There is no generic RX address member with the old spelling.
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len),
-                 rdata->pkt_info.src_name,
+                 static_cast<std::size_t>(rdata->msg_info.len), rdata->pkt_info.src_name,
                  static_cast<unsigned>(rdata->pkt_info.src_port));
     }
     return PJ_FALSE;
@@ -147,8 +144,7 @@ pj_bool_t SipWireMonitor::onRxResponse(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len),
-                 rdata->pkt_info.src_name,
+                 static_cast<std::size_t>(rdata->msg_info.len), rdata->pkt_info.src_name,
                  static_cast<unsigned>(rdata->pkt_info.src_port));
     }
     return PJ_FALSE;

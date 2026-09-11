@@ -13,7 +13,7 @@ struct SipProfile {
     std::string username;
     std::string authUsername;
     std::string password;
-    std::string displayName{"S.I.P.H.E.R."};
+    std::string displayName{"SIPHER"};
     std::string outboundProxy;
     std::string callerIdDomain;
     // Optional PBX access/dial prefix. Applied only to plain dial strings,

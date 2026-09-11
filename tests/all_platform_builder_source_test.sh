@@ -21,4 +21,4 @@ sh -n build.sh
 sh -n scripts/build-macos.sh
 sh -n scripts/build-pjsip.sh
 bash -n scripts/build-termux.sh
-printf '%s\n' 'S.I.P.H.E.R. all-platform builder source contract passed'
+printf '%s\n' 'SIPHER 2.0 all-platform builder source contract passed'

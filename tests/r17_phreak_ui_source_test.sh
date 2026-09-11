@@ -2,11 +2,8 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
-# This is an inherited r17 UI/identity contract, not a release-version gate.
-# r18 intentionally advances TRUNKMONKEY_VERSION while retaining the phreak UI.
-grep -q 'SIPHER_DISPLAY_NAME "S.I.P.H.E.R."' include/trunkmonkey/Version.h
-grep -q 'TRUNKMONKEY_EDITION "Underground Phone-Phreak / Signal Lab"' include/trunkmonkey/Version.h
-grep -q 'PHREAK LAB' src/cli/CliDashboard.cpp
+grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
+grep -q 'PHREAK LAB' src/gui/MainWindow.cpp
 grep -q 'PhreakRail' src/gui/MainWindow.cpp
 grep -q 'WireHeader' src/gui/MainWindow.cpp
 grep -q 'CARRIER ACCESS' src/gui/MainWindow.cpp

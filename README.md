@@ -1,4 +1,21 @@
-# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit — Underground Phone-Phreak / Signal Lab
+# SIPHER 2.0 — Multi-SIP / DID Intelligence / Route Audit
+
+## SIPHER 2.0 unified executable
+
+SIPHER 2.0 exposes one application executable: `sipher`. A build with both frontends automatically opens the CLI when run from a real terminal/TTY and opens the Qt GUI when launched from an XFCE/KDE/GNOME/macOS/Windows desktop without a terminal. Use `sipher --cli` or `sipher --gui` to override the automatic choice; `SIPHER_UI=cli|gui` provides the same override for scripts/launchers.
+
+## r19 Multi-SIP / zero-account startup
+
+- Multiple SIP accounts can be registered simultaneously under one PJSIP endpoint.
+- Settings → SIP Accounts provides Add/Edit/Remove/Use-for-Outbound management.
+- Line Access lets you choose which registered identity places new calls.
+- Existing calls remain attached to their original account when the outbound selection changes.
+- Incoming/outgoing calls show their SIP account ID.
+- SIP account setup is optional: SIPHER starts normally with zero accounts configured.
+- Existing configured legacy `profile.conf` installs are migrated non-destructively into the new `accounts/` store.
+
+See `R19-MULTI-SIP-RELEASE-NOTES.md` for details.
+
 ## r18 DID Intelligence / Carrier Route Audit
 
 This release adds a dedicated **DID Intelligence** workspace, optional live number reputation lookup through IPQualityScore, and a **Carrier Handoff / Next-Out** analyzer. The route analyzer reports the configured outbound proxy/registrar, DNS candidates, SIP SRV candidates, the normalized Request-URI, SIP route-header disclosures, and — for captured outbound INVITEs — the actual resolved peer IP/port supplied by the PJSIP transport callback. Carrier-internal routing can still be hidden by an SBC and is not represented as an IP traceroute.
@@ -8,9 +25,9 @@ This release adds a dedicated **DID Intelligence** workspace, optional live numb
 For live DID reputation lookup, set `SIPHER_IPQS_API_KEY` or enter the key in the DID Intelligence tab. The key is sent in the `IPQS-KEY` request header rather than embedded in the request URL. Reputation flags are indicators from a third-party data source, not proof of fraud or caller identity.
 
 
-r17 deliberately moves S.I.P.H.E.R. away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue S.I.P.H.E.R. logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
+r17 deliberately moves SIPHER away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue SIPHER logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
 
-**Theme model:** 20 synchronized GUI/CLI themes. Shared with TrunkMonkey: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. S.I.P.H.E.R.-only: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. Legacy r16 theme keys map to the closest current palette.
+**Theme model:** 20 synchronized GUI/CLI themes. Shared with TrunkMonkey: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. SIPHER-only: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. Legacy r16 theme keys map to the closest current palette.
 
 `tests/run_r17_regression.sh` runs the core-preservation gate plus profile, SIP trace, runtime-path, dashboard, capture-manager, PBX-audit, and FreeBSD audio compatibility tests.
 
@@ -26,20 +43,20 @@ The builder refuses to override existing user HDA pin hints, temporarily release
 
 The dial prefix is now a live session setting. In the GUI, edit **Dial prefix** directly on Main before calling. In the CLI, use `prefix <value>`, `prefix off`, or simply choose **Place a call** and edit the prefix when prompted. The profile value is only a startup default.
 
-# S.I.P.H.E.R. 1.0.0 — Linux / FreeBSD
+# SIPHER 1.0.0 — Linux / FreeBSD
 
 ## r12 live headset/device switching
 
-r12 adds default-on automatic local audio rerouting during an active SIP call. Linux follows PipeWire/PulseAudio sink/source port changes. FreeBSD combines PulseAudio state (when present) with native OSS/snd_hda state (`hw.snd.default_auto`, `hw.snd.default_unit`, `/dev/sndstat`, and the mixer recording source). When the route changes, S.I.P.H.E.R. keeps the SIP/RTP call up while it detaches the foreground AudioMedia, closes and refreshes PJSIP audio, reopens the selected/default devices, verifies the sound device is active, and reattaches the call.
+r12 adds default-on automatic local audio rerouting during an active SIP call. Linux follows PipeWire/PulseAudio sink/source port changes. FreeBSD combines PulseAudio state (when present) with native OSS/snd_hda state (`hw.snd.default_auto`, `hw.snd.default_unit`, `/dev/sndstat`, and the mixer recording source). When the route changes, SIPHER keeps the SIP/RTP call up while it detaches the foreground AudioMedia, closes and refreshes PJSIP audio, reopens the selected/default devices, verifies the sound device is active, and reattaches the call.
 
 Use `audio-auto on|off`, `audio-status`, and `audio-reopen` from the CLI. The GUI exposes **Automatically Follow Headset / System Audio** plus Audio Status and Reopen/Refresh actions.
 
 
-S.I.P.H.E.R. is a usability-first repackaging of the proven TrunkMonkey 2.0 r20 core. **No features were removed.** The goal of S.I.P.H.E.R. 1.0 is to make the same softphone, diagnostics, queue testing, packet capture, audio routing, themes, and bounded PBX audit tools usable by a Tier-1 NOC technician without requiring them to memorize commands.
+SIPHER is a usability-first repackaging of the proven TrunkMonkey 2.0 r20 core. **No features were removed.** The goal of SIPHER 1.0 is to make the same softphone, diagnostics, queue testing, packet capture, audio routing, themes, and bounded PBX audit tools usable by a Tier-1 NOC technician without requiring them to memorize commands.
 
-## S.I.P.H.E.R. 1.0 r5 highlights
+## SIPHER 1.0 r5 highlights
 
-- Visible branding: **S.I.P.H.E.R. By GITSC**, with the block-terminal logo in the CLI and matching GUI banner/icon.
+- Visible branding: **SIPHER By GITSC**, with the block-terminal logo in the CLI and matching GUI banner/icon.
 - Responsive CLI: live terminal-resize redraws, compact virtual-console/TTY layout, and multi-line Alt-key navigation.
 - TrunkMonkey-style slash commands for calls, including `/dial`, `/answer`, `/hangup`, `/hangup-all`, `/hold`, `/resume`, `/mute`, `/unmute`, `/dtmf`, and `/calls`.
 - Dedicated **Alt+5 Security Audit** screen; Alt+6 Profile, Alt+7 Help, Alt+8 Engine Log, Alt+9 Queue/Activity.
@@ -80,11 +97,11 @@ The builder retains Linux and FreeBSD dependency checks, PJSIP 2.17 bootstrap/va
 
 ## Detailed feature reference
 
-# S.I.P.H.E.R. 2.0.0 — Diagnostics & Security Suite — Linux / FreeBSD
+# SIPHER 2.0.0 — Diagnostics & Security Suite — Linux / FreeBSD
 
 ## 2.0.0 Diagnostics & Security Suite
 
-S.I.P.H.E.R. 2.0.0 turns the softphone into a combined SIP call tool, media-quality workstation, queue/blast generator, and bounded PBX security-audit suite for **Linux and FreeBSD**. The builder checks and installs the platform dependencies it needs, including PJSIP 2.17 prerequisites, Qt 6 for the GUI, packet-capture tools/permissions, `ffmpeg` for queue audio normalization, and the OpenSSL command-line client used by TLS audits.
+SIPHER 2.0.0 turns the softphone into a combined SIP call tool, media-quality workstation, queue/blast generator, and bounded PBX security-audit suite for **Linux and FreeBSD**. The builder checks and installs the platform dependencies it needs, including PJSIP 2.17 prerequisites, Qt 6 for the GUI, packet-capture tools/permissions, `ffmpeg` for queue audio normalization, and the OpenSSL command-line client used by TLS audits.
 
 ### New engineering diagnostics
 
@@ -92,7 +109,7 @@ S.I.P.H.E.R. 2.0.0 turns the softphone into a combined SIP call tool, media-qual
 - Lightweight R-factor/MOS **engineering estimates** for fast triage. These are not PESQ/POLQA measurements.
 - SIP ladder view for normal phone calls.
 - Exportable call diagnostic reports containing SIP result, codec, RTP endpoints, media counters, quality figures, and SIP ladder.
-- Queue/blast tests can inject an operator-selected WAV/MP3/FLAC/OGG/M4A file into every test call. The builder installs `ffmpeg`; S.I.P.H.E.R. normalizes the source to a private mono PCM WAV in its per-user temporary directory before handing it to PJSIP.
+- Queue/blast tests can inject an operator-selected WAV/MP3/FLAC/OGG/M4A file into every test call. The builder installs `ffmpeg`; SIPHER normalizes the source to a private mono PCM WAV in its per-user temporary directory before handing it to PJSIP.
 
 ### PBX Audit
 
@@ -109,25 +126,25 @@ The audit suite intentionally does **not** perform password cracking, destructiv
 The 1.0 FreeBSD fixes remain part of 2.0.0: Project-2501-style ALC236/VREF80 diagnosis and narrowly signature-matched repair, independent PJSIP capture/playback device selection, Linux capture capabilities, FreeBSD BPF/devfs capture permissions, the compact GUI, shared theme set, and the dashboard-safe `/tmp` engine-log view.
 
 
-S.I.P.H.E.R. is a Linux/FreeBSD SIP softphone plus a call-center queue troubleshooting workspace. The CLI and Qt GUI share the same C++/PJSUA2 core.
+SIPHER is a Linux/FreeBSD SIP softphone plus a call-center queue troubleshooting workspace. The CLI and Qt GUI share the same C++/PJSUA2 core.
 
 ## What 1.0 implements
 
 ### Stable r15 refresh — 2026-08-16
 
-S.I.P.H.E.R. 1.0 was the first stable Unix release; 2.0.0 builds on that base. It includes the proven Project-2501 FreeBSD audio fixes, independent PJSIP capture/playback routing, automatic packet-capture permission configuration, a smaller Qt GUI, expanded themes, and a CLI engine-log page that keeps raw PJSIP output away from the dashboard.
+SIPHER 1.0 was the first stable Unix release; 2.0.0 builds on that base. It includes the proven Project-2501 FreeBSD audio fixes, independent PJSIP capture/playback routing, automatic packet-capture permission configuration, a smaller Qt GUI, expanded themes, and a CLI engine-log page that keeps raw PJSIP output away from the dashboard.
 
 The normal builder performs dependency checks, audio preflight, recognized safe audio repair, and packet-capture permission setup before compilation. `./build.sh --audio-diagnose` is diagnostic-only; `./build.sh --configure-capture` installs/configures packet-capture prerequisites without rebuilding the client.
 
 ### Unix r13 audio routing refresh — 2026-08-16
 
-S.I.P.H.E.R. now enumerates PJSIP audio devices at SIP startup and treats capture and playback as separate routes. On FreeBSD, if PortAudio exposes exactly one capture-only endpoint alongside the normal default duplex device, S.I.P.H.E.R. prefers that dedicated capture endpoint for the microphone while leaving playback on the PJSIP/system default. This addresses laptop layouts where `pcm0` is the internal play/record device and a headset microphone appears separately as a record-only device. Set `S.I.P.H.E.R._CAPTURE_DEVICE=<id>` or `S.I.P.H.E.R._PLAYBACK_DEVICE=<id>` to override the numeric PJSIP device IDs for testing.
+SIPHER now enumerates PJSIP audio devices at SIP startup and treats capture and playback as separate routes. On FreeBSD, if PortAudio exposes exactly one capture-only endpoint alongside the normal default duplex device, SIPHER prefers that dedicated capture endpoint for the microphone while leaving playback on the PJSIP/system default. This addresses laptop layouts where `pcm0` is the internal play/record device and a headset microphone appears separately as a record-only device. Set `SIPHER_CAPTURE_DEVICE=<id>` or `SIPHER_PLAYBACK_DEVICE=<id>` to override the numeric PJSIP device IDs for testing.
 
 `./build.sh --audio-diagnose` now reports PJSIP device IDs/names when the managed PJSIP is already installed, ignores commented-out HDA hints, warns about multiple FreeBSD capture paths, and recognizes the verified ALC236 VREF80 (`0x24`) jack-mic state. Diagnostics remain advisory. During a normal r14 FreeBSD build, the builder may also test the conservative single-Speaker/single-Headphones association repair described above; complex or custom-hinted layouts are never rewritten automatically. The exact verified ALC236 headset-mic repair remains a separate narrowly fingerprinted path.
 
 ### Audio-preflight foundation — 2026-08-15
 
-S.I.P.H.E.R. 1.0 adds a non-destructive audio preflight to `build.sh`. Every CLI/GUI build inspects host playback/capture availability before compiling, and `./build.sh --audio-diagnose` can run the same check by itself. On FreeBSD it reports `/dev/sndstat` topology, the default PCM unit, `snd_hda` association errors, runtime HDA pin overrides versus codec originals, persistent `/boot/device.hints`/loader pin overrides, detected codecs, and PulseAudio defaults when available. The diagnostic command never rewrites HDA pins or mixer settings. Normal r14 builds may apply only recognized guarded repairs: the conservative simple-laptop Speaker/Headphones association fix and the narrowly fingerprinted ALC236 headset-mic fix. The PJSIP static-link validation probe also enumerates PJSIP audio devices and warns when PJSIP sees no capture or playback device, including the `PJMEDIA_EAUD_NODEFDEV` risk.
+SIPHER 1.0 adds a non-destructive audio preflight to `build.sh`. Every CLI/GUI build inspects host playback/capture availability before compiling, and `./build.sh --audio-diagnose` can run the same check by itself. On FreeBSD it reports `/dev/sndstat` topology, the default PCM unit, `snd_hda` association errors, runtime HDA pin overrides versus codec originals, persistent `/boot/device.hints`/loader pin overrides, detected codecs, and PulseAudio defaults when available. The diagnostic command never rewrites HDA pins or mixer settings. Normal r14 builds may apply only recognized guarded repairs: the conservative simple-laptop Speaker/Headphones association fix and the narrowly fingerprinted ALC236 headset-mic fix. The PJSIP static-link validation probe also enumerates PJSIP audio devices and warns when PJSIP sees no capture or playback device, including the `PJMEDIA_EAUD_NODEFDEV` risk.
 
 
 - Provider-neutral SIP REGISTER with digest authentication.
@@ -149,18 +166,18 @@ S.I.P.H.E.R. 1.0 adds a non-destructive audio preflight to `build.sh`. Every CLI
 - Raw PJSIP call/media diagnostics (`stats <call-id>`).
 - Qt GUI with persistent themes: System, Hacker, Matrix, Phosphor, Midnight, Amber, Ice, Classic Light, Solarized Dark, Dracula, Nord, Cyberpunk, Blood Moon, Ocean, Retro Blue, and Monochrome.
 
-- **Eight-page ANSI CLI dashboard** with the S.I.P.H.E.R. monkey header, registration/account status, active calls, SIP/RTP diagnostics, activity feed, quick commands, a persistent `tm>` prompt, and a scrollable Engine Log page.
+- **Eight-page ANSI CLI dashboard** with the SIPHER monkey header, registration/account status, active calls, SIP/RTP diagnostics, activity feed, quick commands, a persistent `tm>` prompt, and a scrollable Engine Log page.
 
-## S.I.P.H.E.R. CLI dashboard
+## SIPHER CLI dashboard
 
-The interactive CLI now uses the same dashboard layout shown in the S.I.P.H.E.R. concept mockup. No ncurses package is required: the interface uses standard ANSI terminal control sequences and detects whether stdin/stdout are real terminals.
+The interactive CLI now uses the same dashboard layout shown in the SIPHER concept mockup. No ncurses package is required: the interface uses standard ANSI terminal control sequences and detects whether stdin/stdout are real terminals.
 
 On a wide terminal, the layout is split into the main troubleshooting workspace and a right-side account/quick-command column. Smaller terminals automatically collapse to a compact single-column view. Redirected output and `TERM=dumb` use the plain non-dashboard CLI path.
 
 The dashboard contains:
 
 ```text
-Monkey / S.I.P.H.E.R. header      Account / registration state
+Monkey / SIPHER header      Account / registration state
 Registration details            Quick command reference
 Active independent calls
 Selected-call SIP/RTP diagnostics
@@ -174,8 +191,8 @@ Use `media <id>` or `siplog <id>` to select which Phone call is displayed in **C
 Terminal overrides are available when needed:
 
 ```sh
-S.I.P.H.E.R._FORCE_DASHBOARD=1 sipher
-S.I.P.H.E.R._NO_DASHBOARD=1 sipher
+SIPHER_FORCE_DASHBOARD=1 sipher
+SIPHER_NO_DASHBOARD=1 sipher
 NO_COLOR=1 sipher
 ```
 
@@ -194,11 +211,11 @@ Call 02 -> SIP dialog 02 -> RTP 02
 Call 50 -> SIP dialog 50 -> RTP 50
 ```
 
-They are **not conferenced together**. S.I.P.H.E.R. connects only the explicitly selected foreground call to the local microphone/speaker. Other calls remain independent media sessions.
+They are **not conferenced together**. SIPHER connects only the explicitly selected foreground call to the local microphone/speaker. Other calls remain independent media sessions.
 
 ## Single-call troubleshooting workspace
 
-S.I.P.H.E.R. 1.0 deliberately keeps detailed SIP/RTP capture controls on normal **Phone** calls. Queue-test calls remain visible in the active-call table, but selecting a Queue call disables the detailed trace/capture controls so a 20- or 50-call test cannot accidentally be mistaken for one clean dialog trace.
+SIPHER 1.0 deliberately keeps detailed SIP/RTP capture controls on normal **Phone** calls. Queue-test calls remain visible in the active-call table, but selecting a Queue call disables the detailed trace/capture controls so a 20- or 50-call test cannot accidentally be mistaken for one clean dialog trace.
 
 For a selected Phone call the GUI displays:
 
@@ -220,9 +237,9 @@ Selecting a transaction displays the complete SIP message below the table. The i
 
 ### SIP trace and packet grabs
 
-S.I.P.H.E.R. provides two different kinds of SIP troubleshooting output:
+SIPHER provides two different kinds of SIP troubleshooting output:
 
-1. **Raw SIP trace** — S.I.P.H.E.R.'s internal decoded SIP messages, written to a readable text log. This is useful even when SIP transport encryption would make an on-wire packet capture unreadable as cleartext SIP.
+1. **Raw SIP trace** — SIPHER's internal decoded SIP messages, written to a readable text log. This is useful even when SIP transport encryption would make an on-wire packet capture unreadable as cleartext SIP.
 2. **SIP PCAP** — an on-wire packet capture using `dumpcap` when available, otherwise `tcpdump`.
 
 RTP/RTCP capture uses the negotiated/observed media ports for the selected normal Phone call. Start the RTP capture after media has been negotiated (normally after ringing/answer depending on SDP behavior).
@@ -231,9 +248,9 @@ RTP/RTCP capture uses the negotiated/observed media ports for the selected norma
 
 **r15 Full VoIP capture (recommended):** arm **START FULL VOIP PCAP (PRE-DIAL)** before placing the call and keep it running through hangup. The resulting file contains SIP/SDP and the negotiated RTP/RTCP in one chronology, which is the intended input for Wireshark **Telephony -> VoIP Calls**. CLI: `voipcap-start <file> [interface]`, then `voipcap-open <file>`.
 
-**r7 Auto RTP Decode:** after stopping an RTP-only PCAP, click **OPEN LAST PCAP (AUTO RTP)** in the GUI. S.I.P.H.E.R. launches Wireshark with the selected call's RTP/RTCP UDP ports already mapped to the RTP/RTCP dissectors, so **Telephony → RTP → RTP Streams** can be used without manually choosing **Decode As**. CLI users can run `pcap-open <id> <file>`. The `.pcap`/`.pcapng` remains a standard capture file; the decode mapping is passed only when Wireshark is launched.
+**r7 Auto RTP Decode:** after stopping an RTP-only PCAP, click **OPEN LAST PCAP (AUTO RTP)** in the GUI. SIPHER launches Wireshark with the selected call's RTP/RTCP UDP ports already mapped to the RTP/RTCP dissectors, so **Telephony → RTP → RTP Streams** can be used without manually choosing **Decode As**. CLI users can run `pcap-open <id> <file>`. The `.pcap`/`.pcapng` remains a standard capture file; the decode mapping is passed only when Wireshark is launched.
 
-Packet-capture privileges are configured by the **builder**, not by the running softphone. On Linux the builder installs a capture helper when needed and grants it `CAP_NET_RAW` + `CAP_NET_ADMIN`. On FreeBSD it creates a persistent per-user `devfs` rule for `/dev/bpf*`. The builder requests `sudo`, `doas`, or root only for those setup operations; the GUI and CLI continue to run as the normal user. Re-run `./build.sh --configure-capture` at any time to repair capture permissions without rebuilding S.I.P.H.E.R..
+Packet-capture privileges are configured by the **builder**, not by the running softphone. On Linux the builder installs a capture helper when needed and grants it `CAP_NET_RAW` + `CAP_NET_ADMIN`. On FreeBSD it creates a persistent per-user `devfs` rule for `/dev/bpf*`. The builder requests `sudo`, `doas`, or root only for those setup operations; the GUI and CLI continue to run as the normal user. Re-run `./build.sh --configure-capture` at any time to repair capture permissions without rebuilding SIPHER.
 
 The default capture interface is `any` where supported. On FreeBSD, select the actual interface name (for example `wlan0`, `em0`, or `igb0`) when the installed capture tool does not provide an `any` pseudo-interface.
 
@@ -246,9 +263,9 @@ A normal CLI or GUI build now creates the user's SIP profile automatically when 
 ~/.config/trunkmonkey/profile.conf
 ```
 
-`XDG_CONFIG_HOME` and `S.I.P.H.E.R._PROFILE` are honored. The builder copies `examples/profile.conf.example`, creates the S.I.P.H.E.R. config directory privately, sets the profile to mode `0600`, and **never overwrites an existing profile**.
+`XDG_CONFIG_HOME` and `SIPHER_PROFILE` are honored. The builder copies `examples/profile.conf.example`, creates the SIPHER config directory privately, sets the profile to mode `0600`, and **never overwrites an existing profile**.
 
-The seeded profile intentionally has blank SIP server/account fields. On the first launch, CLI and GUI detect that the profile still needs configuration and open S.I.P.H.E.R.'s own profile editor instead of exiting with "No SIP profile found".
+The seeded profile intentionally has blank SIP server/account fields. On the first launch, CLI and GUI detect that the profile still needs configuration and open SIPHER's own profile editor instead of exiting with "No SIP profile found".
 
 CLI profile commands:
 
@@ -258,7 +275,7 @@ profile-edit      edit/save the profile interactively and reconnect SIP
 profile-reload    reload profile.conf from disk and reconnect SIP
 ```
 
-The CLI editor supports every S.I.P.H.E.R. 2.0.0 SIP profile option. Press Enter to preserve the current value, type `-` to clear a field, and the password is not echoed on a terminal. Profile changes are validated before use. If reconnecting with a newly edited profile fails, S.I.P.H.E.R. restores the previous working profile and attempts to reconnect with it.
+The CLI editor supports every SIPHER 2.0.0 SIP profile option. Press Enter to preserve the current value, type `-` to clear a field, and the password is not echoed on a terminal. Profile changes are validated before use. If reconnecting with a newly edited profile fails, SIPHER restores the previous working profile and attempts to reconnect with it.
 
 The Qt GUI exposes the same configuration through **Settings → SIP Profile...**. The compact **Main** tab combines phone controls, selected-call media, and SIP/RTP packet capture. **DTMF PAD...** opens a press-and-hold 12-key pad whose hold duration is sent as one RFC4733 event. **File → Exit** and the visible **EXIT** button use the normal cleanup path.
 
@@ -272,7 +289,7 @@ The top-level builder can also remove a prior system installation:
 ./build.sh --uninstall
 ```
 
-or choose **R) Remove Install** from the interactive menu. The selected `--prefix` is respected (default `/usr/local`). The uninstall removes the installed CLI/GUI executables and S.I.P.H.E.R.'s installed share/documentation directories.
+or choose **R) Remove Install** from the interactive menu. The selected `--prefix` is respected (default `/usr/local`). The uninstall removes the installed CLI/GUI executables and SIPHER's installed share/documentation directories.
 
 User credentials, settings, logs, and diagnostic state are **preserved by default**. Interactive uninstall offers an additional purge prompt. For a non-interactive full purge:
 
@@ -280,7 +297,7 @@ User credentials, settings, logs, and diagnostic state are **preserved by defaul
 ./build.sh --uninstall --purge-user-data
 ```
 
-This removes the current user's standard S.I.P.H.E.R. config/state directories in addition to the system installation. It deliberately does not remove the local PJSIP build or arbitrary custom files outside those directories.
+This removes the current user's standard SIPHER config/state directories in addition to the system installation. It deliberately does not remove the local PJSIP build or arbitrary custom files outside those directories.
 
 ## WaffleHouse-style top-level builder
 
@@ -298,15 +315,15 @@ With no build-target arguments it opens an interactive selector:
 ```text
 Select one, several, or all actions:
 
-  1) S.I.P.H.E.R.-CLI       C++ terminal SIP softphone
-  2) S.I.P.H.E.R.-GUI       C++ / Qt 6 desktop softphone
+  1) SIPHER-CLI       C++ terminal SIP softphone
+  2) SIPHER-GUI       C++ / Qt 6 desktop softphone
   A) CLI + GUI             Build both editions
   P) Rebuild PJSIP         Force local PJSIP 2.17 / 64-call dependency build
-  X) Clean                 Remove S.I.P.H.E.R. build directories first
+  X) Clean                 Remove SIPHER build directories first
   D) Dependencies          Show host dependency information
   H) Audio Diagnose        Run audio/HDA preflight
   C) Capture Permissions   Configure non-root SIP/RTP capture access
-  R) Remove Install        Remove installed S.I.P.H.E.R. from the selected prefix
+  R) Remove Install        Remove installed SIPHER from the selected prefix
   Q) Quit
 
 Examples: 1     1,2     A     P,A     X A     R
@@ -342,7 +359,7 @@ Additional options:
 --audio-diagnose      inspect OS/PJSIP audio devices without changing audio configuration
 --configure-capture   install/configure non-root SIP/RTP packet-capture permissions
 --no-audio-fix        skip recognized automatic audio repair during a normal build
---uninstall           remove the installed S.I.P.H.E.R. files from --prefix
+--uninstall           remove the installed SIPHER files from --prefix
 --purge-user-data     with --uninstall, also remove current-user config/state
 -h, --help            show complete builder help
 ```
@@ -361,14 +378,14 @@ With no arguments it builds both CLI and GUI without installing them.
 
 ## PJSIP requirement for 50 calls
 
-PJSUA2 runtime `maxCalls` must be at or below the library's compile-time `PJSUA_MAX_CALLS`. S.I.P.H.E.R. 2.0.0 requires at least 50. The included PJSIP helper sets:
+PJSUA2 runtime `maxCalls` must be at or below the library's compile-time `PJSUA_MAX_CALLS`. SIPHER 2.0.0 requires at least 50. The included PJSIP helper sets:
 
 ```c
 #define PJSUA_MAX_CALLS 64
 #define PJ_IOQUEUE_MAX_HANDLES 256
 ```
 
-The top-level builder automatically adds its standard local PJSIP prefix to `PKG_CONFIG_PATH`. **You no longer need to remember `--pjsip` on a fresh machine.** If CLI or GUI is selected, the builder validates the discovered PJSIP installation with a small PJSUA2/audio link probe using the complete static `pkg-config` flags and verifies that the compile-time call ceiling is at least 50. If PJSIP is missing, stale, incompatible, or its static dependency chain cannot link, the builder automatically rebuilds S.I.P.H.E.R.'s local PJSIP 2.17 tree with `PJSUA_MAX_CALLS=64` and `PJ_IOQUEUE_MAX_HANDLES=256` before continuing.
+The top-level builder automatically adds its standard local PJSIP prefix to `PKG_CONFIG_PATH`. **You no longer need to remember `--pjsip` on a fresh machine.** If CLI or GUI is selected, the builder validates the discovered PJSIP installation with a small PJSUA2/audio link probe using the complete static `pkg-config` flags and verifies that the compile-time call ceiling is at least 50. If PJSIP is missing, stale, incompatible, or its static dependency chain cannot link, the builder automatically rebuilds SIPHER's local PJSIP 2.17 tree with `PJSUA_MAX_CALLS=64` and `PJ_IOQUEUE_MAX_HANDLES=256` before continuing.
 
 Normal first and later builds are therefore both:
 
@@ -395,7 +412,7 @@ If the machine uses an unsupported Linux package manager, the builder stops with
 The earlier Unix beta received a full Linux/FreeBSD source audit after the first live Linux builds exposed static-link issues. The refresh includes:
 
 - Complete static PJSIP dependency consumption through `pkg-config --libs --static libpjproject`, plus an early PJSUA2/audio link probe before the main build.
-- Automatic rebuild of a missing, stale, incompatible, or incompletely linked local PJSIP installation. Local builds are stamped with PJSIP version, operating-system family, CPU architecture, PIC configuration, and S.I.P.H.E.R.'s build recipe.
+- Automatic rebuild of a missing, stale, incompatible, or incompletely linked local PJSIP installation. Local builds are stamped with PJSIP version, operating-system family, CPU architecture, PIC configuration, and SIPHER's build recipe.
 - PJSIP built with `-fPIC`; FreeBSD uses `gmake`, `kqueue`, and external PortAudio.
 - Exact PJSIP 2.17 source-tag verification before reusing an existing bootstrap checkout.
 - Explicit SIP account transport binding so the profile's UDP/TCP/TLS selection controls registration and calls.
@@ -416,7 +433,7 @@ Settings:        ~/.config/trunkmonkey/trunkmonkey.ini
 Logs/state:      ~/.local/state/trunkmonkey/
 ```
 
-`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and `S.I.P.H.E.R._PROFILE` are honored when set to usable paths. This keeps an optional `/usr/local/bin` installation read-only and avoids trying to write configuration beside the executable.
+`XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and `SIPHER_PROFILE` are honored when set to usable paths. This keeps an optional `/usr/local/bin` installation read-only and avoids trying to write configuration beside the executable.
 
 ## Quick start
 
@@ -433,7 +450,7 @@ For the first build, simply select:
 A
 ```
 
-The builder checks/installs missing system dependencies first and automatically builds the local 64-call PJSIP dependency if it is not already available, then builds both S.I.P.H.E.R. clients.
+The builder checks/installs missing system dependencies first and automatically builds the local 64-call PJSIP dependency if it is not already available, then builds both SIPHER clients.
 
 Create a SIP profile:
 
@@ -451,7 +468,7 @@ Run the CLI after a combined build:
 Run the GUI:
 
 ```sh
-./build/all/sipher-gui my-sip.conf
+./build/all/sipher --gui my-sip.conf
 ```
 
 If you build only one edition, the corresponding output is under `build/cli/` or `build/gui/`.
@@ -549,7 +566,7 @@ tm> hangup 3
 
 ## GUI themes
 
-S.I.P.H.E.R. 2.0.0 includes the shared GUI/CLI theme family:
+SIPHER 2.0.0 includes the shared GUI/CLI theme family:
 
 - System
 - Hacker
@@ -560,7 +577,7 @@ S.I.P.H.E.R. 2.0.0 includes the shared GUI/CLI theme family:
 - Ice
 - Classic Light
 
-Use the Theme selector in the main window. The selection is saved with Qt `QSettings` to the local `config/trunkmonkey.ini` file and restored the next time S.I.P.H.E.R. starts. System clears the application stylesheet and follows the desktop/Qt platform theme.
+Use the Theme selector in the main window. The selection is saved with Qt `QSettings` to the local `config/trunkmonkey.ini` file and restored the next time SIPHER starts. System clears the application stylesheet and follows the desktop/Qt platform theme.
 
 ## Later targets
 
@@ -578,27 +595,27 @@ Use the Theme selector in the main window. The selection is saved with Qt `QSett
 
 ## PJSIP licensing
 
-PJSIP is separately licensed (GPLv2-or-later or a commercial/proprietary license option). Review its terms before distributing S.I.P.H.E.R. binaries. S.I.P.H.E.R.'s own project license has not been selected yet.
+PJSIP is separately licensed (GPLv2-or-later or a commercial/proprietary license option). Review its terms before distributing SIPHER binaries. SIPHER's own project license has not been selected yet.
 
 ### Static PJSIP dependency verification
-On Unix, the builder now verifies the exact static PJSIP dependency chain before starting the S.I.P.H.E.R. compile. It uses `pkg-config --cflags --libs --static libpjproject`, matching PJSIP's installed-static-library usage guidance. This prevents late linker failures caused by omitted `Libs.private` dependencies such as codec, ALSA, SRTP, UUID, echo-cancellation, and crypto libraries.
+On Unix, the builder now verifies the exact static PJSIP dependency chain before starting the SIPHER compile. It uses `pkg-config --cflags --libs --static libpjproject`, matching PJSIP's installed-static-library usage guidance. This prevents late linker failures caused by omitted `Libs.private` dependencies such as codec, ALSA, SRTP, UUID, echo-cancellation, and crypto libraries.
 
 ## First install profile seeding
 
-When a CLI and/or GUI build is installed system-wide through `build.sh`, the builder creates the current user's default profile at `~/.config/trunkmonkey/profile.conf` (or the XDG / `S.I.P.H.E.R._PROFILE` override) **after the install succeeds**. It copies the installed `profile.conf.example` and never overwrites an existing profile. The installed CLI/GUI can then launch into S.I.P.H.E.R.'s built-in SIP Profile editor without requiring the user to create the file manually.
+When a CLI and/or GUI build is installed system-wide through `build.sh`, the builder creates the current user's default profile at `~/.config/trunkmonkey/profile.conf` (or the XDG / `SIPHER_PROFILE` override) **after the install succeeds**. It copies the installed `profile.conf.example` and never overwrites an existing profile. The installed CLI/GUI can then launch into SIPHER's built-in SIP Profile editor without requiring the user to create the file manually.
 
 ### If the source directory was moved or deleted while a terminal was open
 
-Desktop file managers can move an open project directory into Trash while the shell prompt continues to display the old logical path. S.I.P.H.E.R. now detects this and refuses to build from a physical Trash path. `cd` out of the old terminal directory and enter a freshly extracted S.I.P.H.E.R. directory before running `./build.sh`.
+Desktop file managers can move an open project directory into Trash while the shell prompt continues to display the old logical path. SIPHER now detects this and refuses to build from a physical Trash path. `cd` out of the old terminal directory and enter a freshly extracted SIPHER directory before running `./build.sh`.
 
-The PJSIP helper also scrubs generated GNU-build state from S.I.P.H.E.R.'s cached `third_party/pjproject` checkout before reconfiguration. This prevents stale absolute paths in PJSIP's generated `build.mak` from breaking rebuilds after a source directory is renamed or moved.
+The PJSIP helper also scrubs generated GNU-build state from SIPHER's cached `third_party/pjproject` checkout before reconfiguration. This prevents stale absolute paths in PJSIP's generated `build.mak` from breaking rebuilds after a source directory is renamed or moved.
 
 
 ### FreeBSD LOCALBASE static linking
 FreeBSD ports/packages are normally installed under `LOCALBASE` (default `/usr/local`). The builder preserves pkg-config system library flags and explicitly supplies `$LOCALBASE/lib` when validating and linking static PJSIP, so ports-provided audio/codec/helper libraries can be resolved. Set `LOCALBASE` before running `build.sh` if your FreeBSD installation uses a non-default local prefix.
 
 ### Unix r11 PJSIP hardening (2026-08-15)
-- FreeBSD PJSIP/PJSUA2 and S.I.P.H.E.R. are pinned to the base Clang/libc++ ABI; mixed libstdc++ metadata is rejected.
+- FreeBSD PJSIP/PJSUA2 and SIPHER are pinned to the base Clang/libc++ ABI; mixed libstdc++ metadata is rejected.
 - FreeBSD PJSIP uses external PortAudio but no longer forces experimental kqueue. FreeBSD PJSIP requires PortAudio, Opus, bcg729, and libuuid explicitly; UPnP and legacy libwebrtc remain disabled for deterministic static linking.
 - Local PJSIP compatibility stamps include the FreeBSD ABI/compiler version so OS/toolchain upgrades trigger a safe rebuild.
 - Shutdown uses PJSIP 2.17 Account::shutdown2(), drains calls before account/endpoint teardown, and rejects new calls while stopping.
@@ -607,12 +624,12 @@ FreeBSD ports/packages are normally installed under `LOCALBASE` (default `/usr/l
 
 
 ### r11 PJSIP hardening completion
-- S.I.P.H.E.R. now requires its stamped managed PJSIP 2.17 build instead of silently consuming an arbitrary system libpjproject.
+- SIPHER now requires its stamped managed PJSIP 2.17 build instead of silently consuming an arbitrary system libpjproject.
 - The managed PJSIP source applies a narrow **PJSUA2 Call lifetime compatibility guard** so a delayed `pj::Call` destructor cannot clear a reused call slot or touch PJSUA after shutdown.
-- PJSIP is built with `make lib` rather than the default all-target, avoiding failures in sample/test executables S.I.P.H.E.R. does not ship or use.
+- PJSIP is built with `make lib` rather than the default all-target, avoiding failures in sample/test executables SIPHER does not ship or use.
 - The FreeBSD bootstrap explicitly requires PortAudio, Opus, bcg729, and libuuid, while disabling WebRTC AEC, UPnP, AMR, SILK, and video helpers. Bundled G.711/G.722/GSM/Speex/iLBC remain available.
 - The PJSIP compatibility stamp is v9 so older local builds are rebuilt once with the r11 ABI/I/O-queue recipe.
 
 ### Windows 11 CI build
 
-The source tree includes `.github/workflows/windows11-portable.yml`. When the project is hosted on GitHub, **Actions → Windows 11 Portable Build → Run workflow** builds and regression-tests the Windows 10/11 x64 portable folder on a native Windows runner and publishes it as a downloadable workflow artifact containing `sipher.exe` and `sipher-gui.exe` plus their runtime dependencies.
+The source tree includes `.github/workflows/windows11-portable.yml`. When the project is hosted on GitHub, **Actions → Windows 11 Portable Build → Run workflow** builds and regression-tests the Windows 10/11 x64 portable folder on a native Windows runner and publishes it as a downloadable workflow artifact containing `sipher.exe` and `sipher.exe` plus their runtime dependencies.

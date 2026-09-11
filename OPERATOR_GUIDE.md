@@ -12,15 +12,15 @@ Safeguards are built in: custom HDA hints are never overridden, PulseAudio is re
 
 The prefix applies only to plain dial strings. Explicit SIP URIs are left untouched.
 
-# S.I.P.H.E.R. Operator Guide
+# SIPHER Operator Guide
 
 
 ## PBX dial prefix
 
 If Asterisk/FreePBX requires access/routing digits before the called number, edit **Dial prefix** directly on the GUI Main page or use `prefix <value>` in the CLI. The SIP profile's `dial_prefix` is only an optional startup default. Example: with the live prefix `4071`, dialing `3306651498` sends the call to `sip:40713306651498@<PBX>`. Use `prefix off` or leave the GUI field blank for no prefix. Explicit `sip:`/`sips:` URIs and `user@domain` destinations are left unchanged.
 
-SIP diagnostics label outbound messages **SENT →** and inbound messages **← RECEIVED** so you can verify the exact signaling S.I.P.H.E.R. transmitted.
-S.I.P.H.E.R. 1.0 keeps the full TrunkMonkey 2.0 r20 engine but makes the terminal interface usable without memorizing commands.
+SIP diagnostics label outbound messages **SENT →** and inbound messages **← RECEIVED** so you can verify the exact signaling SIPHER transmitted.
+SIPHER 2.0 keeps the full hardened VoIP/PBX engine but makes the terminal interface usable without memorizing commands.
 
 ## Start here
 
@@ -60,7 +60,7 @@ The normal builder configures capture permissions. Repair them without rebuildin
 ./build.sh --configure-capture
 ```
 
-Linux uses least-privilege capture capabilities. FreeBSD uses persistent BPF/devfs access. S.I.P.H.E.R. itself should run as the normal user.
+Linux uses least-privilege capture capabilities. FreeBSD uses persistent BPF/devfs access. SIPHER itself should run as the normal user.
 
 ## When the wrong microphone is used
 
@@ -79,12 +79,12 @@ PBX audit workflows are for systems you own or are explicitly authorized to test
 
 ## Unix/Linux audio output selection
 
-S.I.P.H.E.R. can switch the PJSIP playback device at runtime without changing the active microphone. This is useful for moving call audio among built-in speakers, USB headsets, HDMI/DisplayPort outputs, and other audio devices exposed to PJSIP.
+SIPHER can switch the PJSIP playback device at runtime without changing the active microphone. This is useful for moving call audio among built-in speakers, USB headsets, HDMI/DisplayPort outputs, and other audio devices exposed to PJSIP.
 
 - **GUI (Unix/Linux):** `Settings -> Audio Output...` lists playback-capable devices and marks the active selection. Applying a selection changes output only.
 - **CLI guided menu:** choose `Audio devices & registration history -> Choose audio output device`.
 - **CLI command:** run `audio-devices` to list IDs, then `audio-output <playback-id>`.
-- **Startup override:** `SIPHER_PLAYBACK_DEVICE=<id> sipher` (or `sipher-gui`) still selects an output before registration.
+- **Startup override:** `SIPHER_PLAYBACK_DEVICE=<id> sipher` (or `sipher --gui`) still selects an output before registration.
 
 The existing `audio-use <capture-id> <playback-id>` command and GUI `Audio Devices...` dialog remain available when both microphone and playback routing need to be changed.
 
@@ -110,6 +110,6 @@ audio-use <capture-id> <playback-id>
 
 Automatic switching is enabled by default on Linux and FreeBSD. Use `audio-auto off` to disable it for a session and `audio-auto on` to enable it again. `audio-status` reports the watcher backend and route.
 
-Linux uses PipeWire/PulseAudio (`pactl`) sink/source port state. FreeBSD prefers PulseAudio state when available; otherwise it monitors `hw.snd.default_unit`, `/dev/sndstat`, and the active `mixer -d <unit> -s` recording source. On a route change S.I.P.H.E.R. detaches the foreground call from the local sound bridge, closes PJSIP audio, refreshes devices, reopens audio, verifies the sound device, and reattaches the call without sending SIP BYE or redialing.
+Linux uses PipeWire/PulseAudio (`pactl`) sink/source port state. FreeBSD prefers PulseAudio state when available; otherwise it monitors `hw.snd.default_unit`, `/dev/sndstat`, and the active `mixer -d <unit> -s` recording source. On a route change SIPHER detaches the foreground call from the local sound bridge, closes PJSIP audio, refreshes devices, reopens audio, verifies the sound device, and reattaches the call without sending SIP BYE or redialing.
 
-On FreeBSD snd_hda systems where internal speakers and headphones are in the same output association, headphone speaker-auto-mute is performed by the kernel. S.I.P.H.E.R. intentionally does not rewrite pin associations during a call.
+On FreeBSD snd_hda systems where internal speakers and headphones are in the same output association, headphone speaker-auto-mute is performed by the kernel. SIPHER intentionally does not rewrite pin associations during a call.

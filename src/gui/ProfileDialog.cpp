@@ -18,14 +18,14 @@ using namespace trunkmonkey;
 bool editSipProfileDialog(QWidget* parent,SipProfile& profile,const QString& profilePath,bool firstRun)
 {
     QDialog dialog(parent);
-    dialog.setWindowTitle(firstRun?QStringLiteral("S.I.P.H.E.R. First-Run SIP Setup"):QStringLiteral("S.I.P.H.E.R. SIP Profile"));
+    dialog.setWindowTitle(firstRun?QStringLiteral("SIPHER — Add SIP Account"):QStringLiteral("SIPHER — Edit SIP Account"));
     dialog.resize(560,540);
     auto* outer=new QVBoxLayout(&dialog);
     auto* note=new QLabel(QStringLiteral("Profile file: %1").arg(profilePath),&dialog);
     note->setWordWrap(true);
     outer->addWidget(note);
     if(firstRun){
-        auto* intro=new QLabel(QStringLiteral("Enter the SIP account S.I.P.H.E.R. should register with. You can change these settings later from Settings → SIP Profile."),&dialog);
+        auto* intro=new QLabel(QStringLiteral("Add one SIP identity to SIPHER Multiple accounts can remain registered simultaneously. Adding an account is optional; the application also runs with zero SIP accounts."),&dialog);
         intro->setWordWrap(true); outer->addWidget(intro);
     }
     auto* form=new QFormLayout;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(SIPHERClient VERSION 1.0.0 LANGUAGES CXX)
+project(SIPHERClient VERSION 2.0.0 LANGUAGES CXX)
 option(TRUNKMONKEY_BUILD_GUI "Build Qt GUI" ON)
 option(TRUNKMONKEY_BUILD_CLI "Build CLI" ON)
 option(TRUNKMONKEY_BUILD_TESTS "Build tests" ON)
@@ -20,7 +20,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
   set(ENV{PKG_CONFIG_ALLOW_SYSTEM_LIBS} "1")
 endif()
 
-# PJSIP is installed as static libraries by the S.I.P.H.E.R. bootstrap.
+# PJSIP is installed as static libraries by the SIPHER bootstrap.
 # For static PJSIP, the public libpjproject list is not enough: codec, audio,
 # crypto, UUID, SRTP, WebRTC AEC, and other transitive dependencies must also
 # be present on the final link line. FindPkgConfig exposes the exact flags that
@@ -28,7 +28,7 @@ endif()
 pkg_check_modules(PJPROJECT REQUIRED libpjproject)
 
 if(NOT PJPROJECT_VERSION VERSION_EQUAL "2.17")
- message(FATAL_ERROR "S.I.P.H.E.R. requires PJSIP 2.17; pkg-config reported ${PJPROJECT_VERSION}")
+ message(FATAL_ERROR "SIPHER requires PJSIP 2.17; pkg-config reported ${PJPROJECT_VERSION}")
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
@@ -45,7 +45,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
    "FreeBSD PJSIP does not advertise libc++ linkage. Rebuild the managed PJSIP with ./build.sh --pjsip.")
  endif()
  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  message(FATAL_ERROR "FreeBSD S.I.P.H.E.R. must be compiled with base Clang/libc++; got ${CMAKE_CXX_COMPILER_ID}")
+  message(FATAL_ERROR "FreeBSD SIPHER must be compiled with base Clang/libc++; got ${CMAKE_CXX_COMPILER_ID}")
  endif()
 endif()
 
@@ -94,14 +94,12 @@ if(WIN32)
 endif()
 set(TM_INSTALL)
 
-if(TRUNKMONKEY_BUILD_CLI)
- add_executable(trunkmonkey-cli src/cli/main.cpp src/cli/CliDashboard.cpp src/cli/CliDashboard.h)
- target_include_directories(trunkmonkey-cli PRIVATE src/cli)
- target_link_libraries(trunkmonkey-cli PRIVATE trunkmonkey_core)
- set_target_properties(trunkmonkey-cli PROPERTIES OUTPUT_NAME "sipher")
- list(APPEND TM_INSTALL trunkmonkey-cli)
-endif()
-
+# SIPHER 2.0 exposes one public executable name: `sipher`.
+# - CLI-only build: sipher contains the CLI frontend.
+# - GUI-only build: sipher contains the Qt frontend.
+# - CLI+GUI build: sipher contains both frontends and src/app/main.cpp selects
+#   CLI for a real terminal/TTY and GUI for a desktop launch. --cli/--gui and
+#   SIPHER_UI=cli|gui remain explicit overrides.
 if(TRUNKMONKEY_BUILD_GUI)
  if(SAK_QT_MAJOR STREQUAL "5")
   find_package(Qt5 REQUIRED COMPONENTS Core Widgets Network)
@@ -114,27 +112,49 @@ if(TRUNKMONKEY_BUILD_GUI)
   find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets Network)
   set(SAK_QT_TARGET Qt${QT_VERSION_MAJOR})
  endif()
- add_executable(trunkmonkey-gui
+endif()
+
+set(SIPHER_APP_SOURCES)
+if(TRUNKMONKEY_BUILD_CLI)
+ list(APPEND SIPHER_APP_SOURCES src/cli/main.cpp src/cli/CliDashboard.cpp src/cli/CliDashboard.h)
+endif()
+if(TRUNKMONKEY_BUILD_GUI)
+ list(APPEND SIPHER_APP_SOURCES
   src/gui/main.cpp src/gui/MainWindow.cpp src/gui/MainWindow.h
   src/gui/ProfileDialog.cpp src/gui/ProfileDialog.h
   src/gui/ModernStyle.cpp src/gui/ModernStyle.h
   src/gui/sipher_resources.qrc)
- set_target_properties(trunkmonkey-gui PROPERTIES AUTOMOC ON AUTORCC ON)
- if(WIN32)
-  set_target_properties(trunkmonkey-gui PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
+if(TRUNKMONKEY_BUILD_CLI AND TRUNKMONKEY_BUILD_GUI)
+ list(APPEND SIPHER_APP_SOURCES src/app/main.cpp src/app/Frontend.h)
+endif()
+
+if(SIPHER_APP_SOURCES)
+ add_executable(sipher-app ${SIPHER_APP_SOURCES})
+ set_target_properties(sipher-app PROPERTIES OUTPUT_NAME "sipher")
+ target_include_directories(sipher-app PRIVATE src/app src/cli src/gui)
+ target_link_libraries(sipher-app PRIVATE trunkmonkey_core)
+ if(TRUNKMONKEY_BUILD_CLI AND TRUNKMONKEY_BUILD_GUI)
+  target_compile_definitions(sipher-app PRIVATE SIPHER_UNIFIED_ENTRY=1)
  endif()
- if(APPLE)
-  set_target_properties(trunkmonkey-gui PROPERTIES
+ if(TRUNKMONKEY_BUILD_GUI)
+  set_target_properties(sipher-app PROPERTIES AUTOMOC ON AUTORCC ON)
+  target_link_libraries(sipher-app PRIVATE ${SAK_QT_TARGET}::Core ${SAK_QT_TARGET}::Widgets ${SAK_QT_TARGET}::Network)
+  if(WIN32)
+   # The unified Windows entry point is a GUI-subsystem process that attaches
+   # to its parent console when launched from cmd/PowerShell, otherwise GUI.
+   set_target_properties(sipher-app PROPERTIES WIN32_EXECUTABLE TRUE)
+  endif()
+  if(APPLE)
+   set_target_properties(sipher-app PROPERTIES
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_BUNDLE_NAME "SIPHER"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.sipher.client"
-    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
-    MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0")
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "2.0"
+    MACOSX_BUNDLE_BUNDLE_VERSION "2.0.0")
+  endif()
  endif()
- target_include_directories(trunkmonkey-gui PRIVATE src/gui)
- target_link_libraries(trunkmonkey-gui PRIVATE trunkmonkey_core ${SAK_QT_TARGET}::Core ${SAK_QT_TARGET}::Widgets ${SAK_QT_TARGET}::Network)
- set_target_properties(trunkmonkey-gui PROPERTIES OUTPUT_NAME "sipher-gui")
- list(APPEND TM_INSTALL trunkmonkey-gui)
+ list(APPEND TM_INSTALL sipher-app)
 endif()
 
 if(TRUNKMONKEY_BUILD_TESTS)
@@ -153,9 +173,6 @@ if(TRUNKMONKEY_BUILD_TESTS)
  add_test(NAME cli-dashboard-test COMMAND tm-cli-dashboard-test)
  add_executable(tm-capture-manager-test tests/capture_manager_test.cpp src/core/CaptureManager.cpp src/core/Logger.cpp)
  target_include_directories(tm-capture-manager-test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
- # CaptureManager launches Wireshark asynchronously with std::thread.  Link the
- # standalone regression target to the platform thread library too (required
- # by FreeBSD/Clang where pthread symbols are not pulled in implicitly).
  target_link_libraries(tm-capture-manager-test PRIVATE Threads::Threads)
  add_test(NAME capture-manager-test COMMAND tm-capture-manager-test)
  add_executable(tm-pbx-audit-test tests/pbx_audit_test.cpp src/core/PbxAudit.cpp src/core/RuntimePaths.cpp)
@@ -167,12 +184,14 @@ if(TRUNKMONKEY_BUILD_TESTS)
  add_test(NAME pbx-audit-test COMMAND tm-pbx-audit-test)
  set_tests_properties(pbx-audit-test PROPERTIES TIMEOUT 30)
  if(UNIX)
-  # Current r18 release gates.  Do not register the historical r15 hash test
-  # here: r18 intentionally extends PbxAudit/SipTrace/SipWireMonitor.
-  add_test(NAME r18-core-preservation COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r18_core_preservation_test.sh)
-  add_test(NAME r17-phreak-ui-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r17_phreak_ui_source_test.sh)
+  # Current-release contracts only. Historical r15/r17 hash/version tests are
+  # intentionally not registered against 2.0 because r18/r19 changed those
+  # modules by design.
   add_test(NAME r18-did-route-audit-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r18_did_route_audit_source_test.sh)
+  add_test(NAME r19-multi-account-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r19_multi_account_source_test.sh)
+  add_test(NAME sipher-2.0-unified-entry-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/sipher_2_0_unified_entry_source_test.sh)
   add_test(NAME all-platform-builder-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/all_platform_builder_source_test.sh)
+  add_test(NAME exploit-fix-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/exploit_fix_source_test.sh)
   add_test(NAME freebsd-audio-compat-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/freebsd_audio_compat_test.sh)
  endif()
  if(NOT MSVC)
@@ -186,33 +205,22 @@ if(TRUNKMONKEY_BUILD_TESTS)
 endif()
 
 if(TM_INSTALL)
-  if(APPLE AND TARGET trunkmonkey-gui)
-    if(TARGET trunkmonkey-cli)
-      install(TARGETS trunkmonkey-cli RUNTIME DESTINATION bin)
-    endif()
-    install(TARGETS trunkmonkey-gui BUNDLE DESTINATION .)
-  else()
-    install(TARGETS ${TM_INSTALL} RUNTIME DESTINATION bin)
-  endif()
+ if(APPLE AND TRUNKMONKEY_BUILD_GUI)
+  install(TARGETS sipher-app BUNDLE DESTINATION .)
+ else()
+  install(TARGETS sipher-app RUNTIME DESTINATION bin)
+ endif()
 endif()
 install(FILES examples/profile.conf.example examples/destinations.txt examples/callerids.txt
-        DESTINATION share/trunkmonkey/examples)
-# Exploit-fix release notes are installed alongside the historical documentation.
+ DESTINATION share/trunkmonkey/examples)
 install(FILES README.md OPERATOR_GUIDE.md RELEASE_NOTES.md CHANGELOG.md SECURITY_AUDIT.md R16-MODERNIZATION.md UI-IDENTITY-R17.md
-        EXPLOIT-FIX-RELEASE-NOTES.md DESTINATION share/doc/trunkmonkey)
+ EXPLOIT-FIX-RELEASE-NOTES.md R18-DID-ROUTE-AUDIT-RELEASE-NOTES.md R19-MULTI-SIP-RELEASE-NOTES.md SIPHER-2.0-RELEASE-NOTES.md
+ DESTINATION share/doc/trunkmonkey)
 
 # EXPLOIT_FIX_HARDENING: compiler/linker defenses for the security release.
-if(UNIX)
-  if(TARGET trunkmonkey-cli)
-    target_compile_options(trunkmonkey-cli PRIVATE -fstack-protector-strong $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
-    if(NOT APPLE)
-      target_link_options(trunkmonkey-cli PRIVATE -Wl,-z,relro -Wl,-z,now)
-    endif()
-  endif()
-  if(TARGET trunkmonkey-gui)
-    target_compile_options(trunkmonkey-gui PRIVATE -fstack-protector-strong $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
-    if(NOT APPLE)
-      target_link_options(trunkmonkey-gui PRIVATE -Wl,-z,relro -Wl,-z,now)
-    endif()
+if(UNIX AND TARGET sipher-app)
+  target_compile_options(sipher-app PRIVATE -fstack-protector-strong $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
+  if(NOT APPLE)
+    target_link_options(sipher-app PRIVATE -Wl,-z,relro -Wl,-z,now)
   endif()
 endif()

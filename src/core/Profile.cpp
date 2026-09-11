@@ -199,7 +199,7 @@ void ProfileStore::save(const SipProfile& p, const std::string& path)
 #ifndef _WIN32
         (void)::chmod(tempPath.c_str(), S_IRUSR | S_IWUSR);
 #endif
-        out << "# S.I.P.H.E.R. SIP profile\n"
+        out << "# SIPHER SIP profile\n"
             << "name=" << p.name << "\n"
             << "sip_domain=" << p.sipDomain << "\n"
             << "registrar=" << p.registrar << "\n"

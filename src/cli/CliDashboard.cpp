@@ -376,9 +376,9 @@ std::vector<std::string> CliDashboard::headerLines(const DashboardState& state,i
 ─ ▀▀▀▀▀▀▀▀▀▀▀ ─  ▀▀▀▀▀▀▀▀▀▀▀▀ ───── ▀▀▀▀ ───────── ▀▀▀▀▀ ─ ▀▀▀▀▀ ── ▀▀▀▀▀▀▀▀▀▀▀ ───── ▀▀▀▀ ─ ▀▀▀▀ ─)SIPHER";
         auto art=splitLines(logo);
         for(const auto& line:art) lines.push_back(paint(line,BRIGHT_YELLOW));
-        lines.push_back(paint("S.I.P.H.E.R. // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
+        lines.push_back(paint("SIPHER // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
     } else {
-        lines.push_back(paint("S.I.P.H.E.R. // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
+        lines.push_back(paint("SIPHER // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
     }
     lines.push_back(paint("PHONE-PHREAK SIGNAL LAB  //  SIP / RTP / SWITCH RECON",BRIGHT_CYAN));
     lines.push_back("LINE ACCESS | SIGNAL TAP | MEDIA TRACE | BLAST DECK | SWITCH AUDIT");
@@ -722,7 +722,7 @@ std::vector<std::string> CliDashboard::pageBarLines(DashboardPage page,int width
 {
     const std::vector<std::string> labels={"1 Line","2 Tap","3 Media","4 Calls","5 Switch","6 ID","7 Help","8 Wire","9 Blast"};
     const int available=std::max(16,width-4);std::vector<std::string> rows;
-    std::string row=paint(std::string("S.I.P.H.E.R. ")+TRUNKMONKEY_VERSION,BRIGHT_YELLOW)+paint("  //  PHREAK DECK",DIM);
+    std::string row=paint(std::string("SIPHER ")+TRUNKMONKEY_VERSION,BRIGHT_YELLOW)+paint("  //  PHREAK DECK",DIM);
     for(std::size_t i=0;i<labels.size();++i){
         const bool current=static_cast<int>(page)==static_cast<int>(i+1);
         const std::string item=current?paint("["+labels[i]+"]",BRIGHT_GREEN):paint(labels[i],BRIGHT_CYAN);
@@ -790,7 +790,7 @@ void CliDashboard::render(const DashboardState& state,std::ostream& out,bool ful
         out<<"\033[?25l\033[H";
 #endif
     }
-    if(vtEnabled_) out<<"\033]0;S.I.P.H.E.R. PHREAK LAB — "<<pageName(state.page)<<"\007";
+    if(vtEnabled_) out<<"\033]0;SIPHER PHREAK LAB — "<<pageName(state.page)<<"\007";
 
     for(const auto& line:panelLines("",pageBarLines(state.page,size.columns),size.columns)) out<<line<<'\n';
 
@@ -897,7 +897,7 @@ void CliDashboard::showOverlay(const std::string& title,const std::string& body,
 void CliDashboard::pauseForEnter(std::istream& in,std::ostream& out) const
 {
     if(!enabled_) return;
-    out<<"\n"<<paint("Press Enter to return to S.I.P.H.E.R....",DIM)<<std::flush;
+    out<<"\n"<<paint("Press Enter to return to SIPHER...",DIM)<<std::flush;
     std::string ignored;
     std::getline(in,ignored);
 }

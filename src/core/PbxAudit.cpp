@@ -237,12 +237,12 @@ std::string sipRequest(const std::string& method,const std::string& uri,const st
     s<<method<<" "<<uri<<" SIP/2.0\r\n"
      <<"Via: SIP/2.0/"<<(transport==AuditTransport::Udp?"UDP":"TCP")<<" 0.0.0.0:5060;branch="<<branch<<";rport\r\n"
      <<"Max-Forwards: 70\r\n"
-     <<"From: \"S.I.P.H.E.R. Audit\" <sip:sipher-audit@"<<host<<">;tag="<<tag<<"\r\n"
+     <<"From: \"SIPHER Audit\" <sip:sipher-audit@"<<host<<">;tag="<<tag<<"\r\n"
      <<"To: <sip:"<<(toUser.empty()?host:toUser+"@"+host)<<">\r\n"
      <<"Call-ID: "<<cid<<"\r\n"
      <<"CSeq: 1 "<<method<<"\r\n"
      <<"Contact: <sip:sipher-audit@127.0.0.1>\r\n"
-     <<"User-Agent: S.I.P.H.E.R./1.0.0\r\n";
+     <<"User-Agent: SIPHER/2.0\r\n";
     for(const auto&x:extra)s<<x<<"\r\n";
     s<<"Content-Length: 0\r\n\r\n";
     return s.str();
@@ -633,7 +633,7 @@ PbxFingerprint PbxAudit::fingerprintFromProbe(const AuditResponse& probe)
     if(!probe.server.empty())fp.components.insert(fp.components.begin(),{fp.product,fp.version,"Server: "+probe.server});
     else if(!probe.userAgent.empty())fp.components.insert(fp.components.begin(),{fp.product,fp.version,"User-Agent: "+probe.userAgent});
     fp.notes.push_back("Fingerprinting is best-effort and based on information remotely disclosed by SIP responses.");
-    fp.notes.push_back("Authenticated PBX plugin/module inventories are not remotely enumerated; S.I.P.H.E.R. lists only banners and disclosed SIP capabilities/modules.");
+    fp.notes.push_back("Authenticated PBX plugin/module inventories are not remotely enumerated; SIPHER lists only banners and disclosed SIP capabilities/modules.");
     return fp;
 }
 
@@ -763,7 +763,7 @@ AutomatedAuditResult PbxAudit::automatedAudit(const AutomatedAuditOptions& optio
 std::string AutomatedAuditResult::toText() const
 {
     std::ostringstream o;
-    o<<"S.I.P.H.E.R. 1.0.0 r8 — AUTOMATED CHAINED PBX / SIP SECURITY AUDIT\n";
+    o<<"SIPHER 2.0 — AUTOMATED CHAINED PBX / SIP SECURITY AUDIT\n";
     o<<PbxAudit::warningText()<<"\n\n";
     o<<"Target: "<<options.host<<":"<<options.port<<"/"<<PbxAudit::transportName(options.transport)<<"\n";
     if(!options.username.empty())o<<"Authorized test account: "<<options.username<<"\n";
@@ -810,7 +810,7 @@ std::string AutomatedAuditResult::toText() const
 
 std::string PbxFingerprint::toText() const
 {
-    std::ostringstream o;o<<"S.I.P.H.E.R. By GITSC — PBX / SIP FINGERPRINT\n"<<"Target: "<<host<<"\nProduct: "<<product<<"\n";
+    std::ostringstream o;o<<"SIPHER By GITSC — PBX / SIP FINGERPRINT\n"<<"Target: "<<host<<"\nProduct: "<<product<<"\n";
     if(!vendor.empty())o<<"Vendor: "<<vendor<<"\n";
     if(!version.empty())o<<"Version: "<<version<<"\n";
     o<<"Confidence: "<<confidence<<"\n";
@@ -829,7 +829,7 @@ std::string PbxAudit::vulnerabilityLookupReport(const PbxFingerprint&fp,unsigned
     if(fp.product.empty()||fp.product.find("Unknown")!=std::string::npos){o<<"No recognized product fingerprint is available; CVE correlation skipped to avoid broad/noisy matching.\n";return o.str();}
     const std::string query=fp.product+(fp.version.empty()?std::string{}:" "+fp.version);
     const std::string url="https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch="+urlEncode(query)+"&resultsPerPage="+std::to_string(maxResults);
-    std::vector<std::string> curl={"curl","-fsSL","--connect-timeout","6","--max-time","15","-A","S.I.P.H.E.R./1.0.0",url};
+    std::vector<std::string> curl={"curl","-fsSL","--connect-timeout","6","--max-time","15","-A","SIPHER/2.0",url};
     if(const char*key=std::getenv("NVD_API_KEY");key&&*key){curl.insert(curl.end()-1,"-H");curl.insert(curl.end()-1,std::string("apiKey:")+key);}
     int nvdRc=0;const auto json=runProgramCapture(curl,18000,&nvdRc);o<<"NIST NVD CVE 2.0 — query: "<<query<<"\n";
     unsigned shown=0;std::size_t pos=0;
@@ -854,7 +854,7 @@ std::string PbxAudit::tlsAudit(const std::string&host,std::uint16_t port,unsigne
     const std::string endpoint=host+":"+std::to_string(port);
     int rc=0;auto out=runProgramCapture({"openssl","s_client","-connect",endpoint,"-servername",host,"-brief","-no_ign_eof"},timeoutMs+2000,&rc);
     if(out.empty()){
-        if(rc!=0)return "TLS audit helper unavailable or handshake failed. Portable Windows builds expect openssl.exe beside S.I.P.H.E.R. or on PATH.";
+        if(rc!=0)return "TLS audit helper unavailable or handshake failed. Portable Windows builds expect openssl.exe beside SIPHER or on PATH.";
         return "No TLS handshake output received.";
     }
     std::vector<std::string> verify={"openssl","s_client","-connect",endpoint,"-servername",host,"-brief","-verify_return_error","-no_ign_eof"};
@@ -884,7 +884,7 @@ std::string AuditResponse::toText(bool includeRaw) const
 
 std::string PbxAudit::report(const std::string&title,const std::vector<AuditResponse>&responses,const std::vector<ExtensionAuditEntry>&extensions,const std::string&tls,const std::vector<DiscoveryEntry>&discovery)
 {
-    std::ostringstream o;o<<"S.I.P.H.E.R. 1.0.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\n"<<title<<"\n"<<warningText()<<"\n\n";
+    std::ostringstream o;o<<"SIPHER 2.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\n"<<title<<"\n"<<warningText()<<"\n\n";
     if(!discovery.empty()){
         o<<"Bounded SIP discovery results\n";
         o<<"HOST                 PORT  TRANSPORT  CODE  LATENCY   BANNER\n";

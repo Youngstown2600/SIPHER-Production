@@ -69,18 +69,18 @@ void makePrivateDir(const std::filesystem::path& path)
     std::error_code ec;
     std::filesystem::create_directories(path, ec);
     if (ec && !std::filesystem::is_directory(path)) {
-        throw std::runtime_error("Unable to create S.I.P.H.E.R. data directory: " + path.string() + ": " + ec.message());
+        throw std::runtime_error("Unable to create SIPHER data directory: " + path.string() + ": " + ec.message());
     }
 #ifndef _WIN32
     struct stat st{};
     if (::lstat(path.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
-        throw std::runtime_error("Unsafe S.I.P.H.E.R. runtime/data directory: " + path.string());
+        throw std::runtime_error("Unsafe SIPHER runtime/data directory: " + path.string());
     }
     if (st.st_uid != ::geteuid()) {
-        throw std::runtime_error("Refusing S.I.P.H.E.R. directory not owned by the current user: " + path.string());
+        throw std::runtime_error("Refusing SIPHER directory not owned by the current user: " + path.string());
     }
     if (::chmod(path.c_str(), S_IRWXU) != 0) {
-        throw std::runtime_error("Unable to secure S.I.P.H.E.R. directory permissions: " + path.string());
+        throw std::runtime_error("Unable to secure SIPHER directory permissions: " + path.string());
     }
 #endif
 }
@@ -146,11 +146,11 @@ std::filesystem::path tempDir()
         std::vector<char> buf(pattern.begin(), pattern.end());
         buf.push_back('\0');
         char* made = ::mkdtemp(buf.data());
-        if (!made) throw std::runtime_error("Unable to create secure S.I.P.H.E.R. runtime directory");
+        if (!made) throw std::runtime_error("Unable to create secure SIPHER runtime directory");
         if (::chmod(made, S_IRWXU) != 0) {
             const std::string failed = made;
             (void)::rmdir(made);
-            throw std::runtime_error("Unable to secure S.I.P.H.E.R. runtime directory: " + failed);
+            throw std::runtime_error("Unable to secure SIPHER runtime directory: " + failed);
         }
         return std::filesystem::path(made);
     }();
@@ -215,7 +215,7 @@ void configurePortableEnvironment()
     const auto root = portableRoot();
     if (root.empty()) return;
 
-    // Make helper discovery work even when the user double-clicks sipher-gui.exe
+    // Make helper discovery work even when the user double-clicks sipher.exe
     // directly instead of using SIPHER-GUI.cmd.
     if (envPath("SIPHER_PORTABLE_ROOT").empty()) {
         (void)SetEnvironmentVariableW(L"SIPHER_PORTABLE_ROOT", root.wstring().c_str());

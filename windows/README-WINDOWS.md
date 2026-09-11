@@ -1,8 +1,8 @@
-# S.I.P.H.E.R. Portable Windows Builds
+# SIPHER Portable Windows Builds
 
-**S.I.P.H.E.R. By GITSC — SIP Inspection, Protocol Handling, Enumeration & Recon**
+**SIPHER By GITSC — SIP Inspection, Protocol Handling, Enumeration & Recon**
 
-The Windows port uses the same S.I.P.H.E.R. SIP/PJSIP core, GUI workflows, CLI commands, security-audit code, RTP diagnostics, queue testing and 26-theme set as the Linux/FreeBSD release.
+The Windows port uses the same SIPHER SIP/PJSIP core, GUI workflows, CLI commands, security-audit code, RTP diagnostics, queue testing and 26-theme set as the Linux/FreeBSD release.
 
 ## Two targets
 
@@ -26,27 +26,27 @@ Build with:
 build-windows-portable.cmd win10
 ```
 
-This target selects Qt 6. The Windows CLI enables VT rendering when the console supports it. For PCAP capture, S.I.P.H.E.R. can use `dumpcap` when available or the Windows `pktmon` fallback.
+This target selects Qt 6. The Windows CLI enables VT rendering when the console supports it. For PCAP capture, SIPHER can use `dumpcap` when available or the Windows `pktmon` fallback.
 
 ## Build host
 
 Use a current Windows 10/11 x64 machine with MSYS2 installed at `C:\msys64`. The builder runs from the MSYS2 MINGW64 environment and automatically installs missing build dependencies with `pacman` unless `--no-install-deps` is passed to `windows/build-portable.sh`.
 
-The builder automatically downloads/builds **PJSIP 2.17**, preserving S.I.P.H.E.R.'s 64-call PJSUA configuration and Call-slot lifetime guard.
+The builder automatically downloads/builds **PJSIP 2.17**, preserving SIPHER's 64-call PJSUA configuration and Call-slot lifetime guard.
 
 ## Automatic RTP decode in Wireshark (r7)
 
-For Wireshark **Telephony -> VoIP Calls**, use the r15 **FULL VOIP PCAP** workflow: start it before dialing, keep it running through hangup, then open it from S.I.P.H.E.R. The file contains SIP/SDP and RTP/RTCP together. RTP-only captures still support `pcap-open <id> <file>` for explicit media Decode As mappings.
+For Wireshark **Telephony -> VoIP Calls**, use the r15 **FULL VOIP PCAP** workflow: start it before dialing, keep it running through hangup, then open it from SIPHER The file contains SIP/SDP and RTP/RTCP together. RTP-only captures still support `pcap-open <id> <file>` for explicit media Decode As mappings.
 
-S.I.P.H.E.R. looks for `Wireshark.exe` on PATH and in the normal 64-bit/32-bit Wireshark install directories. Wireshark itself is not redistributed in the portable application package.
+SIPHER looks for `Wireshark.exe` on PATH and in the normal 64-bit/32-bit Wireshark install directories. Wireshark itself is not redistributed in the portable application package.
 
 ## Produced portable folder
 
 The result is staged under `dist/`:
 
 ```text
-SIPHER-1.0.0-Windows...-Portable-x64/
-  sipher-gui.exe
+SIPHER-2.0-Windows...-Portable-x64/
+  sipher.exe
   sipher.exe
   SIPHER-GUI.cmd
   SIPHER-CLI.cmd
@@ -65,11 +65,11 @@ SIPHER-1.0.0-Windows...-Portable-x64/
   docs/
 ```
 
-`SIPHER-GUI.cmd` and `SIPHER-CLI.cmd` set `SIPHER_PORTABLE_ROOT` and add the local `tools` folder to `PATH`. The executables are also compiled with portable-path support, so S.I.P.H.E.R. keeps profiles, themes, logs, diagnostics, CVE cache, and temporary queue-audio files in the local `data` tree instead of `%APPDATA%`.
+`SIPHER-GUI.cmd` and `SIPHER-CLI.cmd` set `SIPHER_PORTABLE_ROOT` and add the local `tools` folder to `PATH`. The executables are also compiled with portable-path support, so SIPHER keeps profiles, themes, logs, diagnostics, CVE cache, and temporary queue-audio files in the local `data` tree instead of `%APPDATA%`.
 
 ## Feature parity
 
-See `FEATURE-PARITY.md`. The one OS-level limitation is Win7 packet capture driver availability; the S.I.P.H.E.R. code paths themselves remain present.
+See `FEATURE-PARITY.md`. The one OS-level limitation is Win7 packet capture driver availability; the SIPHER code paths themselves remain present.
 
 ## Security audit scope
 

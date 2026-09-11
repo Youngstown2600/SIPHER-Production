@@ -1,12 +1,5 @@
 # S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit
 
-- Fixed the Qt GUI Linux/macOS/FreeBSD/Termux compile failure in `MainWindow::analyzeNextOut()`: the local lambda was named `emit`, which collides with Qt's `emit` macro. It is now named `appendHeaderList`.
-## Linux/PJSIP 2.17 receive-peer hotfix — 2026-09-10
-
-- Fixed the r18 SIP wire monitor build against the required PJSIP 2.17 API. Incoming request/response peer capture now uses `pjsip_rx_data::pkt_info.src_name` and `src_port`; the invalid `pkt_info.addr` reference has been removed.
-- Outbound next-hop capture remains unchanged and continues to use `pjsip_tx_data::tp_info.dst_name` / `dst_port`.
-- Added a source regression guard that fails if the invalid `pkt_info.addr` spelling is reintroduced.
-
 ## New
 
 - **DID Intelligence**: enter a DID/telephone number and retrieve carrier/line-type/validity plus spam, recent-abuse, risk and fraud-score indicators from IPQualityScore when an API key is configured.

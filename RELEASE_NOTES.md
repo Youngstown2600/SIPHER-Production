@@ -1,3 +1,11 @@
+# SIPHER 2.0 — Unified Multi-SIP Release — 2026-09-11
+
+SIPHER 2.0 promotes the r19 Multi-SIP tree to a new major-version baseline. The application now exposes a single public executable, `sipher`, that automatically selects CLI for terminal/TTY launches and GUI for graphical desktop launches. Use `--cli`, `--gui`, or `SIPHER_UI=cli|gui` to override selection.
+
+The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CTest registration are carried forward. See `SIPHER-2.0-RELEASE-NOTES.md` for the complete 2.0 delta.
+
+---
+
 
 Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
 # r17 Underground Phone-Phreak / Signal Lab — 2026-08-20

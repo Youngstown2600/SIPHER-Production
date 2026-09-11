@@ -1,16 +1,16 @@
-S.I.P.H.E.R. By GITSC 1.0.0 r7 - Windows 10/11 x64 portable build kit
+SIPHER By GITSC 1.0.0 r7 - Windows 10/11 x64 portable build kit
 
 FAST PATH
 ---------
 On a Windows 10/11 x64 BUILD machine, right-click BUILD-PORTABLE.ps1 and run with PowerShell.
-It can bootstrap MSYS2 if needed, installs missing compiler/Qt/tool dependencies, builds PJSIP 2.17, builds both sipher.exe and sipher-gui.exe, runs tests, and stages the portable runtime under dist/.
+It can bootstrap MSYS2 if needed, installs missing compiler/Qt/tool dependencies, builds PJSIP 2.17, builds both the single sipher.exe, runs tests, and stages the portable runtime under dist/.
 
 r15 adds the recommended pre-dial FULL VOIP PCAP workflow for Wireshark Telephony -> VoIP Calls. Start the full capture before dialing and keep it running through hangup so SIP/SDP and RTP/RTCP stay together. RTP-only auto-decode remains available.
 
 This source kit itself does NOT contain precompiled Windows EXEs because it was generated in a Linux build environment without a Windows compiler/runtime. The included builder is the reproducible path that creates the actual portable EXEs on Windows.
 
 Target: Windows 10/11 x64 using Qt 6.
-Both targets use the same S.I.P.H.E.R. SIP/PJSIP core and feature set.
+Both targets use the same SIPHER SIP/PJSIP core and feature set.
 
 Windows 7 note: build the Win7 target on Windows 10/11. The resulting Win7 build targets _WIN32_WINNT=0x0601. Win7 PCAP capture requires a compatible installed capture driver because Win7 has no pktmon.
 

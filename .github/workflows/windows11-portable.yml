@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   build-windows11:
-    name: S.I.P.H.E.R. r8 Windows 10/11 x64
+    name: SIPHER 2.0 Windows 10/11 x64
     runs-on: windows-latest
     defaults:
       run:
@@ -48,6 +48,6 @@ jobs:
       - name: Upload Windows 11 portable folder
         uses: actions/upload-artifact@v7
         with:
-          name: SIPHER-1.0.0-r8-Windows10-11-Portable-x64
-          path: dist/SIPHER-1.0.0-r8-Windows10-11-Portable-x64/
+          name: SIPHER-2.0-Windows10-11-Portable-x64
+          path: dist/SIPHER-2.0-Windows10-11-Portable-x64/
           if-no-files-found: error

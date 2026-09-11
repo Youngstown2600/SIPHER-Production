@@ -28,7 +28,7 @@ void Logger::setPath(const std::string& path)
         std::error_code ec;
         std::filesystem::create_directories(filePath.parent_path(), ec);
         if (ec && !std::filesystem::is_directory(filePath.parent_path())) {
-            std::cerr << "S.I.P.H.E.R. warning: unable to create log directory "
+            std::cerr << "SIPHER warning: unable to create log directory "
                       << filePath.parent_path() << ": " << ec.message() << '\n';
             return;
         }
@@ -36,7 +36,7 @@ void Logger::setPath(const std::string& path)
 
     file_.open(path, std::ios::app);
     if (!file_) {
-        std::cerr << "S.I.P.H.E.R. warning: unable to open log file " << path << '\n';
+        std::cerr << "SIPHER warning: unable to open log file " << path << '\n';
         return;
     }
 #ifndef _WIN32

@@ -13,7 +13,7 @@ class Logger;
 class CallSession final : public pj::Call, public std::enable_shared_from_this<CallSession> {
 public:
     using UpdateCallback=std::function<void(int)>;
-    CallSession(pj::Account& account,Logger& logger,CallDirection direction,CallPurpose purpose=CallPurpose::Phone,int callId=PJSUA_INVALID_ID);
+    CallSession(pj::Account& account,Logger& logger,CallDirection direction,CallPurpose purpose=CallPurpose::Phone,int callId=PJSUA_INVALID_ID,std::string accountId={});
     void setUpdateCallback(UpdateCallback cb);
     void setRequestedCallerId(std::string cid);
     CallSnapshot snapshot()const;

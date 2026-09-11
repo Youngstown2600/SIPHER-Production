@@ -8,6 +8,7 @@ struct CallSnapshot {
     int id{-1};
     CallDirection direction{CallDirection::Outgoing};
     CallPurpose purpose{CallPurpose::Phone};
+    std::string accountId;
     std::string callIdString;
     std::string remoteUri;
     std::string callerId;

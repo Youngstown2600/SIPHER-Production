@@ -25,9 +25,9 @@
 
 namespace trunkmonkey {
 static_assert(PJSUA_MAX_CALLS >= 50,
-              "S.I.P.H.E.R. requires PJSIP built with PJSUA_MAX_CALLS >= 50. Use scripts/build-pjsip.sh.");
+              "SIPHER requires PJSIP built with PJSUA_MAX_CALLS >= 50. Use scripts/build-pjsip.sh.");
 static_assert(PJ_IOQUEUE_MAX_HANDLES >= 192,
-              "S.I.P.H.E.R. requires PJ_IOQUEUE_MAX_HANDLES >= 192 for 64-call PJSIP. Rebuild PJSIP with scripts/build-pjsip.sh.");
+              "SIPHER requires PJ_IOQUEUE_MAX_HANDLES >= 192 for 64-call PJSIP. Rebuild PJSIP with scripts/build-pjsip.sh.");
 
 namespace {
 std::string tlsCaBundlePath()
@@ -280,67 +280,36 @@ SystemAudioRouteInfo systemAudioRoute()
 SipEngine::SipEngine(Logger& logger):logger_(logger){}
 SipEngine::~SipEngine(){ stop(); }
 
-void SipEngine::start(const SipProfile& p,unsigned maxCalls)
+struct SipEngine::ManagedAccount {
+    SipProfile profile;
+    std::unique_ptr<SipAccount> account;
+    bool registered{false};
+    std::string registrationText{"Not registered"};
+    std::vector<std::string> registrationHistory;
+};
+
+void SipEngine::initializeEndpoint(unsigned maxCalls)
 {
-    if(stopping_) throw std::runtime_error("SIP engine is still shutting down");
-    if(started_) return;
     if(maxCalls<1 || maxCalls>50) throw std::runtime_error("maxCalls must be 1-50");
+    captures_=std::make_unique<CaptureManager>(logger_);
+    endpoint_=std::make_unique<pj::Endpoint>();
+    endpoint_->libCreate();
 
-    profile_=p;
-    {
-        std::lock_guard<std::mutex> prefixLock(dialPrefixMutex_);
-        dialPrefix_=profile_.dialPrefix;
-    }
-    registered_=false;
-    {
-        std::lock_guard<std::mutex> lock(regMutex_);
-        registrationText_="Starting";
-    }
+    pj::EpConfig ec;
+    // Exploit-Fix: keep PJSIP's asynchronous DNS resolver disabled.
+    ec.uaConfig.nameserver.clear();
+    ec.uaConfig.maxCalls=maxCalls;
+    ec.uaConfig.userAgent=SIPHER_USER_AGENT;
+    ec.uaConfig.threadCnt=2;
+    ec.logConfig.level=5;
+    ec.logConfig.consoleLevel=0;
+    ec.logConfig.msgLogging=1;
+    ec.logConfig.filename=runtime::pjsipLogPath().string();
+    endpoint_->libInit(ec);
 
-    try{
-        captures_=std::make_unique<CaptureManager>(logger_);
-        endpoint_=std::make_unique<pj::Endpoint>();
-        endpoint_->libCreate();
-
-        pj::EpConfig ec;
-        // Exploit-Fix: keep PJSIP's asynchronous DNS resolver disabled.
-        // With an empty nameserver list PJSUA2 uses the OS resolver, avoiding
-        // the PJSIP 2.17 forged async-DNS-response path (GHSA-pvmg-ph43-54r2).
-        ec.uaConfig.nameserver.clear();
-        ec.uaConfig.maxCalls=maxCalls;
-        ec.uaConfig.userAgent=SIPHER_USER_AGENT;
-        ec.uaConfig.threadCnt=2;
-        // Keep PJSIP's verbose internal trace out of stdout/stderr so the CLI
-        // dashboard is never destroyed by asynchronous SIP/media log lines.
-        // The full engine trace is still retained in S.I.P.H.E.R.'s private
-        // per-user /tmp directory and can be viewed from the CLI Engine Log page.
-        ec.logConfig.level=5;
-        ec.logConfig.consoleLevel=0;
-        ec.logConfig.msgLogging=1;
-        ec.logConfig.filename=runtime::pjsipLogPath().string();
-        if(!p.stunServer.empty()) ec.uaConfig.stunServer.push_back(p.stunServer);
-        endpoint_->libInit(ec);
-
-        sipMonitor_=std::make_unique<SipWireMonitor>(*this,logger_);
-        sipMonitor_->start();
-
-        pj::TransportConfig tc;
-        tc.port=p.localSipPort;
-        pjsip_transport_type_e transportType=PJSIP_TRANSPORT_UDP;
-        if(p.transport==Transport::Tcp) transportType=PJSIP_TRANSPORT_TCP;
-        else if(p.transport==Transport::Tls) transportType=PJSIP_TRANSPORT_TLS;
-        if(transportType==PJSIP_TRANSPORT_TLS) {
-            // PJSUA2 defaults verifyServer=false. Exploit-Fix authenticates
-            // the registrar/proxy and fails closed if no CA trust bundle exists.
-            tc.tlsConfig.verifyServer=true;
-            tc.tlsConfig.msecTimeout=10000;
-            const auto ca=tlsCaBundlePath();
-            if(ca.empty())
-                throw std::runtime_error("SIP TLS requires a CA bundle; set PJSIP_CA_BUNDLE or SSL_CERT_FILE");
-            tc.tlsConfig.CaListFile=ca;
-        }
-        const pj::TransportId transportId=endpoint_->transportCreate(transportType,tc);
-        endpoint_->libStart();
+    sipMonitor_=std::make_unique<SipWireMonitor>(*this,logger_);
+    sipMonitor_->start();
+    endpoint_->libStart();
 
         // Enumerate audio devices after PJSIP has started. Capture and playback
         // are intentionally selected independently: FreeBSD laptops commonly
@@ -424,7 +393,7 @@ void SipEngine::start(const SipProfile& p,unsigned maxCalls)
 
 #ifdef __linux__
             // Prefer the ALSA "pipewire" PCM on Linux desktops when the user
-            // has not explicitly selected a device. This keeps S.I.P.H.E.R.
+            // has not explicitly selected a device. This keeps SIPHER
             // inside PipeWire/WirePlumber policy instead of pinning a raw hw: PCM.
             if(captureId<0 || playbackId<0){
                 for(std::size_t i=0;i<devices.size();++i){
@@ -454,6 +423,131 @@ void SipEngine::start(const SipProfile& p,unsigned maxCalls)
             logger_.warn("Unable to enumerate/select PJSIP audio devices: "+e.info());
         }
 
+        stopping_=false;
+        started_=true;
+        registered_=false;
+        {
+            std::lock_guard<std::mutex> lock(regMutex_);
+            registrationText_="No SIP accounts configured";
+        }
+        logger_.info("SIPHER SIP endpoint started with zero-account support; pjsip_log="+runtime::pjsipLogPath().string());
+}
+
+void SipEngine::start(unsigned maxCalls)
+{
+    if(stopping_) throw std::runtime_error("SIP engine is still shutting down");
+    if(started_) return;
+    profile_=ProfileStore::defaults();
+    {
+        std::lock_guard<std::mutex> prefixLock(dialPrefixMutex_);
+        dialPrefix_.clear();
+    }
+    try{ initializeEndpoint(maxCalls); }
+    catch(...){ stop(); throw; }
+}
+
+void SipEngine::start(const SipProfile& p,unsigned maxCalls)
+{
+    start(maxCalls);
+    try{ addAccount(p,"default"); }
+    catch(...){ stop(); throw; }
+}
+
+pj::TransportId SipEngine::ensureTransport(const SipProfile& p)
+{
+    const std::string key=toString(p.transport)+":"+std::to_string(p.localSipPort);
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        const auto it=transports_.find(key);
+        if(it!=transports_.end()) return it->second;
+    }
+
+    pj::TransportConfig tc;
+    tc.port=p.localSipPort;
+    pjsip_transport_type_e transportType=PJSIP_TRANSPORT_UDP;
+    if(p.transport==Transport::Tcp) transportType=PJSIP_TRANSPORT_TCP;
+    else if(p.transport==Transport::Tls) transportType=PJSIP_TRANSPORT_TLS;
+    if(transportType==PJSIP_TRANSPORT_TLS){
+        tc.tlsConfig.verifyServer=true;
+        tc.tlsConfig.msecTimeout=10000;
+        const auto ca=tlsCaBundlePath();
+        if(ca.empty()) throw std::runtime_error("SIP TLS requires a CA bundle; set PJSIP_CA_BUNDLE or SSL_CERT_FILE");
+        tc.tlsConfig.CaListFile=ca;
+    }
+    const pj::TransportId id=endpoint_->transportCreate(transportType,tc);
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        const auto [it,inserted]=transports_.emplace(key,id);
+        if(!inserted) return it->second;
+    }
+    logger_.info("SIP transport ready: "+key);
+    return id;
+}
+
+void SipEngine::refreshAggregateRegistrationLocked()
+{
+    std::size_t active=0;
+    for(const auto& item:accounts_) if(item.second->registered) ++active;
+    registered_=active>0;
+    std::string text;
+    if(accounts_.empty()) text="No SIP accounts configured";
+    else if(accounts_.size()==1) text=accounts_.begin()->second->registrationText;
+    else text=std::to_string(active)+"/"+std::to_string(accounts_.size())+" SIP accounts registered";
+    std::lock_guard<std::mutex> regLock(regMutex_);
+    registrationText_=std::move(text);
+}
+
+std::string SipEngine::addAccount(const SipProfile& input,const std::string& requestedId)
+{
+    if(!started_ || stopping_ || !endpoint_) throw std::runtime_error("SIP endpoint is not running");
+    SipProfile p=input;
+    ProfileStore::validate(p);
+    if(p.registrar.empty()) p.registrar="sip:"+p.sipDomain;
+    if(p.authUsername.empty()) p.authUsername=p.username;
+    if(p.callerIdDomain.empty()) p.callerIdDomain=p.sipDomain;
+
+    std::string base=trim(requestedId);
+    if(base.empty()) base=trim(p.name);
+    if(base.empty()) base=trim(p.username);
+    if(base.empty()) base="account";
+    for(char& c:base){ if(!(std::isalnum(static_cast<unsigned char>(c)) || c=='-' || c=='_' || c=='.')) c='_'; }
+    std::string id=base;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        for(unsigned n=2;accounts_.count(id)!=0;++n) id=base+"-"+std::to_string(n);
+    }
+
+    if(!p.stunServer.empty()){
+        try{
+            pj::StringVector servers;
+            {
+                std::lock_guard<std::mutex> lock(accountMutex_);
+                for(const auto& item:accounts_){
+                    const auto& stun=item.second->profile.stunServer;
+                    if(!stun.empty() && std::find(servers.begin(),servers.end(),stun)==servers.end())servers.push_back(stun);
+                }
+            }
+            if(std::find(servers.begin(),servers.end(),p.stunServer)==servers.end())servers.push_back(p.stunServer);
+            endpoint_->natUpdateStunServers(servers,false);
+        }catch(const pj::Error& e){ logger_.warn("Unable to update STUN server set for account "+id+": "+e.info()); }
+    }
+
+    const pj::TransportId transportId=ensureTransport(p);
+    auto managed=std::make_unique<ManagedAccount>();
+    managed->profile=p;
+    managed->registrationText="Registering";
+    managed->account=std::make_unique<SipAccount>(*this,logger_,id);
+    SipAccount* raw=managed->account.get();
+    bool makeActive=false;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        makeActive=accounts_.empty();
+        accounts_[id]=std::move(managed);
+        if(makeActive) activeAccountId_=id;
+        refreshAggregateRegistrationLocked();
+    }
+
+    try{
         pj::AccountConfig ac;
         ac.idUri=quotedDisplayName(p.displayName)+" <sip:"+p.username+"@"+p.sipDomain+">";
         ac.regConfig.registrarUri=p.registrar;
@@ -464,20 +558,118 @@ void SipEngine::start(const SipProfile& p,unsigned maxCalls)
         if(!p.outboundProxy.empty()) ac.sipConfig.proxies.push_back(p.outboundProxy);
         ac.natConfig.iceEnabled=p.useIce;
         if(p.enableSrtp) ac.mediaConfig.srtpUse=PJMEDIA_SRTP_OPTIONAL;
-
-        account_=std::make_unique<SipAccount>(*this,logger_);
-        account_->create(ac,true);
-        {
-            std::lock_guard<std::mutex> lock(regMutex_);
-            registrationText_="Registering";
-        }
-        stopping_=false;
-        started_=true;
-        logger_.info("S.I.P.H.E.R. SIP engine started: "+p.name+" transport="+toString(p.transport)+" pjsip_log="+runtime::pjsipLogPath().string());
+        raw->create(ac,true);
     }catch(...){
-        stop();
+        std::unique_ptr<ManagedAccount> failed;
+        {
+            std::lock_guard<std::mutex> lock(accountMutex_);
+            const auto it=accounts_.find(id);
+            if(it!=accounts_.end()){failed=std::move(it->second);accounts_.erase(it);}
+            if(activeAccountId_==id) activeAccountId_.clear();
+            refreshAggregateRegistrationLocked();
+        }
+        if(failed && failed->account && failed->account->isValid()){
+            pj::AccountShutdownParam prm;prm.force=true;try{failed->account->shutdown2(prm);}catch(...){}
+        }
+        if(failed){std::lock_guard<std::mutex> lock(accountMutex_);retiredAccounts_.push_back(std::move(failed));}
         throw;
     }
+
+    if(makeActive) setActiveAccount(id);
+    logger_.info("SIP account added: "+id+" uri=sip:"+p.username+"@"+p.sipDomain+" transport="+toString(p.transport));
+    return id;
+}
+
+void SipEngine::removeAccount(const std::string& accountId)
+{
+    std::lock_guard<std::mutex> creationLock(callCreateMutex_);
+    {
+        std::lock_guard<std::mutex> callLock(mutex_);
+        for(const auto& item:calls_){const auto snap=item.second->snapshot();if(!snap.disconnected && snap.accountId==accountId)
+            throw std::runtime_error("Hang up calls using this SIP account before removing it");}
+    }
+    std::unique_ptr<ManagedAccount> removed;
+    std::string nextId;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        auto it=accounts_.find(accountId);
+        if(it==accounts_.end()) throw std::runtime_error("SIP account not found: "+accountId);
+        removed=std::move(it->second);
+        accounts_.erase(it);
+        if(activeAccountId_==accountId){
+            activeAccountId_.clear();
+            if(!accounts_.empty()){ activeAccountId_=accounts_.begin()->first; nextId=activeAccountId_; }
+        }
+        refreshAggregateRegistrationLocked();
+    }
+    if(removed && removed->account && removed->account->isValid()){
+        pj::AccountShutdownParam prm; prm.force=false;
+        try{ removed->account->shutdown2(prm); }
+        catch(...){ try{ prm.force=true; removed->account->shutdown2(prm); }catch(...){} }
+    }
+    if(removed){std::lock_guard<std::mutex> lock(accountMutex_);retiredAccounts_.push_back(std::move(removed));}
+    if(!nextId.empty()){
+        SipProfile next;
+        {
+            std::lock_guard<std::mutex> lock(accountMutex_);
+            const auto it=accounts_.find(nextId);
+            if(it!=accounts_.end()) next=it->second->profile;
+        }
+        profile_=next;
+        std::lock_guard<std::mutex> prefixLock(dialPrefixMutex_); dialPrefix_=next.dialPrefix;
+    }else{
+        profile_=ProfileStore::defaults();
+        std::lock_guard<std::mutex> prefixLock(dialPrefixMutex_); dialPrefix_.clear();
+    }
+    logger_.info("SIP account removed: "+accountId);
+}
+
+void SipEngine::setActiveAccount(const std::string& accountId)
+{
+    std::lock_guard<std::mutex> creationLock(callCreateMutex_);
+    SipProfile p;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        const auto it=accounts_.find(accountId);
+        if(it==accounts_.end()) throw std::runtime_error("SIP account not found: "+accountId);
+        activeAccountId_=accountId;
+        p=it->second->profile;
+    }
+    profile_=p;
+    {
+        std::lock_guard<std::mutex> prefixLock(dialPrefixMutex_);
+        dialPrefix_=p.dialPrefix;
+    }
+    logger_.info("Active outbound SIP account: "+accountId);
+}
+
+std::string SipEngine::activeAccountId()const
+{
+    std::lock_guard<std::mutex> lock(accountMutex_); return activeAccountId_;
+}
+
+bool SipEngine::hasAccounts()const
+{
+    std::lock_guard<std::mutex> lock(accountMutex_); return !accounts_.empty();
+}
+
+std::vector<SipAccountStatus> SipEngine::accounts()const
+{
+    std::lock_guard<std::mutex> lock(accountMutex_);
+    std::vector<SipAccountStatus> out; out.reserve(accounts_.size());
+    for(const auto& item:accounts_){
+        const auto& m=*item.second;
+        out.push_back({item.first,m.profile.name,m.profile.username,m.profile.sipDomain,m.profile.transport,m.profile.localSipPort,m.registered,item.first==activeAccountId_,m.registrationText});
+    }
+    return out;
+}
+
+SipProfile SipEngine::accountProfile(const std::string& accountId)const
+{
+    std::lock_guard<std::mutex> lock(accountMutex_);
+    const auto it=accounts_.find(accountId);
+    if(it==accounts_.end()) throw std::runtime_error("SIP account not found: "+accountId);
+    return it->second->profile;
 }
 
 void SipEngine::stop()
@@ -539,22 +731,34 @@ void SipEngine::stop()
     // PJSUA-LIB and must never be allowed to re-enter our call map lock.
     drainingCalls.clear();
 
-    if(account_ && account_->isValid()){
+    std::vector<std::unique_ptr<ManagedAccount>> drainingAccounts;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        drainingAccounts.reserve(accounts_.size()+retiredAccounts_.size());
+        for(auto& item:accounts_) drainingAccounts.push_back(std::move(item.second));
+        accounts_.clear();
+        for(auto& item:retiredAccounts_) drainingAccounts.push_back(std::move(item));
+        retiredAccounts_.clear();
+        activeAccountId_.clear();
+        transports_.clear();
+    }
+    for(auto& managed:drainingAccounts){
+        if(!managed || !managed->account || !managed->account->isValid()) continue;
         pj::AccountShutdownParam prm;
         prm.force=false;
         try{
-            account_->shutdown2(prm);
+            managed->account->shutdown2(prm);
         }catch(const pj::Error& e){
             logger_.warn("Graceful SIP account shutdown was busy/failed; forcing final account cleanup: "+e.info());
             try{
                 prm.force=true;
-                account_->shutdown2(prm);
+                managed->account->shutdown2(prm);
             }catch(const pj::Error& forced){
                 logger_.warn("Forced SIP account shutdown failed: "+forced.info());
             }
         }
     }
-    account_.reset();
+    drainingAccounts.clear();
 
     if(endpoint_){
         try{ endpoint_->libDestroy(); }
@@ -606,6 +810,7 @@ std::string SipEngine::normalizeDestination(const std::string& value,bool applyD
     // never modified by the PBX dial-prefix feature.
     if(v.rfind("sip:",0)==0 || v.rfind("sips:",0)==0 || v.find('<')!=std::string::npos) return v;
     if(v.find('@')!=std::string::npos) return "sip:"+v;
+    if(profile_.sipDomain.empty()) throw std::runtime_error("No outbound SIP account selected");
     const auto activePrefix=applyDialPrefix?dialPrefix():std::string{};
     const auto user=!activePrefix.empty() ? activePrefix+v : v;
     return "sip:"+user+"@"+profile_.sipDomain;
@@ -645,8 +850,17 @@ void SipEngine::configureIdentity(pj::CallOpParam& param,const std::string& call
 int SipEngine::makeCall(const std::string& destination,const std::string& callerId,bool makeForeground,CallPurpose purpose,bool applyDialPrefix)
 {
     std::lock_guard<std::mutex> creationLock(callCreateMutex_);
-    if(!started_ || stopping_ || !account_) throw std::runtime_error("No active SIP account");
-    auto call=std::make_shared<CallSession>(*account_,logger_,CallDirection::Outgoing,purpose);
+    if(!started_ || stopping_) throw std::runtime_error("SIP endpoint is not running");
+    SipAccount* outbound=nullptr;
+    std::string accountId;
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        accountId=activeAccountId_;
+        const auto it=accounts_.find(accountId);
+        if(it!=accounts_.end()) outbound=it->second->account.get();
+    }
+    if(!outbound) throw std::runtime_error("No outbound SIP account selected. Add/select an account in SIP Accounts first.");
+    auto call=std::make_shared<CallSession>(*outbound,logger_,CallDirection::Outgoing,purpose,PJSUA_INVALID_ID,accountId);
     call->setRequestedCallerId(callerId);
     call->setUpdateCallback([this](int id){ onCallUpdated(id); });
     pj::CallOpParam param(true);
@@ -661,7 +875,7 @@ int SipEngine::makeCall(const std::string& destination,const std::string& caller
     const int id=afterMake.id!=PJSUA_INVALID_ID ? afterMake.id : call->getId();
     const bool live=addCall(call);
     const auto activePrefix=applyDialPrefix?dialPrefix():std::string{};
-    logger_.info("Outgoing call "+std::to_string(id)+" -> "+uri+(callerId.empty()?"":" CID="+callerId)+(!activePrefix.empty()?" dial-prefix="+activePrefix:""));
+    logger_.info("Outgoing call "+std::to_string(id)+" account="+accountId+" -> "+uri+(callerId.empty()?"":" CID="+callerId)+(!activePrefix.empty()?" dial-prefix="+activePrefix:""));
     if(makeForeground && live) setForeground(id);
     return id;
 }
@@ -999,7 +1213,7 @@ bool SipEngine::pollSystemAudioRoute()
     }
 
 #ifdef __linux__
-    // On Linux only auto-reopen when S.I.P.H.E.R. is following the desktop
+    // On Linux only auto-reopen when SIPHER is following the desktop
     // PipeWire/default ALSA path. Do not override a deliberately pinned hw:/HDMI
     // device merely because the desktop's default port changed.
     bool followsSystem=false;
@@ -1186,7 +1400,7 @@ std::string SipEngine::mediaDump(int id)const
 std::string SipEngine::sipLadder(int id)const
 {
     const auto trace=sipTrace(id);std::ostringstream out;
-    out<<"S.I.P.H.E.R. SIP ladder — call "<<id<<"\n"
+    out<<"SIPHER SIP ladder — call "<<id<<"\n"
          <<"LOCAL                                      REMOTE\n"
          <<"  |                                           |\n";
     for(const auto&e:trace){
@@ -1202,7 +1416,7 @@ std::string SipEngine::callReport(int id)const
 {
     const auto c=callSnapshot(id);std::ostringstream o;
     const double rxDen=static_cast<double>(c.rtpRxPackets+c.rtpRxLoss);const double lossPct=rxDen>0?100.0*c.rtpRxLoss/rxDen:0.0;
-    o<<"S.I.P.H.E.R. 1.0.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\nCALL DIAGNOSTIC REPORT\n\n"
+    o<<"SIPHER 2.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\nCALL DIAGNOSTIC REPORT\n\n"
      <<"Call ID:        "<<id<<"\nSIP Call-ID:    "<<c.callIdString<<"\nRemote URI:     "<<c.remoteUri<<"\nCaller ID:      "<<c.callerId<<"\nState:          "<<c.state<<"\nLast SIP:       "<<c.lastStatusCode<<" "<<c.lastReason<<"\n"
      <<"Codec:          "<<c.codecName<<(c.codecClockRate?"/"+std::to_string(c.codecClockRate):std::string{})<<"\n"
      <<"Microphone:     "<<(c.microphoneMuted?"MUTED":"live")<<"\n"
@@ -1337,25 +1551,30 @@ void SipEngine::onSipMessage(SipTraceEntry entry)
     if(call->snapshot().purpose==CallPurpose::Phone) call->recordSipMessage(std::move(entry));
 }
 
-void SipEngine::onIncomingCall(int id)
+void SipEngine::onIncomingCall(const std::string& accountId,SipAccount& account,int id)
 {
     std::lock_guard<std::mutex> creationLock(callCreateMutex_);
-    if(stopping_ || !started_ || !account_){
-        // Do not create a new C++ Call wrapper while the engine is draining.
-        // Account/endpoint shutdown will dispose of the unaccepted C-level call.
-        logger_.warn("Ignored incoming call during SIP engine shutdown: id="+std::to_string(id));
+    if(stopping_ || !started_){
+        logger_.warn("Ignored incoming call during SIP engine shutdown: account="+accountId+" id="+std::to_string(id));
         return;
     }
-    auto call=std::make_shared<CallSession>(*account_,logger_,CallDirection::Incoming,CallPurpose::Phone,id);
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        const auto it=accounts_.find(accountId);
+        if(it==accounts_.end() || it->second->account.get()!=&account){
+            logger_.warn("Ignored incoming call from retired/replaced SIP account: "+accountId);
+            return;
+        }
+    }
+    auto call=std::make_shared<CallSession>(account,logger_,CallDirection::Incoming,CallPurpose::Phone,id,accountId);
     call->setUpdateCallback([this](int callId){ onCallUpdated(callId); });
     addCall(call);
-    try{ logger_.info("Incoming call "+std::to_string(id)+" from "+call->getInfo().remoteUri); }catch(...){}
+    try{ logger_.info("Incoming call "+std::to_string(id)+" account="+accountId+" from "+call->getInfo().remoteUri); }catch(...){}
 }
 
-void SipEngine::onRegistrationState(bool active,int code,const std::string& reason)
+void SipEngine::onRegistrationState(const std::string& accountId,SipAccount& account,bool active,int code,const std::string& reason)
 {
     if(stopping_) return;
-    registered_=active;
     std::ostringstream status;
     status<<(active?"Registered":"Not registered")<<" ("<<code<<" "<<reason<<")";
     const auto now=std::chrono::system_clock::now();const auto tt=std::chrono::system_clock::to_time_t(now);std::tm tm{};
@@ -1364,12 +1583,23 @@ void SipEngine::onRegistrationState(bool active,int code,const std::string& reas
 #else
     localtime_r(&tt,&tm);
 #endif
-    std::ostringstream hist;hist<<std::put_time(&tm,"%Y-%m-%d %H:%M:%S")<<"  "<<status.str();
+    std::ostringstream hist;hist<<std::put_time(&tm,"%Y-%m-%d %H:%M:%S")<<"  ["<<accountId<<"] "<<status.str();
+    {
+        std::lock_guard<std::mutex> lock(accountMutex_);
+        const auto it=accounts_.find(accountId);
+        if(it==accounts_.end() || it->second->account.get()!=&account) return;
+        it->second->registered=active;
+        it->second->registrationText=status.str();
+        it->second->registrationHistory.push_back(hist.str());
+        if(it->second->registrationHistory.size()>100)it->second->registrationHistory.erase(it->second->registrationHistory.begin(),it->second->registrationHistory.begin()+25);
+        refreshAggregateRegistrationLocked();
+    }
     {
         std::lock_guard<std::mutex> lock(regMutex_);
-        registrationText_=status.str();registrationHistory_.push_back(hist.str());if(registrationHistory_.size()>100)registrationHistory_.erase(registrationHistory_.begin(),registrationHistory_.begin()+25);
+        registrationHistory_.push_back(hist.str());
+        if(registrationHistory_.size()>200)registrationHistory_.erase(registrationHistory_.begin(),registrationHistory_.begin()+50);
     }
-    logger_.info(status.str());
+    logger_.info("["+accountId+"] "+status.str());
 }
 
 std::vector<std::string> SipEngine::registrationHistory()const
@@ -1429,7 +1659,7 @@ void SipEngine::onCallUpdated(int id)
     if(state.disconnected){
         archiveDisconnectedCall(call,state);
         // PJSIP has already removed its Call user-data association before the
-        // DISCONNECTED callback. Keep only S.I.P.H.E.R.'s immutable diagnostics;
+        // DISCONNECTED callback. Keep only SIPHER's immutable diagnostics;
         // the live wrapper is allowed to die without any further PJSUA2 calls.
     }
 }

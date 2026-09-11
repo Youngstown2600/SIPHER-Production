@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
-PRODUCT="SIPHER"; VERSION="1.0.0-r18"; SLUG="sipher"; CLI_NAME="sipher"; GUI_NAME="sipher-gui"
+PRODUCT="SIPHER"; VERSION="2.0"; SLUG="sipher"; BINARY_NAME="sipher"
 [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]] || { echo "build-termux.sh must run inside Termux." >&2; exit 2; }
 PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
 PJSIP_PREFIX=${PJSIP_PREFIX:-$HOME/.local/trunkmonkey-pjsip}
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
  esac; shift
 done
 if [[ $UNINSTALL -eq 1 ]]; then
-  rm -f "$PREFIX/bin/$CLI_NAME" "$PREFIX/bin/$GUI_NAME" "$PREFIX/bin/$SLUG" "$PREFIX/bin/$SLUG-gui"
+  rm -f "$PREFIX/bin/$BINARY_NAME" "$PREFIX/bin/sipher-gui" "$PREFIX/bin/sipher-cli" # remove 2.0 + legacy names
   echo "$PRODUCT application files removed from Termux. User configuration was preserved."; exit 0
 fi
 if [[ $AUTO_DEPS -eq 1 ]]; then
@@ -58,10 +58,8 @@ cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_P
   -DTRUNKMONKEY_BUILD_CLI="$CLI_OPT" -DTRUNKMONKEY_BUILD_GUI="$GUI_OPT" -DTRUNKMONKEY_BUILD_TESTS=OFF
 cmake --build "$BUILD_DIR" --parallel
 if [[ "$INSTALL_MODE" == yes ]]; then cmake --install "$BUILD_DIR"; fi
-if [[ $BUILD_CLI -eq 1 && "$CLI_NAME" != "$SLUG" && -x "$PREFIX/bin/$CLI_NAME" ]]; then ln -sf "$PREFIX/bin/$CLI_NAME" "$PREFIX/bin/$SLUG"; fi
-if [[ $BUILD_GUI -eq 1 && -x "$PREFIX/bin/$GUI_NAME" ]]; then ln -sf "$PREFIX/bin/$GUI_NAME" "$PREFIX/bin/$SLUG-gui"; fi
 echo
 echo "$PRODUCT $VERSION Termux build complete."
-[[ $BUILD_CLI -eq 0 ]] || echo "CLI: $PREFIX/bin/$CLI_NAME"
-[[ $BUILD_GUI -eq 0 ]] || echo "GUI: $PREFIX/bin/$GUI_NAME (requires Termux:X11)"
+echo "Binary: $PREFIX/bin/$BINARY_NAME"
+[[ $BUILD_CLI -eq 0 || $BUILD_GUI -eq 0 ]] || echo "Auto UI: terminal -> CLI; for Termux:X11 GUI use: sipher --gui"
 echo "Note: packet capture and audio device availability depend on Android/Termux permissions and installed backends."

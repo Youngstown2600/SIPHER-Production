@@ -1,8 +1,20 @@
-# S.I.P.H.E.R. 1.0.0-r18 CTest hotfix
+# SIPHER 2.0 — 2026-09-11
 
-- Linux CTest now uses the r18 core-preservation/security gate rather than the historical r15 hash gate.
-- The inherited r17 phreak UI contract no longer pins the obsolete r17 version string.
-- Added current r18 DID/route and all-platform source contracts to CTest registration.
+- Promoted r19 Multi-SIP to the SIPHER 2.0 major-version baseline.
+- Unified GUI and CLI into one public `sipher` executable name.
+- Auto-selects CLI for terminal/TTY launches and GUI for desktop launches; `--cli`, `--gui`, and `SIPHER_UI` override auto-selection.
+- Carried forward the r18 PJSIP 2.17 RX-peer fix and Qt `emit` macro fix.
+- Replaced stale current CTest registration with r18/r19/2.0 feature/security contracts.
+
+# S.I.P.H.E.R. 1.0.0-r19-Multi-SIP — 2026-09-10
+
+- Added simultaneous multi-account SIP registration using one shared PJSUA2 endpoint.
+- Added SIP Accounts manager and outbound account selector.
+- Added per-call SIP account attribution.
+- Removed mandatory first-run SIP setup; zero-account startup is now supported.
+- Added non-destructive migration of an existing configured legacy profile into the new account store.
+- Updated CLI to load multiple accounts and support `accounts` / `account-use`.
+- Preserved r18 DID intelligence, carrier next-out analysis, Switch Audit+, and offline Legacy labs.
 
 # S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit — 2026-09-10
 

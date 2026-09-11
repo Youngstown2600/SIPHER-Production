@@ -1,6 +1,7 @@
-r18 compile hotfix 2: Qt GUI analyzeNextOut helper renamed from reserved Qt macro identifier `emit` to `appendHeaderList`; PJSIP 2.17 RX peer hotfix retained.
-r18 PJSIP 2.17 hotfix: RX peer telemetry uses pkt_info.src_name/src_port; invalid pkt_info.addr reference removed and regression-guarded.
-r18: DID/number intelligence + spam/fraud reputation lookup; carrier handoff/next-out analysis with actual PJSIP peer capture; Switch Audit+ transport parity/topology exposure; offline Legacy Blue Tone/Blue Box and Red Box historical labs.
+SIPHER 2.0: unified public `sipher` executable; terminal/TTY launches select CLI, desktop launches select GUI; --cli/--gui and SIPHER_UI override.
+r19 features retained: simultaneous multi-SIP registration, account manager/outbound selector, per-call account attribution, zero-account startup, legacy profile migration, CLI account list/select.
+r18 fixes retained: PJSIP 2.17 RX peer metadata uses src_name/src_port; Qt emit-macro collision removed; current CTest contracts replace stale r15/r17 release gates.
+r18 features retained: DID/number intelligence, carrier handoff/next-out analysis, Switch Audit+ transport parity/topology exposure, offline Legacy historical labs.
 
 Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
 r17: underground phone-phreak / signal-lab GUI+CLI; 10 shared + 10 S.I.P.H.E.R. themes; r15 core preserved.
@@ -44,6 +45,8 @@ Builder:
 Supported targets:
 - Linux
 - FreeBSD
+- macOS 13+
+- Termux/Android
+- Windows 10/11 portable (plus legacy Win7 compatibility path)
 
 The builder retains automatic dependency installation, managed PJSIP 2.17 validation/bootstrap, Qt 6 dependencies, ffmpeg support, Linux capture capabilities, FreeBSD BPF/devfs permissions, audio preflight, r14's guarded generic laptop HDA compatibility pass, and the narrowly recognized ALC236 repair.
-HOTFIX-R18-CTEST.txt — r18 Linux CTest release-gate correction notes

@@ -25,17 +25,36 @@ struct AudioStatusInfo {
     std::string playbackDevice;
     std::string systemRoute;
 };
+struct SipAccountStatus {
+    std::string id;
+    std::string name;
+    std::string username;
+    std::string sipDomain;
+    Transport transport{Transport::Udp};
+    std::uint16_t localSipPort{5060};
+    bool registered{false};
+    bool activeOutbound{false};
+    std::string registrationText{"Not registered"};
+};
 class SipEngine {
 public:
     explicit SipEngine(Logger& logger); ~SipEngine();
     SipEngine(const SipEngine&)=delete; SipEngine& operator=(const SipEngine&)=delete;
-    void start(const SipProfile& profile,unsigned maxCalls=50);
+    // r19: the endpoint can run with zero SIP accounts. Accounts may then be
+    // added/removed independently while the rest of SIPHER stays usable.
+    void start(unsigned maxCalls=50);
+    void start(const SipProfile& profile,unsigned maxCalls=50); // compatibility helper
     void stop();
     bool started()const; bool registered()const; std::string registrationText()const;
     const SipProfile& profile()const;
-    // Runtime dial prefix. Initialized from the profile, but intentionally
-    // changeable without editing/reloading the SIP account. This is routing
-    // state for the PBX currently under test, not account identity.
+    std::string addAccount(const SipProfile& profile,const std::string& requestedId={});
+    void removeAccount(const std::string& accountId);
+    void setActiveAccount(const std::string& accountId);
+    std::string activeAccountId()const;
+    bool hasAccounts()const;
+    std::vector<SipAccountStatus> accounts()const;
+    SipProfile accountProfile(const std::string& accountId)const;
+    // Runtime dial prefix belongs to the currently selected outbound account.
     void setDialPrefix(const std::string& prefix);
     std::string dialPrefix()const;
     int makeCall(const std::string& destination,const std::string& callerId={},bool makeForeground=true,CallPurpose purpose=CallPurpose::Phone,bool applyDialPrefix=true);
@@ -49,11 +68,6 @@ public:
     void refreshAudioDevices();
     void reopenAudioDevices();
     AudioStatusInfo audioStatus()const;
-    // GUI/dashboard callers poll this periodically. Linux follows PipeWire/Pulse
-    // sink/source port changes. FreeBSD follows PulseAudio when available and
-    // otherwise watches native OSS/snd_hda default-unit, PCM and recsrc state.
-    // A route change performs a real PJSIP close/refresh/reopen and reattaches
-    // the foreground call without dropping the SIP dialog.
     bool pollSystemAudioRoute();
     void setAudioAutoSwitch(bool enabled);
     bool audioAutoSwitchEnabled() const;
@@ -66,19 +80,14 @@ public:
     std::string callReport(int id)const;
     void exportCallReport(int id,const std::string& path)const;
 
-    // Detailed diagnostics are intentionally exposed for normal Phone calls only.
     std::vector<SipTraceEntry> sipTrace(int id)const;
     void startSipTraceFile(int id,const std::string& path);
     void stopSipTraceFile(int id);
     bool sipTraceRecording(int id)const;
     std::string sipTracePath(int id)const;
-    // SIP signaling capture does not require an active call. The no-ID overload
-    // can be armed before dialing so the initial prefixed INVITE and fast PBX
-    // responses (including 403 routing rejection or 401/407 challenge) are captured.
     void startSipPcap(const std::string& path,const std::string& interfaceName="any");
     void startSipPcap(int id,const std::string& path,const std::string& interfaceName="any");
     void startRtpPcap(int id,const std::string& path,const std::string& interfaceName="any");
-    // Full VoIP capture is pre-dial and does not require a negotiated call.
     void startCallPcap(const std::string& path,const std::string& interfaceName="any");
     void startCallPcap(int id,const std::string& path,const std::string& interfaceName="any");
     void stopCapture(CaptureKind kind);
@@ -90,10 +99,8 @@ public:
 
     std::string normalizeDestination(const std::string& value,bool applyDialPrefix=true)const;
     std::string callerIdentityUri(const std::string& value)const;
-    void onIncomingCall(int id);
-    void onRegistrationState(bool active,int code,const std::string& reason);
-
-    // Called by SipWireMonitor from PJSIP worker threads.
+    void onIncomingCall(const std::string& accountId,SipAccount& account,int id);
+    void onRegistrationState(const std::string& accountId,SipAccount& account,bool active,int code,const std::string& reason);
     void onSipMessage(SipTraceEntry entry);
 private:
     struct ArchivedCall {
@@ -101,6 +108,7 @@ private:
         std::vector<SipTraceEntry> sipTrace;
         std::string sipTracePath;
     };
+    struct ManagedAccount;
     std::shared_ptr<CallSession> findCall(int id)const;
     const ArchivedCall* findArchivedCallLocked(int id)const;
     std::shared_ptr<CallSession> requirePhoneCall(int id)const;
@@ -108,17 +116,23 @@ private:
     void archiveDisconnectedCall(const std::shared_ptr<CallSession>& call,const CallSnapshot& state);
     void onCallUpdated(int id);
     void configureIdentity(pj::CallOpParam& prm,const std::string& callerId)const;
+    void initializeEndpoint(unsigned maxCalls);
+    pj::TransportId ensureTransport(const SipProfile& profile);
+    void refreshAggregateRegistrationLocked();
     Logger& logger_;
     mutable std::mutex mutex_;
-    // Serializes call-wrapper creation against stop()/profile reload.
     mutable std::mutex callCreateMutex_;
     mutable std::mutex audioMutex_;
     mutable std::mutex audioRouteMutex_;
     mutable std::mutex dialPrefixMutex_;
+    mutable std::mutex accountMutex_;
     SipProfile profile_;
     std::string dialPrefix_;
+    std::string activeAccountId_;
     std::unique_ptr<pj::Endpoint> endpoint_;
-    std::unique_ptr<SipAccount> account_;
+    std::map<std::string,std::unique_ptr<ManagedAccount>> accounts_;
+    std::vector<std::unique_ptr<ManagedAccount>> retiredAccounts_;
+    std::map<std::string,pj::TransportId> transports_;
     std::unique_ptr<SipWireMonitor> sipMonitor_;
     std::unique_ptr<CaptureManager> captures_;
     std::map<int,std::shared_ptr<CallSession>> calls_;

@@ -7,7 +7,7 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $MsysRoot = "C:\msys64"
 $Bash = Join-Path $MsysRoot "usr\bin\bash.exe"
 
-Write-Host "S.I.P.H.E.R. By GITSC - Windows portable builder ($Target)" -ForegroundColor Cyan
+Write-Host "SIPHER By GITSC - Windows portable builder ($Target)" -ForegroundColor Cyan
 
 if (-not (Test-Path $Bash)) {
     if ($SkipMsysInstall) { throw "MSYS2 is not installed at C:\msys64." }
@@ -29,11 +29,11 @@ Write-Host "Updating MSYS2 package metadata..." -ForegroundColor Cyan
 & $Bash -lc "pacman -Sy --noconfirm"
 if ($LASTEXITCODE -ne 0) { throw "MSYS2 package refresh failed." }
 
-Write-Host "Building S.I.P.H.E.R. $Target portable GUI + CLI..." -ForegroundColor Green
+Write-Host "Building SIPHER $Target portable unified GUI + CLI..." -ForegroundColor Green
 Push-Location $Root
 try {
     & (Join-Path $Root "build-windows-portable.cmd") $Target
-    if ($LASTEXITCODE -ne 0) { throw "S.I.P.H.E.R. Windows build failed with exit code $LASTEXITCODE" }
+    if ($LASTEXITCODE -ne 0) { throw "SIPHER Windows build failed with exit code $LASTEXITCODE" }
 } finally { Pop-Location }
 
 Write-Host "Build complete. See the dist folder." -ForegroundColor Green

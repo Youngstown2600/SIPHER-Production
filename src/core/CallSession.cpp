@@ -44,12 +44,13 @@ std::pair<double,double> estimateVoiceQuality(double rttMs,double jitterMs,doubl
 }
 
 CallSession::CallSession(pj::Account& account, Logger& logger, CallDirection direction,
-                         CallPurpose purpose, int id)
+                         CallPurpose purpose, int id, std::string accountId)
     : pj::Call(account, id), logger_(logger)
 {
     snapshot_.id = id;
     snapshot_.direction = direction;
     snapshot_.purpose = purpose;
+    snapshot_.accountId = std::move(accountId);
     snapshot_.createdMs = nowMs();
     if (id != PJSUA_INVALID_ID) {
         try {
@@ -436,7 +437,7 @@ void CallSession::startSipTraceFile(const std::string& path)
     }
     protectFile(path);
     sipTracePath_ = path;
-    sipTraceFile_ << "# S.I.P.H.E.R. 1.0.0 single-call SIP trace\n# Call-ID: "
+    sipTraceFile_ << "# SIPHER 2.0 single-call SIP trace\n# Call-ID: "
                   << snapshot_.callIdString << "\n\n";
     for (const auto& entry : sipTrace_) {
         sipTraceFile_ << formatTraceEntry(entry);

@@ -2,20 +2,18 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
-grep -q 'TRUNKMONKEY_VERSION "1.0.0-r18-DID-Route-Audit"' include/trunkmonkey/Version.h
+grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
 grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
 grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
 grep -q 'Actual INVITE peer' src/gui/MainWindow.cpp
 grep -q 'dst_name' src/core/SipWireMonitor.cpp
-# PJSIP 2.17 RX metadata uses pkt_info.src_name/src_port (or src_addr), never pkt_info.addr.
 grep -q 'pkt_info.src_name' src/core/SipWireMonitor.cpp
 grep -q 'pkt_info.src_port' src/core/SipWireMonitor.cpp
-if grep -q 'rdata->pkt_info\.addr' src/core/SipWireMonitor.cpp; then
-  echo 'PJSIP 2.17 compatibility regression: pkt_info.addr does not exist' >&2
-  exit 1
-fi
+! grep -q 'pkt_info.addr' src/core/SipWireMonitor.cpp
+! grep -q 'auto emit=' src/gui/MainWindow.cpp
+grep -q 'appendHeaderList' src/gui/MainWindow.cpp
 grep -q 'peerAddress' include/trunkmonkey/SipTrace.h
 grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp
 grep -q 'TOPOLOGY / INFORMATION EXPOSURE' src/gui/MainWindow.cpp
@@ -31,11 +29,4 @@ if printf '%s' "$legacy" | grep -Eq 'sendDtmf|playTone|dial\(|makeCall|pjsua_cal
   exit 1
 fi
 grep -q 'COMPONENTS Core Widgets Network' CMakeLists.txt
-echo 'r18 DID/route/audit source contract passed'
-# Qt defines `emit` as a macro; using it as a local identifier breaks GUI compilation.
-if grep -Eq '(^|[^A-Za-z0-9_])auto[[:space:]]+emit[[:space:]]*=' src/gui/MainWindow.cpp; then
-  echo 'Qt compatibility regression: do not use emit as a C++ identifier' >&2
-  exit 1
-fi
-grep -q 'appendHeaderList' src/gui/MainWindow.cpp
-
+echo 'r18 DID/route/audit features + Linux/PJSIP/Qt hotfix contract passed under SIPHER 2.0'

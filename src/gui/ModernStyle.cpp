@@ -28,7 +28,7 @@ Palette paletteFor(const QString& raw){
     else if(k=="cobalt")p={"#07152b","#0d2446","#173d75","#1e4c8e","#e5efff","#8aa4c5","#668fd0","#8cc7ff","#456fb5","#6ed59b","#ff7182","#e9bd66",false};
     else if(k=="amber")p={"#120c03","#211606","#2b1d08","#38260b","#ffe0a0","#b78c4d","#ffb52f","#ffd274","#6d4b18","#a8d45b","#ff6f62","#ffd274",false};
     else if(k=="high-contrast")p={"#000000","#101010","#191919","#222222","#ffffff","#c9c9c9","#00d9ff","#ffffff","#5e5e5e","#32ff7e","#ff405c","#ffe600",false};
-    // S.I.P.H.E.R.-exclusive phone-phreak / underground palettes.
+    // SIPHER-exclusive phone-phreak / underground palettes.
     else if(k=="black-ice")p={"#010509","#031019","#061a24","#092633","#dff8ff","#78a8b8","#16d9ff","#8af1ff","#16485a","#55e6ae","#ff6675","#ffd166",false};
     else if(k=="night-vision")p={"#010501","#030a03","#061206","#0a1d0a","#caffca","#69a969","#4dff4d","#a2ff7a","#1d5c1d","#7cff63","#ff5d69","#e5dc62",false};
     else if(k=="blue-box")p={"#020914","#041326","#071f38","#0b2d4f","#d8f2ff","#71a4bf","#28b8ff","#74ddff","#14557b","#55e6ae","#ff6675","#ffd166",false};
