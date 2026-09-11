@@ -167,8 +167,12 @@ if(TRUNKMONKEY_BUILD_TESTS)
  add_test(NAME pbx-audit-test COMMAND tm-pbx-audit-test)
  set_tests_properties(pbx-audit-test PROPERTIES TIMEOUT 30)
  if(UNIX)
-  add_test(NAME r15-core-preservation COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/core_r15_preservation_test.sh)
+  # Current r18 release gates.  Do not register the historical r15 hash test
+  # here: r18 intentionally extends PbxAudit/SipTrace/SipWireMonitor.
+  add_test(NAME r18-core-preservation COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r18_core_preservation_test.sh)
   add_test(NAME r17-phreak-ui-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r17_phreak_ui_source_test.sh)
+  add_test(NAME r18-did-route-audit-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r18_did_route_audit_source_test.sh)
+  add_test(NAME all-platform-builder-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/all_platform_builder_source_test.sh)
   add_test(NAME freebsd-audio-compat-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/freebsd_audio_compat_test.sh)
  endif()
  if(NOT MSVC)

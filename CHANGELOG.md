@@ -1,3 +1,9 @@
+# S.I.P.H.E.R. 1.0.0-r18 CTest hotfix
+
+- Linux CTest now uses the r18 core-preservation/security gate rather than the historical r15 hash gate.
+- The inherited r17 phreak UI contract no longer pins the obsolete r17 version string.
+- Added current r18 DID/route and all-platform source contracts to CTest registration.
+
 # S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit — 2026-09-10
 
 - Added DID / number intelligence tab with carrier, line-type, validity, active-state, VOIP/prepaid and spam/fraud-reputation indicators through an optional IPQualityScore API key.

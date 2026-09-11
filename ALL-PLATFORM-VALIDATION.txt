@@ -37,3 +37,10 @@ Run the regression gate
 Dry-run the Linux GUI builder
 -----------------------------
   ./build.sh --os linux --gui --dry-run --no-install
+
+r18 Linux CTest hotfix validation
+---------------------------------
+PASS - CMake registers r18-core-preservation instead of the obsolete r15 hash gate.
+PASS - inherited r17 phreak UI source contract accepts the r18 release identity while preserving UI behavior.
+PASS - r18 DID/route/audit and all-platform builder source contracts are registered in CTest.
+PASS - full tests/run_r18_regression.sh suite after PJSIP 2.17, Qt emit, and CTest hotfixes.

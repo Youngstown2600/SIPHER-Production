@@ -46,3 +46,4 @@ Supported targets:
 - FreeBSD
 
 The builder retains automatic dependency installation, managed PJSIP 2.17 validation/bootstrap, Qt 6 dependencies, ffmpeg support, Linux capture capabilities, FreeBSD BPF/devfs permissions, audio preflight, r14's guarded generic laptop HDA compatibility pass, and the narrowly recognized ALC236 repair.
+HOTFIX-R18-CTEST.txt — r18 Linux CTest release-gate correction notes
