@@ -780,7 +780,7 @@ void MainWindow::manageAccounts()
         try{engine_.setActiveAccount(id);if(dialPrefixEdit_)dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));rebuild();}
         catch(const std::exception&e){QMessageBox::warning(&d,"Outbound SIP account",e.what());}
     });
-    connect(table,&QTableWidget::itemDoubleClicked,&d,[use](QTableWidgetItem*,int){use->click();});
+    connect(table,&QTableWidget::itemDoubleClicked,&d,[use](QTableWidgetItem*){use->click();});
     d.exec();
     refreshAccountSelector();
 }
