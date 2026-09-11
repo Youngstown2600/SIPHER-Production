@@ -41,7 +41,7 @@ class CliDashboard {
 public:
     CliDashboard();
     bool enabled() const noexcept { return enabled_; }
-    void render(const DashboardState& state, std::ostream& out) const;
+    void render(const DashboardState& state, std::ostream& out, bool fullClear=true) const;
     void showOverlay(const std::string& title, const std::string& body, std::ostream& out) const;
     void pauseForEnter(std::istream& in, std::ostream& out) const;
     void prepareInteractivePrompt(std::ostream& out) const;
@@ -60,6 +60,7 @@ private:
     std::vector<std::string> accountLines(const DashboardState& state,int width) const;
     std::vector<std::string> registrationLines(const DashboardState& state,int width) const;
     std::vector<std::string> callLines(const DashboardState& state,int width,bool compact,int maxEntries=0) const;
+    std::vector<std::string> activeCallStatsLines(const DashboardState& state,int width) const;
     std::vector<std::string> diagnosticLines(const DashboardState& state,int width,int maxTraceRows) const;
     std::vector<std::string> sipPageLines(const DashboardState& state,int width,int maxRows) const;
     std::vector<std::string> engineLogPageLines(const DashboardState& state,int width,int maxRows) const;

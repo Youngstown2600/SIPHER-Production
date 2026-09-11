@@ -310,8 +310,25 @@ std::string transact(const std::string&host,std::uint16_t port,AuditTransport tr
         if(transport==AuditTransport::Udp) sent=static_cast<int>(sendto(fd,request.data(),static_cast<int>(request.size()),0,ai->ai_addr,static_cast<socklen_t>(ai->ai_addrlen)));
         else if(connectTimed(fd,ai->ai_addr,static_cast<socklen_t>(ai->ai_addrlen),timeoutMs)) sent=send(fd,request.data(),static_cast<int>(request.size()),0);
         if(sent<0){lastError=socketError();closeSocket(fd);continue;}
-        std::array<char,65536>buf{};std::string raw;
-        for(;;){const int n=recv(fd,buf.data(),static_cast<int>(buf.size()),0);if(n>0){raw.append(buf.data(),static_cast<std::size_t>(n));if(raw.find("\r\n\r\n")!=std::string::npos||transport==AuditTransport::Udp)break;continue;}break;}
+        constexpr std::size_t MaxAuditResponseBytes=256u*1024u;
+        std::array<char,16384>buf{};std::string raw;
+        for(;;){
+            const int n=recv(fd,buf.data(),static_cast<int>(buf.size()),0);
+            if(n>0){
+                const auto count=static_cast<std::size_t>(n);
+                if(raw.size()>MaxAuditResponseBytes-count){
+                    closeSocket(fd);
+                    throw std::runtime_error("SIP audit response exceeded 256 KiB safety limit");
+                }
+                raw.append(buf.data(),count);
+                if(raw.find("\r\n\r\n")!=std::string::npos||transport==AuditTransport::Udp)break;
+                const auto elapsed=std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now()-started).count();
+                if(elapsed>=static_cast<long long>(timeoutMs))break;
+                continue;
+            }
+            break;
+        }
         latency=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();closeSocket(fd);
         if(!raw.empty()) return raw;
         lastError="No SIP response before timeout";

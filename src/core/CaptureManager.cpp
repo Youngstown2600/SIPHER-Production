@@ -95,6 +95,14 @@ std::vector<std::string> CaptureManager::wiresharkSipDecodeArguments(const std::
     const auto port=std::to_string(localSipPort);
     return {"-r",path,"-d","udp.port=="+port+",sip","-d","tcp.port=="+port+",sip"};
 }
+std::vector<std::string> CaptureManager::wiresharkVoipDecodeArguments(const std::string&path,unsigned localSipPort){
+    auto args=wiresharkSipDecodeArguments(path,localSipPort);
+    // SIP/SDP is the authoritative source for RTP/RTCP stream discovery. The
+    // heuristic is enabled as a fallback for endpoints that omit/mangle SDP.
+    args.push_back("--enable-heuristic");
+    args.push_back("rtp_udp");
+    return args;
+}
 void CaptureManager::openInWireshark(const std::string&path,const CallSnapshot&c){
     std::error_code ec;if(!std::filesystem::exists(std::filesystem::u8path(path),ec))throw std::runtime_error("PCAP file was not found: "+path);
     const auto tool=wiresharkTool();if(tool.empty())throw std::runtime_error("Wireshark was not found. Install Wireshark or add it to PATH, then try again.");
@@ -113,6 +121,20 @@ void CaptureManager::openSipInWireshark(const std::string&path,unsigned localSip
     std::error_code ec;if(!std::filesystem::exists(std::filesystem::u8path(path),ec))throw std::runtime_error("PCAP file was not found: "+path);
     const auto tool=wiresharkTool();if(tool.empty())throw std::runtime_error("Wireshark was not found. Install Wireshark or add it to PATH, then try again.");
     const auto args=wiresharkSipDecodeArguments(path,localSipPort);
+#ifdef _WIN32
+    std::ostringstream command;command<<quoteWin(tool);for(const auto&a:args)command<<" "<<quoteWin(a);if(!startDesktopProcess(command.str()))throw std::runtime_error("Unable to launch Wireshark.exe");
+#else
+    std::vector<char*>argv;argv.reserve(args.size()+2);argv.push_back(const_cast<char*>(tool.c_str()));for(const auto&a:args)argv.push_back(const_cast<char*>(a.c_str()));argv.push_back(nullptr);
+    posix_spawn_file_actions_t actions;if(posix_spawn_file_actions_init(&actions)!=0)throw std::runtime_error("Unable to initialize Wireshark process actions");
+    (void)posix_spawn_file_actions_addopen(&actions,STDOUT_FILENO,"/dev/null",O_WRONLY,0600);(void)posix_spawn_file_actions_addopen(&actions,STDERR_FILENO,"/dev/null",O_WRONLY,0600);
+    pid_t pid=-1;const int rc=::posix_spawn(&pid,tool.c_str(),&actions,nullptr,argv.data(),environ);posix_spawn_file_actions_destroy(&actions);if(rc!=0)throw std::runtime_error("Unable to launch Wireshark: "+std::string(std::strerror(rc)));
+    std::thread([pid](){int st=0;while(::waitpid(pid,&st,0)<0&&errno==EINTR){}}).detach();
+#endif
+}
+void CaptureManager::openVoipInWireshark(const std::string&path,unsigned localSipPort){
+    std::error_code ec;if(!std::filesystem::exists(std::filesystem::u8path(path),ec))throw std::runtime_error("PCAP file was not found: "+path);
+    const auto tool=wiresharkTool();if(tool.empty())throw std::runtime_error("Wireshark was not found. Install Wireshark or add it to PATH, then try again.");
+    const auto args=wiresharkVoipDecodeArguments(path,localSipPort);
 #ifdef _WIN32
     std::ostringstream command;command<<quoteWin(tool);for(const auto&a:args)command<<" "<<quoteWin(a);if(!startDesktopProcess(command.str()))throw std::runtime_error("Unable to launch Wireshark.exe");
 #else
@@ -155,7 +177,7 @@ void CaptureManager::start(Proc&p,const std::string&path,const std::string&filte
 #ifdef _WIN32
     if(tool.empty())throw std::runtime_error("No packet capture tool found. Windows 10/11 normally provides pktmon.exe. Windows 7 requires dumpcap.exe plus an installed packet-capture driver.");
     auto lower=tool;std::transform(lower.begin(),lower.end(),lower.begin(),[](unsigned char c){return static_cast<char>(std::tolower(c));});
-    if(lower.find("pktmon.exe")!=std::string::npos){if(sip_.running||rtp_.running||call_.running)throw std::runtime_error("Windows pktmon fallback supports one diagnostic PCAP at a time. Stop the current PCAP first.");auto ports=portsFromFilter(filter);if(ports.empty())throw std::runtime_error("Could not derive packet ports for pktmon capture.");runHidden(quoteWin(tool)+" stop");runHidden(quoteWin(tool)+" filter remove");for(std::size_t i=0;i<ports.size();++i){std::ostringstream c;c<<quoteWin(tool)<<" filter add TM"<<i<<" -p "<<ports[i];if(runHidden(c.str())!=0)throw std::runtime_error("pktmon filter setup failed. Run S.I.P.H.E.R. as Administrator for Windows PCAP capture.");}p.etlPath=path+".etl";std::error_code ec;std::filesystem::remove(std::filesystem::u8path(p.etlPath),ec);std::filesystem::remove(std::filesystem::u8path(path),ec);std::ostringstream c;c<<quoteWin(tool)<<" start --capture --comp nics --pkt-size 0 --file-name "<<quoteWin(p.etlPath);if(runHidden(c.str())!=0){runHidden(quoteWin(tool)+" filter remove");throw std::runtime_error("pktmon capture could not start. Run S.I.P.H.E.R. as Administrator.");}p.path=path;p.tool=tool;p.filter=filter;p.pktmon=true;p.running=true;logger_.info("Windows pktmon capture started file="+path+" filter="+filter);return;}
+    if(lower.find("pktmon.exe")!=std::string::npos){if(sip_.running||rtp_.running||call_.running)throw std::runtime_error("Windows pktmon fallback supports one diagnostic PCAP at a time. Stop the current PCAP first.");auto ports=portsFromFilter(filter);runHidden(quoteWin(tool)+" stop");runHidden(quoteWin(tool)+" filter remove");for(std::size_t i=0;i<ports.size();++i){std::ostringstream c;c<<quoteWin(tool)<<" filter add TM"<<i<<" -p "<<ports[i];if(runHidden(c.str())!=0)throw std::runtime_error("pktmon filter setup failed. Run S.I.P.H.E.R. as Administrator for Windows PCAP capture.");}p.etlPath=path+".etl";std::error_code ec;std::filesystem::remove(std::filesystem::u8path(p.etlPath),ec);std::filesystem::remove(std::filesystem::u8path(path),ec);std::ostringstream c;c<<quoteWin(tool)<<" start --capture --comp nics --pkt-size 0 --file-name "<<quoteWin(p.etlPath);if(runHidden(c.str())!=0){runHidden(quoteWin(tool)+" filter remove");throw std::runtime_error("pktmon capture could not start. Run S.I.P.H.E.R. as Administrator.");}p.path=path;p.tool=tool;p.filter=filter;p.pktmon=true;p.running=true;logger_.info("Windows pktmon capture started file="+path+" filter="+filter);return;}
     std::string ifn=iface.empty()?"any":iface;if(ifn=="any")throw std::runtime_error("dumpcap on Windows requires a capture interface. Enter an interface name/index, or use the built-in pktmon fallback.");std::ostringstream c;c<<quoteWin(tool)<<" -q -i "<<quoteWin(ifn)<<" -f "<<quoteWin(filter)<<" -w "<<quoteWin(path);if(!startHiddenProcess(c.str(),p.process,p.pid))throw std::runtime_error("CreateProcess failed while starting dumpcap");p.path=path;p.tool=tool;p.filter=filter;p.running=true;std::this_thread::sleep_for(std::chrono::milliseconds(250));DWORD code=STILL_ACTIVE;if(!GetExitCodeProcess(p.process,&code)||code!=STILL_ACTIVE){CloseHandle(p.process);p=Proc{};throw std::runtime_error("dumpcap exited immediately. Check interface and capture permissions.");}logger_.info("Packet capture started pid="+std::to_string(p.pid)+" file="+path+" filter="+filter);
 #else
     if(tool.empty())throw std::runtime_error("No packet capture tool found. Install dumpcap/Wireshark or tcpdump. "+permissionHint());
@@ -196,9 +218,9 @@ void CaptureManager::stopProc(Proc&p){if(!p.running)return;
 void CaptureManager::startSip(const std::string&path,unsigned port,const std::string&iface){if(port==0)throw std::runtime_error("Invalid local SIP port");start(sip_,path,"((udp or tcp) and port "+std::to_string(port)+")",iface);}
 std::string CaptureManager::rtpFilter(const CallSnapshot&c){std::set<int>ports;for(auto*a:{&c.localRtpAddress,&c.localRtcpAddress,&c.remoteRtpAddress,&c.remoteRtcpAddress,&c.sourceRtpAddress,&c.sourceRtcpAddress}){auto p=portFromAddress(*a);if(p)ports.insert(p);}if(ports.empty())throw std::runtime_error("RTP endpoints are not negotiated yet; place/answer the call first.");std::ostringstream f;f<<"udp and (";bool first=true;for(int p:ports){if(!first)f<<" or ";f<<"port "<<p;first=false;}f<<")";return f.str();}
 void CaptureManager::startRtp(const std::string&path,const CallSnapshot&c,const std::string&iface){start(rtp_,path,rtpFilter(c),iface);}
-void CaptureManager::startCall(const std::string&path,unsigned port,const CallSnapshot&c,const std::string&iface){if(port==0)throw std::runtime_error("Invalid local SIP port");const auto media=rtpFilter(c);start(call_,path,"(((udp or tcp) and port "+std::to_string(port)+") or ("+media+"))",iface);}
+void CaptureManager::startCall(const std::string&path,unsigned port,const std::string&iface){if(port==0)throw std::runtime_error("Invalid local SIP port");start(call_,path,"(udp or tcp)",iface);logger_.info("Full VoIP PCAP armed before dial; SIP/SDP and negotiated RTP/RTCP will share one capture: "+path);}
 void CaptureManager::stop(CaptureKind k){if(k==CaptureKind::Sip)stopProc(sip_);else if(k==CaptureKind::Rtp)stopProc(rtp_);else stopProc(call_);}
 void CaptureManager::stopAll(){stopProc(sip_);stopProc(rtp_);stopProc(call_);}
 bool CaptureManager::active(CaptureKind k)const{return k==CaptureKind::Sip?sip_.running:(k==CaptureKind::Rtp?rtp_.running:call_.running);}
-std::string CaptureManager::status()const{std::ostringstream s;s<<"SIP PCAP: "<<(sip_.running?sip_.path:"stopped")<<" | RTP PCAP: "<<(rtp_.running?rtp_.path:"stopped")<<" | CALL PCAP: "<<(call_.running?call_.path:"stopped");return s.str();}
+std::string CaptureManager::status()const{std::ostringstream s;s<<"SIP PCAP: "<<(sip_.running?sip_.path:"stopped")<<" | RTP PCAP: "<<(rtp_.running?rtp_.path:"stopped")<<" | FULL VOIP PCAP: "<<(call_.running?call_.path:"stopped");return s.str();}
 }

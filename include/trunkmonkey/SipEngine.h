@@ -78,12 +78,15 @@ public:
     void startSipPcap(const std::string& path,const std::string& interfaceName="any");
     void startSipPcap(int id,const std::string& path,const std::string& interfaceName="any");
     void startRtpPcap(int id,const std::string& path,const std::string& interfaceName="any");
+    // Full VoIP capture is pre-dial and does not require a negotiated call.
+    void startCallPcap(const std::string& path,const std::string& interfaceName="any");
     void startCallPcap(int id,const std::string& path,const std::string& interfaceName="any");
     void stopCapture(CaptureKind kind);
     void stopCaptures();
     std::string captureStatus()const;
     void openPcapInWireshark(int id,const std::string& path)const;
     void openSipPcapInWireshark(const std::string& path)const;
+    void openVoipPcapInWireshark(const std::string& path)const;
 
     std::string normalizeDestination(const std::string& value,bool applyDialPrefix=true)const;
     std::string callerIdentityUri(const std::string& value)const;

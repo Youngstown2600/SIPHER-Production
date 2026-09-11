@@ -17,7 +17,11 @@ public:
     ~CaptureManager();
     void startSip(const std::string& path,unsigned localSipPort,const std::string& interfaceName="any");
     void startRtp(const std::string& path,const CallSnapshot& call,const std::string& interfaceName="any");
-    void startCall(const std::string& path,unsigned localSipPort,const CallSnapshot& call,const std::string& interfaceName="any");
+    // Full VoIP capture can be armed before a call exists. It intentionally
+    // captures all UDP/TCP traffic on the selected interface during the test
+    // window so the initial SIP/SDP exchange and the subsequently negotiated
+    // RTP/RTCP streams live in one chronological PCAP/PCAPNG.
+    void startCall(const std::string& path,unsigned localSipPort,const std::string& interfaceName="any");
     void stop(CaptureKind kind);
     void stopAll();
     bool active(CaptureKind kind)const;
@@ -34,8 +38,10 @@ public:
     static std::string wiresharkTool();
     static std::vector<std::string> wiresharkDecodeArguments(const std::string& path,const CallSnapshot& call);
     static std::vector<std::string> wiresharkSipDecodeArguments(const std::string& path,unsigned localSipPort);
+    static std::vector<std::string> wiresharkVoipDecodeArguments(const std::string& path,unsigned localSipPort);
     static void openInWireshark(const std::string& path,const CallSnapshot& call);
     static void openSipInWireshark(const std::string& path,unsigned localSipPort);
+    static void openVoipInWireshark(const std::string& path,unsigned localSipPort);
 private:
     struct Proc {
 #ifdef _WIN32

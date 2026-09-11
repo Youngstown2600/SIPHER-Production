@@ -1,3 +1,8 @@
+
+Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
+r17: underground phone-phreak / signal-lab GUI+CLI; 10 shared + 10 S.I.P.H.E.R. themes; r15 core preserved.
+r16: modern GUI/CLI control-deck facelift on the complete r15 Full VoIP PCAP baseline; core behavior preserved.
+r15: pre-dial Full VoIP PCAP for Wireshark VoIP Calls; retains r14 FreeBSD audio compatibility.
 S.I.P.H.E.R. 1.0.0 r14 — FreeBSD audio compatibility + main-screen dial prefix + live audio hot-swap release
 
 Base: r13 main-screen prefix + r12 live audio hot-swap + r11 audio lifecycle + r10 SIP-capture updates

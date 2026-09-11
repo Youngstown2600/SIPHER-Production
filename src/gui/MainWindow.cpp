@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "ProfileDialog.h"
+#include "ModernStyle.h"
 #include "trunkmonkey/CallSnapshot.h"
 #include "trunkmonkey/CaptureManager.h"
 #include "trunkmonkey/Logger.h"
@@ -24,6 +25,8 @@
 #include <QFileDialog>
 #include <QFontDatabase>
 #include <QFormLayout>
+#include <QFrame>
+#include <QHBoxLayout>
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHeaderView>
@@ -34,33 +37,29 @@
 #include <QMenuBar>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QPixmap>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 #include <sstream>
+#include <QStringList>
+#include <vector>
 #include <utility>
 using namespace trunkmonkey;
 static std::vector<std::string> loadList(const QString&p){if(p.isEmpty())return{};TextPool t;t.load(p.toStdString());return t.values();}
 static QString showAddr(const std::string&s){return s.empty()?QStringLiteral("--"):QString::fromStdString(s);}
-static const char* kSipherBlockLogo=u8R"SIPHER(  ██████  ██▓ ██▓███   ██░ ██ ▓█████  ██▀███
-▒██    ▒ ▓██▒▓██░  ██▒▓██░ ██▒▓█   ▀ ▓██ ▒ ██▒
-░ ▓██▄   ▒██▒▓██░ ██▓▒▒██▀▀██░▒███   ▓██ ░▄█ ▒
-  ▒   ██▒░██░▒██▄█▓▒ ▒░▓█ ░██ ▒▓█  ▄ ▒██▀▀█▄
-▒██████▒▒░██░▒██▒ ░  ░░▓█▒░██▓░▒████▒░██▓ ▒██▒
-▒ ▒▓▒ ▒ ░░▓  ▒▓▒░ ░  ░ ▒ ░░▒░▒░░ ▒░ ░░ ▒▓ ░▒▓░
-░ ░▒  ░ ░ ▒ ░░▒ ░      ▒ ░▒░ ░ ░ ░  ░  ░▒ ░ ▒░
-░  ░  ░   ▒ ░░░        ░  ░░ ░   ░     ░░   ░
-      ░   ░            ░  ░  ░   ░  ░   ░)SIPHER";
+
 
 MainWindow::MainWindow(SipEngine&e,MultiCallManager&m,Logger&l,std::string profilePath,QWidget*p):QMainWindow(p),engine_(e),multi_(m),logger_(l),profilePath_(std::move(profilePath)){
-    buildUi();setWindowTitle("S.I.P.H.E.R. By GITSC 1.0.0 — SIP Inspection, Protocol Handling, Enumeration & Recon");setMinimumSize(680,440);resize(860,600);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
+    buildUi();setWindowTitle("S.I.P.H.E.R. r17-Exploit-Fix — Underground Phreak Lab");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
 }
 void MainWindow::buildUi(){
     auto* fileMenu=menuBar()->addMenu(QStringLiteral("&File"));
@@ -96,39 +95,50 @@ void MainWindow::buildUi(){
     auto* regHistoryAction=settingsMenu->addAction(QStringLiteral("&Registration History..."));
     connect(regHistoryAction,&QAction::triggered,this,&MainWindow::showRegistrationHistory);
 
-    auto*c=new QWidget;auto*outer=new QVBoxLayout(c);outer->setContentsMargins(7,7,7,7);outer->setSpacing(5);
-    auto*logoBanner=new QLabel(QString::fromUtf8(kSipherBlockLogo));
-    logoBanner->setTextFormat(Qt::PlainText);
-    logoBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    QFont logoFont=QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    logoFont.setPixelSize(8);
-    logoFont.setBold(true);
-    logoBanner->setFont(logoFont);
-    logoBanner->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);
-    logoBanner->setStyleSheet(QStringLiteral("padding: 2px 5px; border: 1px solid palette(mid); border-radius: 3px;"));
-    logoBanner->setToolTip(QStringLiteral("S.I.P.H.E.R. — SIP Inspection, Protocol Handling, Enumeration & Recon — By GITSC"));
-    outer->addWidget(logoBanner);
-    auto*top=new QGridLayout;
-    auto*brand=new QLabel(QStringLiteral("S.I.P.H.E.R. By GITSC"));brand->setStyleSheet(QStringLiteral("font-weight: 800; font-size: 15px; letter-spacing: 1px;"));
-    registration_=new QLabel("SIP: starting...");registration_->setStyleSheet("font-weight: 600;");
-    theme_=new QComboBox;
-    theme_->addItem("System","system");theme_->addItem("Hacker","hacker");theme_->addItem("Matrix","matrix");theme_->addItem("Phosphor","phosphor");theme_->addItem("Midnight","midnight");theme_->addItem("Amber","amber");theme_->addItem("Ice","ice");theme_->addItem("Classic Light","classic-light");theme_->addItem("Solarized Dark","solarized");theme_->addItem("Dracula","dracula");theme_->addItem("Nord","nord");theme_->addItem("Cyberpunk","cyberpunk");theme_->addItem("Blood Moon","blood-moon");theme_->addItem("Ocean","ocean");theme_->addItem("Retro Blue","retro-blue");theme_->addItem("Monochrome","monochrome");theme_->addItem("Blue Box","blue-box");theme_->addItem("Red Box","red-box");theme_->addItem("Beige Box","beige-box");theme_->addItem("2600","2600");theme_->addItem("WarGames","wargames");theme_->addItem("CRT Green","crt-green");theme_->addItem("VT220","vt220");theme_->addItem("Cobalt","cobalt");theme_->addItem("Vaporwave","vaporwave");theme_->addItem("Stealth","stealth");
+    auto*c=new QWidget;
+    c->setObjectName(QStringLiteral("PhreakRoot"));
+    auto*shell=new QHBoxLayout(c);shell->setContentsMargins(0,0,0,0);shell->setSpacing(0);
+
+    auto*sidebar=new QFrame(c);sidebar->setObjectName(QStringLiteral("PhreakRail"));sidebar->setFixedWidth(228);
+    auto*side=new QVBoxLayout(sidebar);side->setContentsMargins(18,22,18,18);side->setSpacing(8);
+    auto*brand=new QLabel(sidebar);brand->setObjectName(QStringLiteral("BrandLogo"));brand->setAlignment(Qt::AlignLeft|Qt::AlignVCenter);brand->setMinimumHeight(50);brand->setToolTip(QStringLiteral("S.I.P.H.E.R."));
+    const QPixmap brandPixmap(QStringLiteral(":/sipher/logo.png"));
+    if(!brandPixmap.isNull()) brand->setPixmap(brandPixmap.scaledToWidth(192,Qt::SmoothTransformation));
+    else { brand->setText(QStringLiteral("S.I.P.H.E.R.")); brand->setObjectName(QStringLiteral("BrandTitle")); }
+    side->addWidget(brand);
+    auto*edition=new QLabel(QStringLiteral("r17-Exploit-Fix // CARRIER ACCESS"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
+    auto*tagline=new QLabel(QStringLiteral("PHREAK LAB / SIGNAL TAP / SWITCH AUDIT"),sidebar);tagline->setObjectName(QStringLiteral("Muted"));tagline->setWordWrap(true);side->addWidget(tagline);
+    side->addSpacing(14);
+    auto*navHost=new QWidget(sidebar);auto*nav=new QVBoxLayout(navHost);nav->setContentsMargins(0,0,0,0);nav->setSpacing(4);side->addWidget(navHost);
+    side->addStretch(1);
+    auto*themeLabel=new QLabel(QStringLiteral("// DISPLAY PROFILE"),sidebar);themeLabel->setObjectName(QStringLiteral("Muted"));side->addWidget(themeLabel);
+    theme_=new QComboBox(sidebar);
+    theme_->addItem("System","system");theme_->addItem("Midnight","midnight");theme_->addItem("Slate","slate");theme_->addItem("Ocean","ocean");theme_->addItem("Arctic","arctic");theme_->addItem("Solarized","solarized");theme_->addItem("Monochrome","monochrome");theme_->addItem("Cobalt","cobalt");theme_->addItem("Amber","amber");theme_->addItem("High Contrast","high-contrast");
+    theme_->insertSeparator(theme_->count());
+    theme_->addItem("Black Ice","black-ice");theme_->addItem("Night Vision","night-vision");theme_->addItem("Blue Box","blue-box");theme_->addItem("Red Box","red-box");theme_->addItem("2600","2600");theme_->addItem("WarGames","wargames");theme_->addItem("Phosphor","phosphor");theme_->addItem("Cyberpunk","cyberpunk");theme_->addItem("Blood Moon","blood-moon");theme_->addItem("Terminal Gold","terminal-gold");
     const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());QSettings themeSettings(settingsPath,QSettings::IniFormat);const QString savedTheme=themeSettings.value(QStringLiteral("ui/theme"),QStringLiteral("system")).toString().toCaseFolded();int themeIndex=theme_->findData(savedTheme);if(themeIndex<0)themeIndex=0;theme_->setCurrentIndex(themeIndex);
     connect(theme_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int){applyTheme(theme_->currentData().toString());});
-    top->addWidget(brand,0,0);top->addWidget(registration_,0,1);top->setColumnStretch(2,1);top->addWidget(new QLabel("Theme:"),0,3);top->addWidget(theme_,0,4);outer->addLayout(top);
+    side->addWidget(theme_);
+    auto*sideProfile=new QPushButton(QStringLiteral("EDIT IDENTITY / SIP"),sidebar);connect(sideProfile,&QPushButton::clicked,this,&MainWindow::editProfile);side->addWidget(sideProfile);
+    shell->addWidget(sidebar);
 
-    tabs_=new QTabWidget;tabs_->setDocumentMode(true);
+    auto*content=new QWidget(c);auto*outer=new QVBoxLayout(content);outer->setContentsMargins(24,18,24,18);outer->setSpacing(12);
+    auto*topBar=new QFrame(content);topBar->setObjectName(QStringLiteral("WireHeader"));auto*top=new QHBoxLayout(topBar);top->setContentsMargins(0,0,0,0);top->setSpacing(12);
+    auto*headings=new QVBoxLayout;headings->setSpacing(2);auto*pageTitle=new QLabel(QStringLiteral("// LINE ACCESS"),topBar);pageTitle->setObjectName(QStringLiteral("PageTitle"));auto*pageSubtitle=new QLabel(QStringLiteral("DIAL / TAP / CAPTURE  ::  SIP + RTP carrier session workbench"),topBar);pageSubtitle->setObjectName(QStringLiteral("PageSubtitle"));pageSubtitle->setWordWrap(true);headings->addWidget(pageTitle);headings->addWidget(pageSubtitle);top->addLayout(headings,1);
+    registration_=new QLabel(QStringLiteral("STARTING"),topBar);registration_->setObjectName(QStringLiteral("StatusPill"));registration_->setAlignment(Qt::AlignCenter);top->addWidget(registration_);outer->addWidget(topBar);
+
+    tabs_=new QTabWidget(content);tabs_->setDocumentMode(true);tabs_->tabBar()->hide();
 
     // MAIN: phone controls, selected media and packet capture in one compact workspace.
     auto*mainPage=new QWidget;auto*ml=new QVBoxLayout(mainPage);ml->setContentsMargins(7,7,7,7);ml->setSpacing(6);
     auto*f=new QFormLayout;dialEdit_=new QLineEdit;dialEdit_->setPlaceholderText("3305551212 or sip:user@example.net");callerIdEdit_=new QLineEdit;callerIdEdit_->setPlaceholderText("Optional caller identity");dialPrefixEdit_=new QLineEdit(QString::fromStdString(engine_.dialPrefix()));dialPrefixEdit_->setPlaceholderText("Optional per-PBX prefix, e.g. 9 or 4071");dialPrefixEdit_->setToolTip("Session routing prefix. Change it here whenever you move to another PBX. Blank means no prefix. Explicit sip:/sips: URIs and user@domain destinations are never modified.");connect(dialPrefixEdit_,&QLineEdit::editingFinished,this,[this](){try{engine_.setDialPrefix(dialPrefixEdit_->text().trimmed().toStdString());statusBar()->showMessage(QString("Dial prefix: %1").arg(dialPrefixEdit_->text().trimmed().isEmpty()?QStringLiteral("<none>"):dialPrefixEdit_->text().trimmed()),3000);}catch(const std::exception&e){QMessageBox::warning(this,"Dial prefix",e.what());dialPrefixEdit_->setText(QString::fromStdString(engine_.dialPrefix()));}});f->addRow("Destination",dialEdit_);f->addRow("Dial prefix",dialPrefixEdit_);f->addRow("Caller ID",callerIdEdit_);ml->addLayout(f);
-    auto*r=new QGridLayout;auto*b=new QPushButton("CALL");connect(b,&QPushButton::clicked,this,&MainWindow::dial);r->addWidget(b,0,0);b=new QPushButton("ANSWER");connect(b,&QPushButton::clicked,this,&MainWindow::answerSelected);r->addWidget(b,0,1);b=new QPushButton("HANGUP");connect(b,&QPushButton::clicked,this,&MainWindow::hangupSelected);r->addWidget(b,0,2);b=new QPushButton("DTMF PAD...");connect(b,&QPushButton::clicked,this,&MainWindow::showDtmfPad);r->addWidget(b,0,3);muteButton_=new QPushButton("MUTE MIC");connect(muteButton_,&QPushButton::clicked,this,&MainWindow::toggleMuteSelected);r->addWidget(muteButton_,0,4);b=new QPushButton("HANGUP ALL");connect(b,&QPushButton::clicked,this,&MainWindow::hangupAll);r->addWidget(b,0,5);b=new QPushButton("EXIT");connect(b,&QPushButton::clicked,qApp,&QApplication::quit);r->addWidget(b,0,6);ml->addLayout(r);
+    auto*r=new QGridLayout;auto*b=new QPushButton("CALL");b->setProperty("role","primary");connect(b,&QPushButton::clicked,this,&MainWindow::dial);r->addWidget(b,0,0);b=new QPushButton("ANSWER");connect(b,&QPushButton::clicked,this,&MainWindow::answerSelected);r->addWidget(b,0,1);b=new QPushButton("HANGUP");b->setProperty("role","danger");connect(b,&QPushButton::clicked,this,&MainWindow::hangupSelected);r->addWidget(b,0,2);b=new QPushButton("DTMF PAD...");connect(b,&QPushButton::clicked,this,&MainWindow::showDtmfPad);r->addWidget(b,0,3);muteButton_=new QPushButton("MUTE MIC");connect(muteButton_,&QPushButton::clicked,this,&MainWindow::toggleMuteSelected);r->addWidget(muteButton_,0,4);b=new QPushButton("HANGUP ALL");connect(b,&QPushButton::clicked,this,&MainWindow::hangupAll);r->addWidget(b,0,5);b=new QPushButton("EXIT");connect(b,&QPushButton::clicked,qApp,&QApplication::quit);r->addWidget(b,0,6);ml->addLayout(r);
 
     auto*mediaBox=new QGroupBox("Selected Call Media");auto*media=new QGridLayout(mediaBox);callIdLabel_=new QLabel("--");mediaTarget_=new QLabel("--");mediaSource_=new QLabel("--");mediaLocal_=new QLabel("--");mediaCodec_=new QLabel("--");mediaQuality_=new QLabel("--");mediaQuality_->setTextInteractionFlags(Qt::TextSelectableByMouse);media->addWidget(new QLabel("SIP Call-ID:"),0,0);media->addWidget(callIdLabel_,0,1,1,3);media->addWidget(new QLabel("RTP target:"),1,0);media->addWidget(mediaTarget_,1,1);media->addWidget(new QLabel("RTP source:"),1,2);media->addWidget(mediaSource_,1,3);media->addWidget(new QLabel("Local RTP:"),2,0);media->addWidget(mediaLocal_,2,1);media->addWidget(new QLabel("Codec:"),2,2);media->addWidget(mediaCodec_,2,3);media->addWidget(new QLabel("Quality:"),3,0);media->addWidget(mediaQuality_,3,1,1,3);media->setColumnStretch(1,1);media->setColumnStretch(3,1);ml->addWidget(mediaBox);auto*diagButtons=new QGridLayout;b=new QPushButton("SIP LADDER...");connect(b,&QPushButton::clicked,this,&MainWindow::showSipLadder);diagButtons->addWidget(b,0,0);b=new QPushButton("EXPORT CALL REPORT...");connect(b,&QPushButton::clicked,this,&MainWindow::exportCallReport);diagButtons->addWidget(b,0,1);ml->addLayout(diagButtons);
 
     auto*capBox=new QGroupBox("Packet Capture");auto*cap=new QGridLayout(capBox);captureInterface_=new QComboBox;captureInterface_->setEditable(true);for(const auto& iface:CaptureManager::availableInterfaces())captureInterface_->addItem(QString::fromStdString(iface));if(captureInterface_->count()==0)captureInterface_->addItem("any");int anyIndex=captureInterface_->findText("any");if(anyIndex>=0)captureInterface_->setCurrentIndex(anyIndex);captureInterface_->setToolTip(QString::fromStdString(CaptureManager::permissionHint()));cap->addWidget(new QLabel("Interface:"),0,0);cap->addWidget(captureInterface_,0,1);
-    sipPcapStart_=new QPushButton("START SIP PCAP (PRE-DIAL)...");connect(sipPcapStart_,&QPushButton::clicked,this,&MainWindow::startSipPcap);cap->addWidget(sipPcapStart_,0,2);rtpPcapStart_=new QPushButton("START RTP PCAP...");connect(rtpPcapStart_,&QPushButton::clicked,this,&MainWindow::startRtpPcap);cap->addWidget(rtpPcapStart_,0,3);callPcapStart_=new QPushButton("START CALL PCAP...");connect(callPcapStart_,&QPushButton::clicked,this,&MainWindow::startCallPcap);cap->addWidget(callPcapStart_,0,4);pcapStop_=new QPushButton("STOP PCAPS");connect(pcapStop_,&QPushButton::clicked,this,&MainWindow::stopPcaps);cap->addWidget(pcapStop_,0,5);captureStatus_=new QLabel("SIP PCAP: stopped | RTP PCAP: stopped | CALL PCAP: stopped");captureStatus_->setWordWrap(true);cap->addWidget(captureStatus_,1,0,1,4);b=new QPushButton("OPEN LAST PCAP IN WIRESHARK");b->setToolTip("SIP captures are forced through Wireshark's SIP dissector; RTP/combined captures use negotiated RTP/RTCP Decode As.");connect(b,&QPushButton::clicked,this,&MainWindow::openLastPcap);cap->addWidget(b,1,4,1,2);auto*perm=new QLabel(QString::fromStdString(CaptureManager::permissionHint()));perm->setWordWrap(true);perm->setStyleSheet(QStringLiteral("font-size: 10px;"));cap->addWidget(perm,2,0,1,6);ml->addWidget(capBox);
-    auto*mainNote=new QLabel("SIP PCAP can be started BEFORE dialing so Wireshark captures the initial INVITE, the exact prefixed Request-URI sent to Asterisk/FreePBX, and responses such as 403/401/407. RTP/combined capture still requires a selected active Phone call. RTP-only PCAPs may require Wireshark's rtp_udp heuristic to populate RTP Streams.");mainNote->setWordWrap(true);ml->addWidget(mainNote);ml->addStretch();tabs_->addTab(mainPage,"Main");
+    sipPcapStart_=new QPushButton("START SIP PCAP (PRE-DIAL)...");connect(sipPcapStart_,&QPushButton::clicked,this,&MainWindow::startSipPcap);cap->addWidget(sipPcapStart_,0,2);rtpPcapStart_=new QPushButton("START RTP PCAP...");connect(rtpPcapStart_,&QPushButton::clicked,this,&MainWindow::startRtpPcap);cap->addWidget(rtpPcapStart_,0,3);callPcapStart_=new QPushButton("START FULL VOIP PCAP (PRE-DIAL)...");callPcapStart_->setProperty("role","primary");callPcapStart_->setToolTip("Recommended for Wireshark Telephony > VoIP Calls. Starts before dialing and keeps SIP/SDP/RTP/RTCP in one chronological capture.");connect(callPcapStart_,&QPushButton::clicked,this,&MainWindow::startCallPcap);cap->addWidget(callPcapStart_,0,4);pcapStop_=new QPushButton("STOP PCAPS");connect(pcapStop_,&QPushButton::clicked,this,&MainWindow::stopPcaps);cap->addWidget(pcapStop_,0,5);captureStatus_=new QLabel("SIP PCAP: stopped | RTP PCAP: stopped | FULL VOIP PCAP: stopped");captureStatus_->setWordWrap(true);cap->addWidget(captureStatus_,1,0,1,4);b=new QPushButton("OPEN LAST PCAP IN WIRESHARK");b->setToolTip("Full VoIP captures force SIP decoding and enable RTP heuristic fallback. SIP-only and RTP-only captures remain available for focused troubleshooting.");connect(b,&QPushButton::clicked,this,&MainWindow::openLastPcap);cap->addWidget(b,1,4,1,2);auto*perm=new QLabel(QString::fromStdString(CaptureManager::permissionHint()));perm->setWordWrap(true);perm->setStyleSheet(QStringLiteral("font-size: 10px;"));cap->addWidget(perm,2,0,1,6);ml->addWidget(capBox);
+    auto*mainNote=new QLabel("Recommended: START FULL VOIP PCAP before dialing. It keeps the initial INVITE, SDP, responses, RTP/RTCP, BYE, and final response in one file so Wireshark Telephony > VoIP Calls can correlate signaling and media. SIP-only and RTP-only captures remain available for focused troubleshooting.");mainNote->setWordWrap(true);ml->addWidget(mainNote);ml->addStretch();tabs_->addTab(mainPage,"Main");
 
     // ACTIVE CALLS
     auto*active=new QWidget;auto*al=new QVBoxLayout(active);calls_=new QTableWidget(0,12);calls_->setHorizontalHeaderLabels({"ID","Mode","Dir","FG","State","SIP","Remote","Caller ID","RTP Target","RTP Source","Codec","Reason"});calls_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);calls_->horizontalHeader()->setStretchLastSection(true);calls_->setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);calls_->setColumnWidth(0,48);calls_->setColumnWidth(1,72);calls_->setColumnWidth(2,48);calls_->setColumnWidth(3,38);calls_->setColumnWidth(4,110);calls_->setColumnWidth(5,58);calls_->setColumnWidth(6,190);calls_->setColumnWidth(7,120);calls_->setSelectionBehavior(QAbstractItemView::SelectRows);calls_->setSelectionMode(QAbstractItemView::SingleSelection);connect(calls_,&QTableWidget::itemSelectionChanged,this,&MainWindow::refreshDiagnostics);al->addWidget(calls_,1);
@@ -140,13 +150,13 @@ void MainWindow::buildUi(){
     sipLog_=new QTableWidget(0,6);sipLog_->setHorizontalHeaderLabels({"Time","Flow","Signal","CSeq","Code","Reason"});sipLog_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);sipLog_->horizontalHeader()->setStretchLastSection(true);sipLog_->setSelectionBehavior(QAbstractItemView::SelectRows);sipLog_->setSelectionMode(QAbstractItemView::SingleSelection);connect(sipLog_,&QTableWidget::itemSelectionChanged,this,&MainWindow::showRawSip);sl->addWidget(sipLog_,2);rawSipFlow_=new QLabel("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");rawSipFlow_->setWordWrap(true);rawSipFlow_->setStyleSheet(QStringLiteral("font-weight:700;"));sl->addWidget(rawSipFlow_);rawSip_=new QPlainTextEdit;rawSip_->setReadOnly(true);rawSip_->setPlaceholderText("Select a SIP transaction above to inspect the full message.");rawSip_->setMaximumBlockCount(10000);sl->addWidget(rawSip_,2);tabs_->addTab(sipPage,"SIP Log");
 
     // QUEUE TEST
-    auto*q=new QWidget;auto*ql=new QVBoxLayout(q);f=new QFormLayout;batchCount_=new QSpinBox;batchCount_->setRange(1,50);batchCount_->setValue(5);launchInterval_=new QSpinBox;launchInterval_->setRange(50,60000);launchInterval_->setValue(250);launchInterval_->setSuffix(" ms");batchDestination_=new QLineEdit;batchDestination_->setPlaceholderText("Single queue/DID target");fixedCallerId_=new QLineEdit;fixedCallerId_->setPlaceholderText("Fixed CID (ignored when list is loaded)");f->addRow("Calls",batchCount_);f->addRow("Launch interval",launchInterval_);f->addRow("Single destination",batchDestination_);f->addRow("Fixed caller ID",fixedCallerId_);ql->addLayout(f);destinationFileLabel_=new QLabel("No destination list loaded");callerIdFileLabel_=new QLabel("No caller-ID list loaded");queueAudioFileLabel_=new QLabel("Live/no injected audio");r=new QGridLayout;b=new QPushButton("LOAD DESTINATIONS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadDestinations);r->addWidget(b,0,0);r->addWidget(destinationFileLabel_,0,1);b=new QPushButton("LOAD CALLERIDS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadCallerIds);r->addWidget(b,1,0);r->addWidget(callerIdFileLabel_,1,1);b=new QPushButton("LOAD AUDIO FILE...");connect(b,&QPushButton::clicked,this,&MainWindow::loadQueueAudio);r->addWidget(b,2,0);r->addWidget(queueAudioFileLabel_,2,1);ql->addLayout(r);auto*note=new QLabel("Each launched call is an independent SIP dialog and RTP session. Optional WAV/MP3 audio is normalized by ffmpeg and injected into every queue-test call. Batch calls are not conferenced and are not automatically routed to the local headset.");note->setWordWrap(true);ql->addWidget(note);b=new QPushButton("START QUEUE TEST");connect(b,&QPushButton::clicked,this,&MainWindow::launchBatch);ql->addWidget(b);ql->addStretch();tabs_->addTab(q,"Queue Test");
+    auto*q=new QWidget;auto*ql=new QVBoxLayout(q);f=new QFormLayout;batchCount_=new QSpinBox;batchCount_->setRange(1,50);batchCount_->setValue(5);launchInterval_=new QSpinBox;launchInterval_->setRange(50,60000);launchInterval_->setValue(250);launchInterval_->setSuffix(" ms");batchDestination_=new QLineEdit;batchDestination_->setPlaceholderText("Single queue/DID target");fixedCallerId_=new QLineEdit;fixedCallerId_->setPlaceholderText("Fixed CID (ignored when list is loaded)");f->addRow("Calls",batchCount_);f->addRow("Launch interval",launchInterval_);f->addRow("Single destination",batchDestination_);f->addRow("Fixed caller ID",fixedCallerId_);ql->addLayout(f);destinationFileLabel_=new QLabel("No destination list loaded");callerIdFileLabel_=new QLabel("No caller-ID list loaded");queueAudioFileLabel_=new QLabel("Live/no injected audio");r=new QGridLayout;b=new QPushButton("LOAD DESTINATIONS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadDestinations);r->addWidget(b,0,0);r->addWidget(destinationFileLabel_,0,1);b=new QPushButton("LOAD CALLERIDS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadCallerIds);r->addWidget(b,1,0);r->addWidget(callerIdFileLabel_,1,1);b=new QPushButton("LOAD AUDIO FILE...");connect(b,&QPushButton::clicked,this,&MainWindow::loadQueueAudio);r->addWidget(b,2,0);r->addWidget(queueAudioFileLabel_,2,1);ql->addLayout(r);auto*note=new QLabel("Each launched call is an independent SIP dialog and RTP session. Optional WAV/MP3 audio is normalized by ffmpeg and injected into every queue-test call. Batch calls are not conferenced and are not automatically routed to the local headset.");note->setWordWrap(true);ql->addWidget(note);b=new QPushButton("START QUEUE TEST");b->setProperty("role","primary");connect(b,&QPushButton::clicked,this,&MainWindow::launchBatch);ql->addWidget(b);ql->addStretch();tabs_->addTab(q,"Queue Test");
 
     // PBX AUDIT — active, bounded probes for systems the operator is authorized to test.
     auto*auditPage=new QWidget;auto*aul=new QVBoxLayout(auditPage);auto*warning=new QLabel(QString::fromUtf8(PbxAudit::warningText()));warning->setWordWrap(true);warning->setStyleSheet(QStringLiteral("font-weight:700; color:#ff5a5a;"));aul->addWidget(warning);
     auto*auf=new QFormLayout;auditHost_=new QLineEdit;auditHost_->setPlaceholderText("PBX/SBC hostname or IP (CIDR is for Discover only)");auditUser_=new QLineEdit;auditUser_->setPlaceholderText("Known authorized test extension/account; blank skips account differential");auditPort_=new QSpinBox;auditPort_->setRange(1,65535);auditPort_->setValue(5060);auditTransport_=new QComboBox;auditTransport_->addItem("UDP","udp");auditTransport_->addItem("TCP","tcp");auditExtFirst_=new QSpinBox;auditExtFirst_->setRange(1,999999);auditExtFirst_->setValue(100);auditExtLast_=new QSpinBox;auditExtLast_->setRange(1,999999);auditExtLast_->setValue(120);auf->addRow("Target",auditHost_);auf->addRow("SIP port",auditPort_);auf->addRow("Transport",auditTransport_);auf->addRow("Authorized test user",auditUser_);auf->addRow("Extension range start",auditExtFirst_);auf->addRow("Extension range end",auditExtLast_);aul->addLayout(auf);
     auto*autoOptions=new QGridLayout;auditIncludeVulns_=new QCheckBox("Public CVE correlation");auditIncludeVulns_->setChecked(true);auditIncludeVulns_->setToolTip("Metadata lookup only; no exploit code is executed.");auditIncludeParser_=new QCheckBox("Parser normalization");auditIncludeParser_->setChecked(true);auditIncludeResilience_=new QCheckBox("Bounded rate resilience");auditIncludeResilience_->setChecked(true);auditIncludeTls_=new QCheckBox("SIP TLS posture");auditIncludeTls_->setChecked(true);auditIncludeExtensions_=new QCheckBox("Include extension range");auditIncludeExtensions_->setChecked(false);auditIncludeExtensions_->setToolTip("Opt-in scope-expanding differential audit; maximum 100 extensions.");autoOptions->addWidget(auditIncludeVulns_,0,0);autoOptions->addWidget(auditIncludeParser_,0,1);autoOptions->addWidget(auditIncludeResilience_,0,2);autoOptions->addWidget(auditIncludeTls_,1,0);autoOptions->addWidget(auditIncludeExtensions_,1,1);aul->addLayout(autoOptions);
-    auto*runAuto=new QPushButton("RUN AUTOMATED CHAINED AUDIT");runAuto->setMinimumHeight(36);runAuto->setToolTip("Recommended: chains each audit stage into a single prioritized report.");connect(runAuto,&QPushButton::clicked,this,&MainWindow::runAuditAuto);aul->addWidget(runAuto);auditProgress_=new QLabel("Ready — automated audit output feeds each applicable stage into the next.");auditProgress_->setWordWrap(true);aul->addWidget(auditProgress_);
+    auto*runAuto=new QPushButton("RUN AUTOMATED CHAINED AUDIT");runAuto->setProperty("role","primary");runAuto->setMinimumHeight(36);runAuto->setToolTip("Recommended: chains each audit stage into a single prioritized report.");connect(runAuto,&QPushButton::clicked,this,&MainWindow::runAuditAuto);aul->addWidget(runAuto);auditProgress_=new QLabel("Ready — automated audit output feeds each applicable stage into the next.");auditProgress_->setWordWrap(true);aul->addWidget(auditProgress_);
     auto*aub=new QGridLayout;b=new QPushButton("PBX FINGERPRINT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFingerprint);aub->addWidget(b,0,0);b=new QPushButton("CVE / EXPLOIT-DB LOOKUP");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditVulns);aub->addWidget(b,0,1);b=new QPushButton("SAVE REPORT...");connect(b,&QPushButton::clicked,this,&MainWindow::saveAuditReport);aub->addWidget(b,0,2);
     b=new QPushButton("SERVICE PROBE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditProbe);aub->addWidget(b,1,0);b=new QPushButton("DISCOVER CIDR");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditDiscover);aub->addWidget(b,1,1);b=new QPushButton("METHOD POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditMethods);aub->addWidget(b,1,2);b=new QPushButton("AUTH POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditAuth);aub->addWidget(b,2,0);b=new QPushButton("EXTENSION AUDIT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditExtensions);aub->addWidget(b,2,1);b=new QPushButton("COMPLIANCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditCompliance);aub->addWidget(b,2,2);b=new QPushButton("PARSER ABUSE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditParser);aub->addWidget(b,3,0);b=new QPushButton("RATE RESILIENCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditResilience);aub->addWidget(b,3,1);b=new QPushButton("ATTACK SCENARIO");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditScenario);aub->addWidget(b,3,2);b=new QPushButton("TLS 5061");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTls);aub->addWidget(b,4,0);b=new QPushButton("AUTOMATED FULL (DEFAULTS)");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFull);aub->addWidget(b,4,1);aul->addLayout(aub);auditOutput_=new QPlainTextEdit;auditOutput_->setReadOnly(true);auditOutput_->setPlaceholderText("Audit results appear here. The automated audit is recommended; individual tools remain available for focused troubleshooting.");aul->addWidget(auditOutput_,1);tabs_->addTab(auditPage,"PBX Audit");
 
@@ -156,7 +166,13 @@ void MainWindow::buildUi(){
     // ACTIVITY
     auto*activityPage=new QWidget;auto*actl=new QVBoxLayout(activityPage);activityLog_=new QPlainTextEdit;activityLog_->setReadOnly(true);activityLog_->setMaximumBlockCount(2000);actl->addWidget(activityLog_);tabs_->addTab(activityPage,"Activity");
 
-    outer->addWidget(tabs_,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("S.I.P.H.E.R. By GITSC 1.0.0 — SIP Inspection, Protocol Handling, Enumeration & Recon");setDiagnosticsEnabled(false);
+    const QStringList navNames={QStringLiteral("// LINE ACCESS"),QStringLiteral("// ACTIVE LINES"),QStringLiteral("// SIGNAL TAP"),QStringLiteral("// BLAST DECK"),QStringLiteral("// SWITCH AUDIT"),QStringLiteral("// IDENTITY"),QStringLiteral("// WIRE LOG")};
+    const QStringList navText={QStringLiteral("[01] LINE ACCESS"),QStringLiteral("[02] ACTIVE LINES"),QStringLiteral("[03] SIGNAL TAP"),QStringLiteral("[04] BLAST DECK"),QStringLiteral("[05] SWITCH AUDIT"),QStringLiteral("[06] IDENTITY"),QStringLiteral("[07] WIRE LOG")};
+    const QStringList subtitles={QStringLiteral("Dial, tap and capture carrier sessions."),QStringLiteral("Control live dialogs, media and DTMF."),QStringLiteral("Read raw SIP traffic and transaction flow."),QStringLiteral("Queue and call-blast lab traffic."),QStringLiteral("Authorized PBX / SBC recon and audit bench."),QStringLiteral("SIP account, route and audio identity."),QStringLiteral("Local operator and engine activity trail.")};
+    std::vector<QPushButton*> navButtons;
+    for(int i=0;i<navText.size();++i){auto*button=new QPushButton(navText[i],navHost);button->setCheckable(true);button->setProperty("nav",true);button->setChecked(i==0);nav->addWidget(button);navButtons.push_back(button);connect(button,&QPushButton::clicked,this,[this,i](){tabs_->setCurrentIndex(i);});}
+    connect(tabs_,&QTabWidget::currentChanged,this,[pageTitle,pageSubtitle,navButtons,navNames,subtitles](int index){if(index>=0&&index<navNames.size()){pageTitle->setText(navNames[index]);pageSubtitle->setText(subtitles[index]);}for(int i=0;i<(int)navButtons.size();++i)navButtons[(std::size_t)i]->setChecked(i==index);});
+    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("S.I.P.H.E.R. r17-Exploit-Fix // PHREAK LAB // SIP + RTP + SWITCH AUDIT");setDiagnosticsEnabled(false);
 }
 
 void MainWindow::refresh(){
@@ -165,7 +181,7 @@ void MainWindow::refresh(){
     }catch(const std::exception& e){
         statusBar()->showMessage(QString("Audio hot-plug recovery failed: %1").arg(e.what()),7000);
     }
-    registration_->setText(QString::fromStdString("SIP: "+engine_.registrationText()));
+    registration_->setText(QString::fromStdString(engine_.registrationText()));
     if(profileSummary_){const auto&p=engine_.profile();profileSummary_->setText(QString("<b>%1</b><br>File: %2<br>SIP URI: sip:%3@%4<br>Registrar: %5<br>Profile default prefix: %6<br>Current dial prefix: %7<br>Transport: %8<br>ICE: %9 &nbsp; SRTP: %10")
         .arg(QString::fromStdString(p.name)).arg(QString::fromStdString(profilePath_)).arg(QString::fromStdString(p.username)).arg(QString::fromStdString(p.sipDomain)).arg(QString::fromStdString(p.registrar)).arg(p.dialPrefix.empty()?QStringLiteral("<none>"):QString::fromStdString(p.dialPrefix)).arg(engine_.dialPrefix().empty()?QStringLiteral("<none>"):QString::fromStdString(engine_.dialPrefix())).arg(QString::fromStdString(toString(p.transport)).toUpper()).arg(p.useIce?"enabled":"disabled").arg(p.enableSrtp?"enabled":"disabled"));}
     if(activityLog_){QString summary=QString("Registration: %1\nCalls known: %2\n%3\nLog file: %4")
@@ -185,8 +201,9 @@ void MainWindow::setDiagnosticsEnabled(bool e)
     // SIP packet capture is account/transport-level and intentionally remains
     // available with no selected call so it can be armed before the INVITE.
     if(sipPcapStart_) sipPcapStart_->setEnabled(engine_.started());
+    if(callPcapStart_) callPcapStart_->setEnabled(engine_.started());
     if(captureInterface_) captureInterface_->setEnabled(engine_.started());
-    for(auto*w:{sipTraceStart_,sipTraceStop_,rtpPcapStart_,callPcapStart_}) if(w) w->setEnabled(e);
+    for(auto*w:{sipTraceStart_,sipTraceStop_,rtpPcapStart_}) if(w) w->setEnabled(e);
 }
 void MainWindow::refreshDiagnostics(){
     int id=selectedCallId();captureStatus_->setText(QString::fromStdString(engine_.captureStatus()));if(id<0){setDiagnosticsEnabled(false);if(muteButton_){muteButton_->setEnabled(false);muteButton_->setText("MUTE MIC");}callIdLabel_->setText("--");mediaTarget_->setText("--");mediaSource_->setText("--");mediaLocal_->setText("--");mediaCodec_->setText("--");if(mediaQuality_)mediaQuality_->setText("--");diagnosticNote_->setText("Select a normal Phone call to view its SIP dialog and media endpoints.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
@@ -249,19 +266,21 @@ void MainWindow::startSipPcap()
         engine_.startSipPcap(path.toStdString(),captureInterface_->currentText().trimmed().toStdString());
         lastPcapPath_=path;
         lastPcapCallId_=id;
-        lastPcapIsSip_=true;
+        lastPcapKind_=LastPcapKind::Sip;
         statusBar()->showMessage("SIP PCAP armed. Dial now; the initial INVITE, prefixed Request-URI, and any 403/401/407 response will be captured.",8000);
         refreshDiagnostics();
     }catch(const std::exception&e){QMessageBox::warning(this,"SIP PCAP",e.what());}
 }
-void MainWindow::startRtpPcap(){int id=selectedCallId();if(id<0)return;auto path=QFileDialog::getSaveFileName(this,"Save RTP packet capture",QString("sipher-call-%1-rtp.pcapng").arg(id),"PCAP files (*.pcap *.pcapng);;All files (*)");if(path.isEmpty())return;try{engine_.startRtpPcap(id,path.toStdString(),captureInterface_->currentText().trimmed().toStdString());lastPcapPath_=path;lastPcapCallId_=id;lastPcapIsSip_=false;refreshDiagnostics();}catch(const std::exception&e){QMessageBox::warning(this,"RTP PCAP",e.what());}}
-void MainWindow::startCallPcap(){int id=selectedCallId();if(id<0)return;auto path=QFileDialog::getSaveFileName(this,"Save combined call packet capture",QString("sipher-call-%1-combined.pcapng").arg(id),"PCAP files (*.pcap *.pcapng);;All files (*)");if(path.isEmpty())return;try{engine_.startCallPcap(id,path.toStdString(),captureInterface_->currentText().trimmed().toStdString());lastPcapPath_=path;lastPcapCallId_=id;lastPcapIsSip_=false;refreshDiagnostics();}catch(const std::exception&e){QMessageBox::warning(this,"Call PCAP",e.what());}}
+void MainWindow::startRtpPcap(){int id=selectedCallId();if(id<0)return;auto path=QFileDialog::getSaveFileName(this,"Save RTP packet capture",QString("sipher-call-%1-rtp.pcapng").arg(id),"PCAP files (*.pcap *.pcapng);;All files (*)");if(path.isEmpty())return;try{engine_.startRtpPcap(id,path.toStdString(),captureInterface_->currentText().trimmed().toStdString());lastPcapPath_=path;lastPcapCallId_=id;lastPcapKind_=LastPcapKind::Rtp;refreshDiagnostics();}catch(const std::exception&e){QMessageBox::warning(this,"RTP PCAP",e.what());}}
+void MainWindow::startCallPcap(){auto path=QFileDialog::getSaveFileName(this,"Save full VoIP packet capture (start before dialing)",QString("sipher-full-voip-%1.pcapng").arg(QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")),"PCAP files (*.pcap *.pcapng);;All files (*)");if(path.isEmpty())return;try{engine_.startCallPcap(path.toStdString(),captureInterface_->currentText().trimmed().toStdString());lastPcapPath_=path;lastPcapCallId_=-1;lastPcapKind_=LastPcapKind::Voip;refreshDiagnostics();statusBar()->showMessage("FULL VOIP PCAP armed BEFORE DIAL. Place the call now; keep capture running through hangup for Wireshark VoIP Calls.",9000);}catch(const std::exception&e){QMessageBox::warning(this,"Full VoIP PCAP",e.what());}}
 void MainWindow::stopPcaps(){engine_.stopCaptures();refreshDiagnostics();}
 void MainWindow::openLastPcap(){
-    if(lastPcapPath_.isEmpty()){QMessageBox::information(this,"Wireshark","Start a SIP, RTP, or combined PCAP first.");return;}
+    if(lastPcapPath_.isEmpty()){QMessageBox::information(this,"Wireshark","Start a SIP, RTP, or full VoIP PCAP first.");return;}
     try{
-        if(lastPcapIsSip_){engine_.openSipPcapInWireshark(lastPcapPath_.toStdString());statusBar()->showMessage("Opened SIP PCAP in Wireshark with forced SIP Decode As",5000);}
-        else{if(lastPcapCallId_<0)throw std::runtime_error("The selected RTP/combined PCAP no longer has a call context for automatic decode.");engine_.openPcapInWireshark(lastPcapCallId_,lastPcapPath_.toStdString());statusBar()->showMessage("Opened in Wireshark with automatic RTP/RTCP Decode As",5000);}
+        if(lastPcapKind_==LastPcapKind::Sip){engine_.openSipPcapInWireshark(lastPcapPath_.toStdString());statusBar()->showMessage("Opened SIP PCAP in Wireshark with forced SIP Decode As",5000);}
+        else if(lastPcapKind_==LastPcapKind::Voip){engine_.openVoipPcapInWireshark(lastPcapPath_.toStdString());statusBar()->showMessage("Opened full VoIP PCAP. Use Telephony > VoIP Calls; SIP/SDP and RTP are in the same capture.",8000);}
+        else if(lastPcapKind_==LastPcapKind::Rtp){if(lastPcapCallId_<0)throw std::runtime_error("The selected RTP PCAP no longer has a call context for automatic decode.");engine_.openPcapInWireshark(lastPcapCallId_,lastPcapPath_.toStdString());statusBar()->showMessage("Opened RTP PCAP in Wireshark with automatic RTP/RTCP Decode As",5000);}
+        else throw std::runtime_error("No PCAP has been started in this session.");
     }catch(const std::exception&e){QMessageBox::warning(this,"Wireshark",e.what());}
 }
 void MainWindow::loadDestinations(){destinationFile_=QFileDialog::getOpenFileName(this,"Destination list",{},"Text files (*.txt);;All files (*)");destinationFileLabel_->setText(destinationFile_.isEmpty()?"No destination list loaded":destinationFile_);}
@@ -404,219 +423,9 @@ void MainWindow::editProfile(){
      catch(const std::exception&e){QMessageBox::critical(this,"SIP profile reload failed",e.what());}
 }
 void MainWindow::applyTheme(const QString&t){
-    const QString themeId=t.toCaseFolded();
+    const QString themeId=SipherModernStyle::normalizeThemeKey(t);
     const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());
     QSettings settings(settingsPath,QSettings::IniFormat);
     settings.setValue(QStringLiteral("ui/theme"),themeId);
-
-    QString sheet;
-    if(themeId==QStringLiteral("hacker")){
-        sheet=QStringLiteral(
-            "QWidget { background-color: #020402; color: #39ff14; font-family: 'Monospace'; }"
-            "QMainWindow,QDialog { background-color: #020402; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background-color: #000000; color: #55ff33; border: 1px solid #168a0f; "
-            " selection-background-color: #124d0d; selection-color: #b7ff9f; }"
-            "QLineEdit:focus,QPlainTextEdit:focus,QTextEdit:focus,QListWidget:focus,QTreeWidget:focus,QTableWidget:focus,QComboBox:focus { "
-            " border: 1px solid #39ff14; }"
-            "QPushButton { background-color: #071007; color: #39ff14; border: 1px solid #1dbb13; "
-            " padding: 5px 10px; min-height: 18px; }"
-            "QPushButton:hover { background-color: #0d250b; border-color: #55ff33; }"
-            "QPushButton:pressed { background-color: #12360e; }"
-            "QPushButton:disabled { color: #286326; border-color: #173c17; background-color: #050905; }"
-            "QMenuBar,QMenu,QStatusBar,QTabBar::tab { background-color: #040904; color: #39ff14; }"
-            "QMenu::item:selected,QMenuBar::item:selected,QTabBar::tab:selected { background-color: #12360e; }"
-            "QHeaderView::section { background-color: #071207; color: #55ff33; border: 1px solid #168a0f; padding: 4px; }"
-            "QGroupBox { border: 1px solid #168a0f; margin-top: 8px; padding-top: 6px; }"
-            "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #55ff33; }"
-            "QToolTip { background-color: #000000; color: #55ff33; border: 1px solid #39ff14; }"
-            "QScrollBar:vertical { background: #020602; width: 12px; margin: 0; }"
-            "QScrollBar::handle:vertical { background: #176510; min-height: 24px; border: 1px solid #39ff14; }"
-            "QScrollBar::handle:vertical:hover { background: #209116; }"
-            "QScrollBar:add-line:vertical,QScrollBar:sub-line:vertical { height: 0; }"
-            "QScrollBar:horizontal { background: #020602; height: 12px; margin: 0; }"
-            "QScrollBar::handle:horizontal { background: #176510; min-width: 24px; border: 1px solid #39ff14; }"
-            "QScrollBar:add-line:horizontal,QScrollBar:sub-line:horizontal { width: 0; }"
-            "QSlider::groove:horizontal { height: 6px; background: #0b2609; border: 1px solid #176510; }"
-            "QSlider::handle:horizontal { width: 14px; margin: -5px 0; background: #39ff14; border: 1px solid #88ff70; }"
-            "QSplitter::handle { background: #168a0f; }"
-            "QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #39ff14; background: #000000; }"
-            "QCheckBox::indicator:checked { background: #39ff14; }");
-    }else if(themeId==QStringLiteral("matrix")){
-        sheet=QStringLiteral(
-            "QWidget { background-color: #000000; color: #00ff41; font-family: 'Monospace'; }"
-            "QMainWindow,QDialog { background-color: #000000; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background-color: #000000; color: #00ff41; border: 1px solid #008f11; "
-            " selection-background-color: #003b0a; selection-color: #b6ffbf; }"
-            "QLineEdit:focus,QPlainTextEdit:focus,QTextEdit:focus,QListWidget:focus,QTreeWidget:focus,QTableWidget:focus,QComboBox:focus { border: 1px solid #00ff41; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background-color: #001600; color: #00ff41; }"
-            "QPushButton { border: 1px solid #008f11; padding: 5px 9px; }"
-            "QPushButton:hover { background-color: #003b0a; border-color: #00ff41; }"
-            "QPushButton:pressed { background-color: #005b12; }"
-            "QTabBar::tab:selected { background-color: #003b0a; }"
-            "QHeaderView::section { background-color: #001d05; color: #00ff41; border: 1px solid #008f11; padding: 4px; }"
-            "QGroupBox { border: 1px solid #008f11; margin-top: 8px; padding-top: 6px; }"
-            "QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: #00ff41; }"
-            "QScrollBar:vertical { background: #000000; width: 12px; }"
-            "QScrollBar::handle:vertical { background: #006b10; min-height: 24px; border: 1px solid #00ff41; }"
-            "QScrollBar:horizontal { background: #000000; height: 12px; }"
-            "QScrollBar::handle:horizontal { background: #006b10; min-width: 24px; border: 1px solid #00ff41; }"
-            "QScrollBar:add-line,QScrollBar:sub-line { width: 0; height: 0; }"
-            "QSlider::groove:horizontal { height: 6px; background: #003b0a; border: 1px solid #008f11; }"
-            "QSlider::handle:horizontal { width: 14px; margin: -5px 0; background: #00ff41; border: 1px solid #b6ffbf; }"
-            "QSplitter::handle { background: #008f11; }");
-    }else if(themeId==QStringLiteral("phosphor")){
-        sheet=QStringLiteral(
-            "QWidget { background: #071007; color: #75ff83; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background: #020702; color: #89ff95; border: 1px solid #2b7a34; selection-background-color: #215f29; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background: #0b180c; color: #89ff95; }"
-            "QPushButton { border: 1px solid #2b7a34; padding: 4px 8px; }"
-            "QPushButton:hover,QTabBar::tab:selected { background: #17391b; }"
-            "QHeaderView::section { background: #102512; color: #89ff95; border: 1px solid #2b7a34; }"
-            "QGroupBox { border: 1px solid #2b7a34; margin-top: 8px; }"
-            "QScrollBar::handle { background: #2b7a34; }"
-            "QSplitter::handle { background: #2b7a34; }");
-    }else if(themeId==QStringLiteral("midnight")){
-        sheet=QStringLiteral(
-            "QWidget { background-color: #11141b; color: #e1e7f0; }"
-            "QMainWindow,QDialog { background-color: #11141b; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background-color: #0a0d12; color: #e7edf7; border: 1px solid #394150; "
-            " selection-background-color: #31476d; selection-color: #ffffff; }"
-            "QPushButton { background-color: #202631; color: #eef3fb; border: 1px solid #4b5668; padding: 5px 9px; }"
-            "QPushButton:hover { background-color: #2a3342; border-color: #72809a; }"
-            "QMenuBar,QMenu,QStatusBar,QTabBar::tab { background-color: #171c25; color: #e7edf7; }"
-            "QMenu::item:selected,QMenuBar::item:selected,QTabBar::tab:selected { background-color: #2a3b5c; }"
-            "QHeaderView::section { background-color: #202631; color: #eef3fb; border: 1px solid #3f4958; padding: 4px; }"
-            "QGroupBox { border: 1px solid #3f4958; margin-top: 8px; }"
-            "QScrollBar::handle { background: #4b5668; }"
-            "QSplitter::handle { background: #3f4958; }");
-    }else if(themeId==QStringLiteral("amber")){
-        sheet=QStringLiteral(
-            "QWidget { background: #130d03; color: #ffbf47; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background: #070401; color: #ffc85c; border: 1px solid #8f5e15; selection-background-color: #6a4510; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background: #211604; color: #ffc85c; }"
-            "QPushButton { border: 1px solid #8f5e15; padding: 4px 8px; }"
-            "QPushButton:hover,QTabBar::tab:selected { background: #3a2709; }"
-            "QHeaderView::section { background: #2a1c06; color: #ffc85c; border: 1px solid #8f5e15; }"
-            "QGroupBox { border: 1px solid #8f5e15; margin-top: 8px; }"
-            "QScrollBar::handle { background: #8f5e15; }"
-            "QSplitter::handle { background: #8f5e15; }");
-    }else if(themeId==QStringLiteral("ice")){
-        sheet=QStringLiteral(
-            "QWidget { background: #071018; color: #bde8ff; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background: #02070b; color: #c9edff; border: 1px solid #2e6d91; selection-background-color: #1f526f; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background: #0c1b25; color: #c9edff; }"
-            "QPushButton { border: 1px solid #2e6d91; padding: 4px 8px; }"
-            "QPushButton:hover,QTabBar::tab:selected { background: #153447; }"
-            "QHeaderView::section { background: #102b3a; color: #c9edff; border: 1px solid #2e6d91; }"
-            "QGroupBox { border: 1px solid #2e6d91; margin-top: 8px; }"
-            "QScrollBar::handle { background: #2e6d91; }"
-            "QSplitter::handle { background: #2e6d91; }");
-    }else if(themeId==QStringLiteral("solarized")){
-        sheet=QStringLiteral(
-            "QWidget { background:#002b36; color:#839496; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#073642; color:#eee8d5; border:1px solid #586e75; selection-background-color:#0b4f5c; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#073642; color:#93a1a1; }"
-            "QPushButton { border:1px solid #657b83; padding:4px 8px; }"
-            "QPushButton:hover,QTabBar::tab:selected { background:#0b4f5c; color:#fdf6e3; }"
-            "QHeaderView::section { background:#073642; color:#b58900; border:1px solid #586e75; }"
-            "QGroupBox { border:1px solid #586e75; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#586e75; }");
-    }else if(themeId==QStringLiteral("dracula")){
-        sheet=QStringLiteral(
-            "QWidget { background:#282a36; color:#f8f8f2; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#1e1f29; color:#f8f8f2; border:1px solid #6272a4; selection-background-color:#44475a; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#343746; color:#f8f8f2; }"
-            "QPushButton { border:1px solid #bd93f9; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#44475a; color:#50fa7b; }"
-            "QHeaderView::section { background:#343746; color:#ff79c6; border:1px solid #6272a4; }"
-            "QGroupBox { border:1px solid #6272a4; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#6272a4; }");
-    }else if(themeId==QStringLiteral("nord")){
-        sheet=QStringLiteral(
-            "QWidget { background:#2e3440; color:#eceff4; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#3b4252; color:#eceff4; border:1px solid #4c566a; selection-background-color:#5e81ac; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#3b4252; color:#d8dee9; }"
-            "QPushButton { border:1px solid #81a1c1; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#434c5e; color:#88c0d0; }"
-            "QHeaderView::section { background:#434c5e; color:#8fbcbb; border:1px solid #4c566a; }"
-            "QGroupBox { border:1px solid #4c566a; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#5e81ac; }");
-    }else if(themeId==QStringLiteral("cyberpunk")){
-        sheet=QStringLiteral(
-            "QWidget { background:#090014; color:#f8f8ff; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#120022; color:#00f5ff; border:1px solid #ff00cc; selection-background-color:#4b006e; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#1b0033; color:#00f5ff; }"
-            "QPushButton { border:1px solid #ff00cc; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#39005e; color:#f7ff00; }"
-            "QHeaderView::section { background:#21003d; color:#ff00cc; border:1px solid #00f5ff; }"
-            "QGroupBox { border:1px solid #ff00cc; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#00a8b5; }");
-    }else if(themeId==QStringLiteral("blood-moon")){
-        sheet=QStringLiteral(
-            "QWidget { background:#160708; color:#f3dddd; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#090303; color:#ffd7d7; border:1px solid #7d1d25; selection-background-color:#5a1018; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#260b0e; color:#ffd7d7; }"
-            "QPushButton { border:1px solid #a62a35; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#481117; color:#ff9a78; }"
-            "QHeaderView::section { background:#351014; color:#ff6b63; border:1px solid #7d1d25; }"
-            "QGroupBox { border:1px solid #7d1d25; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#7d1d25; }");
-    }else if(themeId==QStringLiteral("ocean")){
-        sheet=QStringLiteral(
-            "QWidget { background:#061923; color:#d7f3ff; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#031018; color:#d7f3ff; border:1px solid #19799b; selection-background-color:#11516b; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#0a2633; color:#c8f3ff; }"
-            "QPushButton { border:1px solid #2596be; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#10465d; color:#80f0ff; }"
-            "QHeaderView::section { background:#0c3242; color:#62d9ff; border:1px solid #19799b; }"
-            "QGroupBox { border:1px solid #19799b; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#19799b; }");
-    }else if(themeId==QStringLiteral("retro-blue")){
-        sheet=QStringLiteral(
-            "QWidget { background:#07112a; color:#b8d5ff; font-family:'Monospace'; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#020817; color:#c8e0ff; border:1px solid #365f9c; selection-background-color:#173c73; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#0d1d42; color:#c8e0ff; }"
-            "QPushButton { border:1px solid #4d7fc4; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#193a72; color:#ffffff; }"
-            "QHeaderView::section { background:#102858; color:#8fc5ff; border:1px solid #365f9c; }"
-            "QGroupBox { border:1px solid #365f9c; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#365f9c; }");
-    }else if(themeId==QStringLiteral("blue-box")){
-        sheet=QStringLiteral("QWidget{background:#031325;color:#bde7ff;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#010812;color:#d8f2ff;border:1px solid #1b77b7;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#08213a;color:#c7ecff;} QPushButton{border:1px solid #249ee8;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#0d3f67;} QHeaderView::section{background:#0a2c4d;color:#77d5ff;border:1px solid #1b77b7;} QGroupBox{border:1px solid #1b77b7;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("red-box")){
-        sheet=QStringLiteral("QWidget{background:#180404;color:#ffd6d6;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#080101;color:#ffe9e9;border:1px solid #aa2525;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#290808;color:#ffdede;} QPushButton{border:1px solid #dc3f3f;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#541010;} QHeaderView::section{background:#3a0b0b;color:#ff7e7e;border:1px solid #aa2525;} QGroupBox{border:1px solid #aa2525;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("beige-box")){
-        sheet=QStringLiteral("QWidget{background:#2a2419;color:#f1dfbd;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#15110c;color:#f7e9cc;border:1px solid #8d7651;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#3a3021;color:#f1dfbd;} QPushButton{border:1px solid #b59a68;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#58492f;} QHeaderView::section{background:#463a27;color:#f0cf8f;border:1px solid #8d7651;} QGroupBox{border:1px solid #8d7651;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("2600")){
-        sheet=QStringLiteral("QWidget{background:#050505;color:#d7ffd7;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#000;color:#8cff8c;border:1px solid #19c719;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#071707;color:#76ff76;} QPushButton{border:1px solid #21ed21;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#0d350d;color:#fff000;} QHeaderView::section{background:#0a280a;color:#32ff32;border:1px solid #19c719;} QGroupBox{border:1px solid #19c719;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("wargames")){
-        sheet=QStringLiteral("QWidget{background:#020b02;color:#55ff55;font-family:'Monospace';} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#000400;color:#55ff55;border:1px solid #138f13;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#061306;color:#55ff55;} QPushButton{border:1px solid #1dc51d;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#0a2a0a;} QHeaderView::section{background:#071d07;color:#8cff8c;border:1px solid #138f13;} QGroupBox{border:1px solid #138f13;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("crt-green")){
-        sheet=QStringLiteral("QWidget{background:#071008;color:#b8ffb8;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#010501;color:#cbffcb;border:1px solid #3b8f45;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#0c1c0e;color:#c7ffc7;} QPushButton{border:1px solid #55b85f;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#16361a;} QHeaderView::section{background:#102913;color:#8eff98;border:1px solid #3b8f45;} QGroupBox{border:1px solid #3b8f45;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("vt220")){
-        sheet=QStringLiteral("QWidget{background:#161616;color:#e8e8e8;font-family:'Monospace';} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#050505;color:#f2f2f2;border:1px solid #767676;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#242424;color:#eee;} QPushButton{border:1px solid #919191;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#393939;} QHeaderView::section{background:#2d2d2d;color:#fff;border:1px solid #767676;} QGroupBox{border:1px solid #767676;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("cobalt")){
-        sheet=QStringLiteral("QWidget{background:#07152b;color:#e5efff;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#020916;color:#e5efff;border:1px solid #456fb5;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#0d2446;color:#dce9ff;} QPushButton{border:1px solid #668fd0;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#173d75;color:#9ee7ff;} QHeaderView::section{background:#102f5c;color:#8cc7ff;border:1px solid #456fb5;} QGroupBox{border:1px solid #456fb5;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("vaporwave")){
-        sheet=QStringLiteral("QWidget{background:#14051f;color:#ffe9ff;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#07020c;color:#7ff6ff;border:1px solid #d554ff;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#241035;color:#8ff7ff;} QPushButton{border:1px solid #ff69da;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#47205d;color:#fff28a;} QHeaderView::section{background:#32164a;color:#ff83dc;border:1px solid #7cefff;} QGroupBox{border:1px solid #d554ff;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("stealth")){
-        sheet=QStringLiteral("QWidget{background:#101214;color:#c7cbd0;} QLineEdit,QPlainTextEdit,QTextEdit,QTableWidget,QComboBox,QSpinBox{background:#070809;color:#d5d9de;border:1px solid #4c535a;} QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab{background:#1a1d20;color:#cbd0d5;} QPushButton{border:1px solid #5b636b;padding:4px 8px;} QPushButton:hover,QTabBar::tab:selected{background:#292e33;color:#e8ecef;} QHeaderView::section{background:#22272b;color:#d5d9de;border:1px solid #4c535a;} QGroupBox{border:1px solid #4c535a;margin-top:8px;}");
-    }else if(themeId==QStringLiteral("monochrome")){
-        sheet=QStringLiteral(
-            "QWidget { background:#111111; color:#eeeeee; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { background:#050505; color:#f5f5f5; border:1px solid #777777; selection-background-color:#444444; }"
-            "QPushButton,QMenuBar,QMenu,QStatusBar,QTabBar::tab { background:#222222; color:#eeeeee; }"
-            "QPushButton { border:1px solid #888888; padding:4px 8px; } QTabBar::tab:selected,QPushButton:hover { background:#3a3a3a; color:#ffffff; }"
-            "QHeaderView::section { background:#292929; color:#ffffff; border:1px solid #777777; }"
-            "QGroupBox { border:1px solid #777777; margin-top:8px; } QScrollBar::handle,QSplitter::handle { background:#777777; }");
-    }else if(themeId==QStringLiteral("classic-light")){
-        sheet=QStringLiteral(
-            "QWidget { background-color: #f2f2f2; color: #202020; }"
-            "QMainWindow,QDialog { background-color: #f2f2f2; }"
-            "QLineEdit,QPlainTextEdit,QTextEdit,QListWidget,QTreeWidget,QTableWidget,QComboBox,QSpinBox { "
-            " background-color: #ffffff; color: #202020; border: 1px solid #9a9a9a; "
-            " selection-background-color: #2f6fa7; selection-color: #ffffff; }"
-            "QPushButton { background-color: #e5e5e5; color: #202020; border: 1px solid #8b8b8b; padding: 5px 9px; }"
-            "QPushButton:hover { background-color: #d8e6f3; }"
-            "QMenuBar,QMenu,QStatusBar,QTabBar::tab { background-color: #e8e8e8; color: #202020; }"
-            "QMenu::item:selected,QMenuBar::item:selected,QTabBar::tab:selected { background-color: #d2e5f5; color: #101010; }"
-            "QHeaderView::section { background-color: #dddddd; color: #202020; border: 1px solid #a0a0a0; padding: 4px; }"
-            "QGroupBox { border: 1px solid #a0a0a0; margin-top: 8px; }"
-            "QScrollBar::handle { background: #b1b1b1; }"
-            "QSplitter::handle { background: #a0a0a0; }");
-    }
-    qApp->setStyleSheet(sheet);
+    qApp->setStyleSheet(SipherModernStyle::styleSheet(themeId));
 }

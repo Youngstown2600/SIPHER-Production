@@ -22,6 +22,28 @@
 
 namespace trunkmonkey::cli {
 namespace {
+
+std::string sanitizeTerminalText(const std::string& value)
+{
+    static const char hex[]="0123456789ABCDEF";
+    std::string out;
+    out.reserve(value.size());
+    for(std::size_t i=0;i<value.size();++i){
+        const unsigned char c=static_cast<unsigned char>(value[i]);
+        if(c=='\n' || c=='\t'){out.push_back(static_cast<char>(c));continue;}
+        if(c=='\r'){
+            if(i+1<value.size() && value[i+1]=='\n') continue;
+            out += "\\r";
+            continue;
+        }
+        if(c<0x20u || c==0x7fu){
+            out += "\\x";out.push_back(hex[(c>>4)&0x0f]);out.push_back(hex[c&0x0f]);
+            continue;
+        }
+        out.push_back(static_cast<char>(c));
+    }
+    return out;
+}
 constexpr const char* RESET="\033[0m";
 constexpr const char* DIM="\033[2m";
 constexpr const char* BRIGHT_GREEN="\033[92m";
@@ -122,7 +144,7 @@ CliDashboard::CliDashboard()
         const std::string_view t(term);
         consoleTty_=(t=="linux" || t=="cons25" || t=="vt100" || t=="vt220");
     }
-    setTheme("classic");
+    setTheme("system");
     if(const char* envTheme=std::getenv("SIPHER_THEME")) setTheme(envTheme);
     else if(const char* previewTheme=std::getenv("SIPCLIENT_THEME")) setTheme(previewTheme);
     else if(const char* envTheme=std::getenv("TRUNKMONKEY_THEME")) setTheme(envTheme);
@@ -130,9 +152,8 @@ CliDashboard::CliDashboard()
 
 std::vector<std::string> CliDashboard::themeNames()
 {
-    return {"classic","hacker","matrix","phosphor","midnight","amber","ice","classic-light",
-            "solarized","dracula","nord","cyberpunk","blood-moon","ocean","retro-blue","monochrome",
-            "blue-box","red-box","beige-box","2600","wargames","crt-green","vt220","cobalt","vaporwave","stealth"};
+    return {"system","midnight","slate","ocean","arctic","solarized","monochrome","cobalt","amber","high-contrast",
+            "black-ice","night-vision","blue-box","red-box","2600","wargames","phosphor","cyberpunk","blood-moon","terminal-gold"};
 }
 
 bool CliDashboard::setTheme(const std::string& requested)
@@ -140,38 +161,38 @@ bool CliDashboard::setTheme(const std::string& requested)
     std::string name=requested;
     std::transform(name.begin(),name.end(),name.begin(),[](unsigned char c){return static_cast<char>(std::tolower(c));});
     std::replace(name.begin(),name.end(),'_','-');
-    if(name=="system") name="classic";
+    if(name=="classic" || name=="classic-light") name="system";
+    if(name=="hacker" || name=="matrix" || name=="crt-green") name="night-vision";
+    else if(name=="ice") name="arctic";
+    else if(name=="nord" || name=="stealth") name="slate";
+    else if(name=="retro-blue") name="blue-box";
+    else if(name=="beige-box" || name=="copper") name="terminal-gold";
+    else if(name=="vaporwave" || name=="synthwave" || name=="ultraviolet") name="cyberpunk";
+    else if(name=="signal-red") name="red-box";
+    else if(name=="deep-space" || name=="dracula") name="black-ice";
     const auto known=themeNames();
     if(std::find(known.begin(),known.end(),name)==known.end()) return false;
     themeName_=name;
 
-    // Semantic ANSI palette. 256-color entries degrade gracefully on terminals
-    // that only support the classic ANSI subset; NO_COLOR still disables all paint.
-    if(name=="hacker") palette_={"\033[38;5;46m","\033[38;5;82m","\033[38;5;118m","\033[38;5;226m","\033[38;5;196m","\033[38;5;231m","\033[38;5;240m"};
-    else if(name=="matrix") palette_={"\033[38;5;40m","\033[38;5;48m","\033[38;5;46m","\033[38;5;154m","\033[38;5;196m","\033[38;5;120m","\033[38;5;22m"};
-    else if(name=="phosphor") palette_={"\033[38;5;120m","\033[38;5;114m","\033[38;5;156m","\033[38;5;221m","\033[38;5;203m","\033[38;5;151m","\033[38;5;65m"};
-    else if(name=="midnight") palette_={"\033[38;5;111m","\033[38;5;75m","\033[38;5;84m","\033[38;5;222m","\033[38;5;203m","\033[38;5;252m","\033[38;5;244m"};
-    else if(name=="amber") palette_={"\033[38;5;214m","\033[38;5;220m","\033[38;5;190m","\033[38;5;226m","\033[38;5;196m","\033[38;5;223m","\033[38;5;130m"};
-    else if(name=="ice") palette_={"\033[38;5;117m","\033[38;5;45m","\033[38;5;123m","\033[38;5;229m","\033[38;5;203m","\033[38;5;255m","\033[38;5;67m"};
-    else if(name=="classic-light") palette_={"\033[94m","\033[96m","\033[92m","\033[93m","\033[91m","\033[97m","\033[2m"};
-    else if(name=="solarized") palette_={"\033[38;5;136m","\033[38;5;37m","\033[38;5;64m","\033[38;5;166m","\033[38;5;160m","\033[38;5;230m","\033[38;5;244m"};
-    else if(name=="dracula") palette_={"\033[38;5;212m","\033[38;5;141m","\033[38;5;84m","\033[38;5;228m","\033[38;5;203m","\033[38;5;255m","\033[38;5;241m"};
-    else if(name=="nord") palette_={"\033[38;5;110m","\033[38;5;81m","\033[38;5;108m","\033[38;5;222m","\033[38;5;167m","\033[38;5;254m","\033[38;5;245m"};
-    else if(name=="cyberpunk") palette_={"\033[38;5;201m","\033[38;5;51m","\033[38;5;118m","\033[38;5;226m","\033[38;5;196m","\033[38;5;255m","\033[38;5;93m"};
-    else if(name=="blood-moon") palette_={"\033[38;5;196m","\033[38;5;208m","\033[38;5;203m","\033[38;5;220m","\033[38;5;160m","\033[38;5;255m","\033[38;5;88m"};
-    else if(name=="ocean") palette_={"\033[38;5;39m","\033[38;5;45m","\033[38;5;48m","\033[38;5;229m","\033[38;5;203m","\033[38;5;255m","\033[38;5;24m"};
-    else if(name=="retro-blue") palette_={"\033[38;5;75m","\033[38;5;117m","\033[38;5;81m","\033[38;5;229m","\033[38;5;203m","\033[38;5;255m","\033[38;5;60m"};
-    else if(name=="blue-box") palette_={"\033[38;5;33m","\033[38;5;45m","\033[38;5;51m","\033[38;5;226m","\033[38;5;196m","\033[38;5;255m","\033[38;5;24m"};
-    else if(name=="red-box") palette_={"\033[38;5;196m","\033[38;5;203m","\033[38;5;208m","\033[38;5;226m","\033[38;5;160m","\033[38;5;255m","\033[38;5;88m"};
-    else if(name=="beige-box") palette_={"\033[38;5;223m","\033[38;5;180m","\033[38;5;150m","\033[38;5;214m","\033[38;5;167m","\033[38;5;230m","\033[38;5;101m"};
-    else if(name=="2600") palette_={"\033[38;5;46m","\033[38;5;51m","\033[38;5;118m","\033[38;5;226m","\033[38;5;201m","\033[38;5;255m","\033[38;5;34m"};
-    else if(name=="wargames") palette_={"\033[38;5;40m","\033[38;5;82m","\033[38;5;46m","\033[38;5;154m","\033[38;5;196m","\033[38;5;120m","\033[38;5;22m"};
-    else if(name=="crt-green") palette_={"\033[38;5;118m","\033[38;5;120m","\033[38;5;156m","\033[38;5;190m","\033[38;5;203m","\033[38;5;151m","\033[38;5;65m"};
-    else if(name=="vt220") palette_={"\033[38;5;252m","\033[38;5;250m","\033[38;5;255m","\033[38;5;229m","\033[38;5;203m","\033[38;5;255m","\033[38;5;244m"};
-    else if(name=="cobalt") palette_={"\033[38;5;69m","\033[38;5;81m","\033[38;5;48m","\033[38;5;221m","\033[38;5;203m","\033[38;5;254m","\033[38;5;25m"};
-    else if(name=="vaporwave") palette_={"\033[38;5;213m","\033[38;5;51m","\033[38;5;117m","\033[38;5;228m","\033[38;5;203m","\033[38;5;255m","\033[38;5;93m"};
-    else if(name=="stealth") palette_={"\033[38;5;245m","\033[38;5;250m","\033[38;5;108m","\033[38;5;180m","\033[38;5;167m","\033[38;5;252m","\033[38;5;238m"};
-    else if(name=="monochrome") palette_={"\033[97m","\033[37m","\033[97m","\033[37m","\033[91m","\033[97m","\033[2m"};
+    if(name=="midnight") palette_={"[38;5;111m","[38;5;75m","[38;5;84m","[38;5;222m","[38;5;203m","[38;5;252m","[38;5;244m"};
+    else if(name=="slate") palette_={"[38;5;110m","[38;5;109m","[38;5;108m","[38;5;222m","[38;5;167m","[38;5;254m","[38;5;245m"};
+    else if(name=="ocean") palette_={"[38;5;39m","[38;5;45m","[38;5;48m","[38;5;229m","[38;5;203m","[38;5;255m","[38;5;24m"};
+    else if(name=="arctic") palette_={"[38;5;117m","[38;5;159m","[38;5;123m","[38;5;229m","[38;5;203m","[38;5;255m","[38;5;24m"};
+    else if(name=="solarized") palette_={"[38;5;136m","[38;5;37m","[38;5;64m","[38;5;166m","[38;5;160m","[38;5;230m","[38;5;244m"};
+    else if(name=="monochrome") palette_={"[97m","[37m","[97m","[37m","[91m","[97m","[2m"};
+    else if(name=="cobalt") palette_={"[38;5;69m","[38;5;81m","[38;5;48m","[38;5;221m","[38;5;203m","[38;5;254m","[38;5;25m"};
+    else if(name=="amber") palette_={"[38;5;214m","[38;5;220m","[38;5;190m","[38;5;226m","[38;5;196m","[38;5;223m","[38;5;130m"};
+    else if(name=="high-contrast") palette_={"[97m","[96m","[92m","[93m","[91m","[97m","[90m"};
+    else if(name=="black-ice") palette_={"[38;5;45m","[38;5;51m","[38;5;87m","[38;5;159m","[38;5;203m","[38;5;255m","[38;5;17m"};
+    else if(name=="night-vision") palette_={"[38;5;118m","[38;5;46m","[38;5;82m","[38;5;154m","[38;5;196m","[38;5;120m","[38;5;16m"};
+    else if(name=="blue-box") palette_={"[38;5;33m","[38;5;45m","[38;5;51m","[38;5;226m","[38;5;196m","[38;5;255m","[38;5;24m"};
+    else if(name=="red-box") palette_={"[38;5;196m","[38;5;203m","[38;5;208m","[38;5;226m","[38;5;160m","[38;5;255m","[38;5;88m"};
+    else if(name=="2600") palette_={"[38;5;46m","[38;5;51m","[38;5;118m","[38;5;226m","[38;5;201m","[38;5;255m","[38;5;34m"};
+    else if(name=="wargames") palette_={"[38;5;40m","[38;5;82m","[38;5;46m","[38;5;154m","[38;5;196m","[38;5;120m","[38;5;22m"};
+    else if(name=="phosphor") palette_={"[38;5;120m","[38;5;114m","[38;5;156m","[38;5;221m","[38;5;203m","[38;5;151m","[38;5;65m"};
+    else if(name=="cyberpunk") palette_={"[38;5;201m","[38;5;51m","[38;5;118m","[38;5;226m","[38;5;196m","[38;5;255m","[38;5;93m"};
+    else if(name=="blood-moon") palette_={"[38;5;196m","[38;5;208m","[38;5;203m","[38;5;220m","[38;5;160m","[38;5;255m","[38;5;88m"};
+    else if(name=="terminal-gold") palette_={"[38;5;220m","[38;5;214m","[38;5;190m","[38;5;229m","[38;5;203m","[38;5;230m","[38;5;58m"};
     else palette_={BRIGHT_YELLOW,BRIGHT_CYAN,BRIGHT_GREEN,BRIGHT_YELLOW,BRIGHT_RED,WHITE,DIM};
     return true;
 }
@@ -319,25 +340,13 @@ std::vector<std::string> CliDashboard::splitLines(const std::string& text)
 
 std::vector<std::string> CliDashboard::panelLines(const std::string& title,const std::vector<std::string>& lines,int width) const
 {
-    width=std::max(width,12);
-    const int inner=width-4;
-    std::vector<std::string> out;
-    out.reserve(lines.size()+3);
-    out.push_back("+"+std::string(static_cast<std::size_t>(width-2),'-')+"+");
-    if(!title.empty()){
-        const std::string tag="[ "+title+" ]";
-        out.push_back("| "+padVisible(paint(fit(tag,static_cast<std::size_t>(inner)),BRIGHT_CYAN),static_cast<std::size_t>(inner))+" |");
-    }
-    for(const auto& line:lines){
-        std::string clipped=line;
-        if(visibleLength(clipped)>static_cast<std::size_t>(inner)){
-            // Lines that need truncation are deliberately plain at call sites.
-            clipped=fit(clipped,static_cast<std::size_t>(inner));
-        }
-        out.push_back("| "+padVisible(clipped,static_cast<std::size_t>(inner))+" |");
-    }
-    out.push_back("+"+std::string(static_cast<std::size_t>(width-2),'-')+"+");
-    return out;
+    width=std::max(width,12);const int inner=width-4;
+    auto rule=[](int count){std::string out;for(int i=0;i<count;++i)out+=u8"═";return out;};
+    std::vector<std::string> out;out.reserve(lines.size()+2);
+    if(title.empty())out.push_back(std::string(u8"╔")+rule(width-2)+u8"╗");
+    else{const std::string tag="[ "+title+" ]";const int fill=std::max(0,width-2-static_cast<int>(visibleLength(tag)));out.push_back(std::string(u8"╔")+paint(tag,BRIGHT_CYAN)+rule(fill)+u8"╗");}
+    for(const auto& line:lines){std::string clipped=line;if(visibleLength(clipped)>static_cast<std::size_t>(inner))clipped=fit(clipped,static_cast<std::size_t>(inner));out.push_back(std::string(u8"║ ")+padVisible(clipped,static_cast<std::size_t>(inner))+u8" ║");}
+    out.push_back(std::string(u8"╚")+rule(width-2)+u8"╝");return out;
 }
 
 std::string CliDashboard::panel(const std::string& title,const std::vector<std::string>& lines,int width) const
@@ -347,34 +356,38 @@ std::string CliDashboard::panel(const std::string& title,const std::vector<std::
     return out.str();
 }
 
-std::vector<std::string> CliDashboard::headerLines(const DashboardState&,int width,bool compact) const
+std::vector<std::string> CliDashboard::headerLines(const DashboardState& state,int width,bool compact) const
 {
     const std::string version=TRUNKMONKEY_VERSION;
     std::vector<std::string> lines;
-    if((!compact && !consoleTty_ && width>=58) || (compact && width>=80)){
-        static const char* logo=u8R"SIPHER(  ██████  ██▓ ██▓███   ██░ ██ ▓█████  ██▀███
-▒██    ▒ ▓██▒▓██░  ██▒▓██░ ██▒▓█   ▀ ▓██ ▒ ██▒
-░ ▓██▄   ▒██▒▓██░ ██▓▒▒██▀▀██░▒███   ▓██ ░▄█ ▒
-  ▒   ██▒░██░▒██▄█▓▒ ▒░▓█ ░██ ▒▓█  ▄ ▒██▀▀█▄
-▒██████▒▒░██░▒██▒ ░  ░░▓█▒░██▓░▒████▒░██▓ ▒██▒
-▒ ▒▓▒ ▒ ░░▓  ▒▓▒░ ░  ░ ▒ ░░▒░▒░░ ▒░ ░░ ▒▓ ░▒▓░
-░ ░▒  ░ ░ ▒ ░░▒ ░      ▒ ░▒░ ░ ░ ░  ░  ░▒ ░ ▒░
-░  ░  ░   ▒ ░░░        ░  ░░ ░   ░     ░░   ░
-      ░   ░            ░  ░  ░   ░  ░   ░)SIPHER";
+    const bool liveCall=std::any_of(state.calls.begin(),state.calls.end(),[](const CallSnapshot& c){return !c.disconnected;});
+    if(!liveCall && !consoleTty_ && width>=103){
+        static const char* logo=u8R"SIPHER(─ ▄▄▄▄▄▄▄▄▄▄▄ ── ▄▄▄▄▄▄▄▄▄▄▄▄ ── ▄▄▄▄▄▄▄▄▄▄▄▄▄▄ ── ▄▄▄▄▄ ─ ▄▄▄▄▄ ── ▄▄▄▄▄▄▄▄▄▄▄ ── ▄▄▄▄▄▄▄▄▄▄▄▄▄▄ ─
+─ ███████████ ── ████████████ ── ██████████████ ── █████ ─ █████ ── ███████████ ── ██████████████ ─
+─ █▓▓█▀▀▀█▓▓█ ── ▀▀▀▀█▓▓█▀▀▀▀ ── ▀▀▀█▓▓█▀▀▀█▓▓█ ── ▀█▓▓█ ─ █▓▓█▀ ── █▓▓█▀▀▀▀▀▀▀ ── ▀▀▀█▓▓█▀▀▀█▓▓█ ─
+─ █▒▒█ ─ ▀▀▀▀ ────── █▒▒█ ───────── █▒▒█ ─ █▒▒█ ─── █▒▒█ ─ █▒▒█ ─── █▒▒█ ──────────── █▒▒█ ─ █▒▒█ ─
+─ █░░█▄▄▄▄▄▄▄ ────── █░░█ ───────── █░░█▄▄▄█░░█ ─── █░░█▄▄▄█░░█ ─── █░░█▄▄▄▄ ──────── █░░█▄▄▄█░░█ ─
+─ █  █████  █ ────── █  █ ───────── █  ██████▀▀ ─── █  █████  █ ─── █  █████ ──────── █  ███████ ──
+─ ▀▀▀▀▀▀▀█░░█ ────── █░░█ ───────── █░░█▀▀▀▀▀ ───── █░░█▀▀▀█░░█ ─── █░░█▀▀▀▀ ──────── █░░█▀▀▀█░░█ ─
+─ ▄▄▄▄ ─ █▒▒█ ────── █▒▒█ ───────── █▒▒█ ────────── █▒▒█ ─ █▒▒█ ─── █▒▒█ ──────────── █▒▒█ ─ █▒▒█ ─
+─ █▓▓█ ─ █▓▓█ ────── █▓▓█ ───────── █▓▓█ ────────── █▓▓█ ─ █▓▓█ ─── █▓▓█ ──────────── █▓▓█ ─ █▓▓█ ─
+─ █▓▓█▄▄▄█▓▓█ ── ▄▄▄▄█▓▓█▄▄▄▄ ───── █▓▓█ ───────── ▄█▓▓█ ─ █▓▓█▄ ── █▓▓█▄▄▄▄▄▄▄ ───── █▓▓█ ─ █▓▓█ ─
+─ ███████████ ─  ████████████ ───── ████ ───────── █████ ─ █████ ── ███████████ ───── ████ ─ ████ ─
+─ ▀▀▀▀▀▀▀▀▀▀▀ ─  ▀▀▀▀▀▀▀▀▀▀▀▀ ───── ▀▀▀▀ ───────── ▀▀▀▀▀ ─ ▀▀▀▀▀ ── ▀▀▀▀▀▀▀▀▀▀▀ ───── ▀▀▀▀ ─ ▀▀▀▀ ─)SIPHER";
         auto art=splitLines(logo);
         for(const auto& line:art) lines.push_back(paint(line,BRIGHT_YELLOW));
-        lines.push_back(paint("S.I.P.H.E.R. By GITSC",BRIGHT_YELLOW)+"  "+paint(version,WHITE));
+        lines.push_back(paint("S.I.P.H.E.R. // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
     } else {
-        lines.push_back(paint("S.I.P.H.E.R. By GITSC",BRIGHT_YELLOW)+"  "+paint(version,WHITE));
+        lines.push_back(paint("S.I.P.H.E.R. // PHREAK LAB",BRIGHT_YELLOW)+"  "+paint(version,WHITE)+paint("  ::  CARRIER ACCESS TERMINAL",DIM));
     }
-    lines.push_back(paint("SIP Inspection, Protocol Handling, Enumeration & Recon",BRIGHT_CYAN));
-    lines.push_back("SIP / RTP Troubleshooting, Queue Testing & PBX Diagnostics");
+    lines.push_back(paint("PHONE-PHREAK SIGNAL LAB  //  SIP / RTP / SWITCH RECON",BRIGHT_CYAN));
+    lines.push_back("LINE ACCESS | SIGNAL TAP | MEDIA TRACE | BLAST DECK | SWITCH AUDIT");
     if(compact || consoleTty_){
         lines.push_back("1-9 guided workflows | /dial /hangup /hold /resume | help | 0 Exit");
         return lines;
     }
     lines.push_back("");
-    lines.push_back(paint("Operator Mode",BRIGHT_GREEN)+" is the default: choose a number and answer the prompts.");
+    lines.push_back(paint("PHREAK DECK",BRIGHT_GREEN)+" online: choose a numbered workflow or enter a slash command.");
     lines.push_back("Slash commands are accepted directly: /dial, /answer, /hangup, /hold, /resume, /dtmf.");
     lines.push_back("Theme: "+paint(themeName_,BRIGHT_CYAN)+"   Platform: "+paint("Linux / FreeBSD / Windows",DIM));
     if(width>=90) lines.push_back(paint("Tip: type 'menu' anytime to reopen the guided menu.",DIM));
@@ -398,7 +411,7 @@ std::vector<std::string> CliDashboard::accountLines(const DashboardState& state,
         labelValue("Transport",fit(transport,valueWidth)),
         labelValue("Status",status),
         labelValue("Call Count Limit",std::to_string(state.maxCalls)),
-        labelValue("User Agent","S.I.P.H.E.R./1.0.0")
+        labelValue("User Agent",SIPHER_USER_AGENT)
     };
 }
 
@@ -470,6 +483,73 @@ std::vector<std::string> CliDashboard::callLines(const DashboardState& state,int
     }
     if(maxEntries>0 && static_cast<int>(active.size())>maxEntries)lines.push_back("... "+std::to_string(active.size()-static_cast<std::size_t>(maxEntries))+" more active call(s) — Alt+4 for full call view");
     lines.push_back("Total active: "+std::to_string(active.size())+"   Limit: "+std::to_string(state.maxCalls));
+    return lines;
+}
+
+std::vector<std::string> CliDashboard::activeCallStatsLines(const DashboardState& state,int width) const
+{
+    std::vector<const CallSnapshot*> active;
+    for(const auto& call:state.calls) if(!call.disconnected) active.push_back(&call);
+    if(active.empty()) return {};
+
+    const CallSnapshot* selected=nullptr;
+    for(const auto* call:active) if(call->foreground){selected=call;break;}
+    if(!selected && state.focusCallId>=0){
+        for(const auto* call:active) if(call->id==state.focusCallId){selected=call;break;}
+    }
+    if(!selected){
+        for(const auto* call:active) if(call->connected){selected=call;break;}
+    }
+    if(!selected) selected=active.front();
+    const auto& c=*selected;
+    const std::size_t valueWidth=static_cast<std::size_t>(std::max(12,width-25));
+    const std::string remote=remoteParty(c.remoteUri).empty()?"--":remoteParty(c.remoteUri);
+    const std::string elapsed=duration(c.connectedMs?c.connectedMs:c.createdMs);
+    std::string stateText=c.state.empty()?"UNKNOWN":c.state;
+    if(c.connected) stateText=paint(stateText,BRIGHT_GREEN);
+    else stateText=paint(stateText,BRIGHT_YELLOW);
+
+    std::vector<std::string> lines={
+        labelValue("Call",std::string("#")+std::to_string(c.id)+"  "+(c.direction==CallDirection::Incoming?"INCOMING":"OUTGOING")+(c.foreground?"  [FOREGROUND]":"")),
+        labelValue(c.direction==CallDirection::Incoming?"Remote party":"Dialed number",fit(remote,valueWidth)),
+        labelValue("Status",stateText),
+        labelValue("Duration",elapsed),
+        labelValue("Media",std::string(c.mediaActive?"ACTIVE":"WAITING")+"   Mic: "+(c.microphoneMuted?"MUTED":"LIVE")),
+        labelValue("Codec",c.codecName.empty()?"--":c.codecName+(c.codecClockRate?" / "+std::to_string(c.codecClockRate)+" Hz":"")),
+        labelValue("Local RTP",fit(c.localRtpAddress.empty()?"--":c.localRtpAddress,valueWidth)),
+        labelValue("Remote RTP",fit(c.remoteRtpAddress.empty()?"--":c.remoteRtpAddress,valueWidth))
+    };
+    if(!c.sourceRtpAddress.empty() && c.sourceRtpAddress!=c.remoteRtpAddress)
+        lines.push_back(labelValue("RTP source seen",fit(c.sourceRtpAddress,valueWidth)));
+
+    {
+        std::ostringstream q;
+        q<<"TX "<<c.rtpTxPackets<<" / RX "<<c.rtpRxPackets
+         <<"   Loss "<<c.rtpTxLoss<<"/"<<c.rtpRxLoss;
+        lines.push_back(labelValue("RTP packets",fit(q.str(),valueWidth)));
+    }
+    {
+        std::ostringstream q;
+        q<<std::fixed<<std::setprecision(1)
+         <<"Jitter TX/RX "<<c.txJitterMs<<"/"<<c.rxJitterMs<<" ms   RTT "<<c.rttMs<<" ms";
+        lines.push_back(labelValue("Media quality",fit(q.str(),valueWidth)));
+    }
+    if(c.estimatedMos>0.0 || c.estimatedRFactor>0.0){
+        std::ostringstream q;
+        q<<std::fixed<<std::setprecision(1)<<"MOS "<<c.estimatedMos<<"   R-factor "<<c.estimatedRFactor;
+        lines.push_back(labelValue("Voice quality",fit(q.str(),valueWidth)));
+    }
+
+    std::ostringstream controls;
+    if(c.direction==CallDirection::Incoming && !c.connected) controls<<"answer "<<c.id<<" | ";
+    if(c.connected) controls<<"hold "<<c.id<<" | resume "<<c.id<<" | "<<(c.microphoneMuted?"unmute ":"mute ")<<c.id<<" | dtmf "<<c.id<<" <digits> | ";
+    controls<<"hangup "<<c.id;
+    if(!c.foreground) controls<<" | foreground "<<c.id;
+    lines.push_back("");
+    lines.push_back(paint("CALL CONTROLS",BRIGHT_CYAN));
+    lines.push_back(fit(controls.str(),static_cast<std::size_t>(std::max(12,width-6))));
+    if(active.size()>1) lines.push_back(paint(std::to_string(active.size())+" active calls total — Alt+4 opens the full call list.",DIM));
+    else lines.push_back(paint("Alt+4 opens the full call view; Alt+3 opens detailed RTP/media diagnostics.",DIM));
     return lines;
 }
 
@@ -640,15 +720,15 @@ std::vector<std::string> CliDashboard::profileLines(const DashboardState& state,
 
 std::vector<std::string> CliDashboard::pageBarLines(DashboardPage page,int width) const
 {
-    const std::vector<std::string> labels={"Alt+1 Main","Alt+2 SIP","Alt+3 Media","Alt+4 Calls","Alt+5 Security","Alt+6 Profile","Alt+7 Help","Alt+8 Engine","Alt+9 Queue"};
+    const std::vector<std::string> labels={"1 Line","2 Tap","3 Media","4 Calls","5 Switch","6 ID","7 Help","8 Wire","9 Blast"};
     const int available=std::max(16,width-4);std::vector<std::string> rows;
-    std::string row=paint("▓█ S.I.P.H.E.R. █▓",BRIGHT_YELLOW);
+    std::string row=paint(std::string("S.I.P.H.E.R. ")+TRUNKMONKEY_VERSION,BRIGHT_YELLOW)+paint("  //  PHREAK DECK",DIM);
     for(std::size_t i=0;i<labels.size();++i){
         const bool current=static_cast<int>(page)==static_cast<int>(i+1);
         const std::string item=current?paint("["+labels[i]+"]",BRIGHT_GREEN):paint(labels[i],BRIGHT_CYAN);
         const std::size_t extra=(row.empty()?0:3)+visibleLength(item);
         if(!row.empty() && static_cast<int>(visibleLength(row)+extra)>available){rows.push_back(row);row.clear();}
-        if(!row.empty())row+=" | ";
+        if(!row.empty())row+=u8"  ·  ";
         row+=item;
     }
     if(!row.empty())rows.push_back(row);
@@ -684,7 +764,7 @@ void CliDashboard::clear(std::ostream& out) const
 #endif
 }
 
-void CliDashboard::render(const DashboardState& state,std::ostream& out) const
+void CliDashboard::render(const DashboardState& state,std::ostream& out,bool fullClear) const
 {
     if(!enabled_) return;
     const auto size=terminalSize();
@@ -694,16 +774,31 @@ void CliDashboard::render(const DashboardState& state,std::ostream& out) const
     const int gap=2;
     const int rightWidth=wide?std::min(52,std::max(40,size.columns/3)):size.columns;
     const int leftWidth=wide?size.columns-rightWidth-gap:size.columns;
-    clear(out);
-    if(vtEnabled_) out<<"\033]0;S.I.P.H.E.R. "<<TRUNKMONKEY_VERSION<<" — "<<pageName(state.page)<<"\007";
+    if(fullClear){
+        clear(out);
+    }else{
+#ifdef _WIN32
+        if(vtEnabled_) out<<"\033[?25l\033[H";
+        else {
+            const HANDLE output=GetStdHandle(STD_OUTPUT_HANDLE);
+            if(output!=INVALID_HANDLE_VALUE) SetConsoleCursorPosition(output,COORD{0,0});
+        }
+#else
+        // Live-call refresh: repaint over the existing frame instead of blanking
+        // the terminal first. Keeping the old pixels in place removes the
+        // once-per-second flash caused by ESC[2J during active calls.
+        out<<"\033[?25l\033[H";
+#endif
+    }
+    if(vtEnabled_) out<<"\033]0;S.I.P.H.E.R. PHREAK LAB — "<<pageName(state.page)<<"\007";
 
     for(const auto& line:panelLines("",pageBarLines(state.page,size.columns),size.columns)) out<<line<<'\n';
 
     if(state.page==DashboardPage::Main){
-        auto header=panelLines("",headerLines(state,leftWidth,compact),leftWidth);
+        auto header=panelLines("",headerLines(state,size.columns,compact),size.columns);
+        for(const auto& line:header)out<<line<<'\n';
         if(compact){
-            for(const auto& line:header)out<<line<<'\n';
-            const bool logoPriority=leftWidth>=80;
+            const bool logoPriority=size.columns>=103;
             const auto& p=state.profile;
             std::vector<std::string> status={
                 "SIP: "+state.registrationText,
@@ -711,30 +806,37 @@ void CliDashboard::render(const DashboardState& state,std::ostream& out) const
                 "Calls: "+std::to_string(std::count_if(state.calls.begin(),state.calls.end(),[](const CallSnapshot& c){return !c.disconnected;}))+" / "+std::to_string(state.maxCalls),
                 "Theme: "+themeName_+"   /commands and /hangup are available"
             };
-            // In a classic 80x25-ish TTY, preserve the full block logo and shed
-            // lower-priority panels instead of scrolling the dashboard off-screen.
+            // When a wide terminal is short vertically, preserve the full block
+            // logo and shed lower-priority panels instead of scrolling it away.
             if(!(logoPriority && size.rows<36))
                 for(const auto& line:panelLines("STATUS",status,leftWidth))out<<line<<'\n';
             const bool anyActive=std::any_of(state.calls.begin(),state.calls.end(),[](const CallSnapshot& c){return !c.disconnected;});
-            if(anyActive && !(logoPriority && size.rows<36)){for(const auto& line:panelLines("ACTIVE CALLS",callLines(state,leftWidth,true,tiny?1:3),leftWidth))out<<line<<'\n';}
+            if(anyActive){for(const auto& line:panelLines("LIVE WIRE // CALL TAP",activeCallStatsLines(state,leftWidth),leftWidth))out<<line<<'\n';}
             if(!(logoPriority && size.rows<28))
                 for(const auto& line:panelLines("OPERATOR MENU",quickCommandLines(leftWidth,true),leftWidth))out<<line<<'\n';
             if(!tiny && !(logoPriority && size.rows<42)){for(const auto& line:panelLines("ACTIVITY",activityLines(state,leftWidth,2),leftWidth))out<<line<<'\n';}
         }else{
-            if(wide){auto account=panelLines("ACCOUNT",accountLines(state,rightWidth),rightWidth);for(const auto& line:mergeColumns(header,account,leftWidth,gap))out<<line<<'\n';}
-            else{for(const auto& line:header)out<<line<<'\n';for(const auto& line:panelLines("ACCOUNT",accountLines(state,leftWidth),leftWidth))out<<line<<'\n';}
             std::vector<std::string> left;
             auto reg=panelLines("REGISTRATION",registrationLines(state,leftWidth),leftWidth);left.insert(left.end(),reg.begin(),reg.end());
-            auto calls=panelLines("ACTIVE CALLS",callLines(state,leftWidth,true,6),leftWidth);left.insert(left.end(),calls.begin(),calls.end());
+            const bool anyActive=std::any_of(state.calls.begin(),state.calls.end(),[](const CallSnapshot& c){return !c.disconnected;});
+            if(anyActive){auto calls=panelLines("LIVE WIRE // CALL TAP",activeCallStatsLines(state,leftWidth),leftWidth);left.insert(left.end(),calls.begin(),calls.end());}
             auto activity=panelLines("ACTIVITY",activityLines(state,leftWidth,8),leftWidth);left.insert(left.end(),activity.begin(),activity.end());
-            if(wide){auto quick=panelLines("OPERATOR MENU",quickCommandLines(rightWidth,false),rightWidth);for(const auto& line:mergeColumns(left,quick,leftWidth,gap))out<<line<<'\n';}
-            else{for(const auto& line:left)out<<line<<'\n';for(const auto& line:panelLines("OPERATOR MENU",quickCommandLines(leftWidth,false),leftWidth))out<<line<<'\n';}
+            if(wide){
+                std::vector<std::string> right;
+                auto account=panelLines("ACCOUNT",accountLines(state,rightWidth),rightWidth);right.insert(right.end(),account.begin(),account.end());
+                auto quick=panelLines("OPERATOR MENU",quickCommandLines(rightWidth,false),rightWidth);right.insert(right.end(),quick.begin(),quick.end());
+                for(const auto& line:mergeColumns(left,right,leftWidth,gap))out<<line<<'\n';
+            }else{
+                for(const auto& line:panelLines("ACCOUNT",accountLines(state,leftWidth),leftWidth))out<<line<<'\n';
+                for(const auto& line:left)out<<line<<'\n';
+                for(const auto& line:panelLines("OPERATOR MENU",quickCommandLines(leftWidth,false),leftWidth))out<<line<<'\n';
+            }
         }
     }else if(state.page==DashboardPage::SipLog){
         for(const auto& line:panelLines("SIP LOG — CALL "+(state.focusCallId>=0?std::to_string(state.focusCallId):std::string("--")),sipPageLines(state,size.columns,std::max(8,size.rows-12)),size.columns))out<<line<<'\n';
     }else if(state.page==DashboardPage::Media){
         for(const auto& line:panelLines("MEDIA / RTP DIAGNOSTICS",diagnosticLines(state,size.columns,0),size.columns))out<<line<<'\n';
-        for(const auto& line:panelLines("CAPTURE",{state.captureStatus,"capture-ifaces | sipcap-start <file> [iface] (pre-dial) | rtpcap-start <id> <file> [iface] | capture-stop all"},size.columns))out<<line<<'\n';
+        for(const auto& line:panelLines("CAPTURE",{state.captureStatus,"capture-ifaces | voipcap-start <file> [iface] (recommended pre-dial) | sipcap-start <file> [iface] | rtpcap-start <id> <file> [iface] | capture-stop all"},size.columns))out<<line<<'\n';
     }else if(state.page==DashboardPage::Calls){
         for(const auto& line:panelLines("ACTIVE CALLS",callLines(state,size.columns,size.columns<90,std::max(2,size.rows-12)),size.columns))out<<line<<'\n';
         for(const auto& line:panelLines("CALL CONTROL",{"Operator Mode: select 2 from Main for guided call control.","Advanced: foreground <id> | answer <id> | hold <id> | resume <id> | dtmf <id> <digits> | hangup <id>"},size.columns))out<<line<<'\n';
@@ -751,23 +853,45 @@ void CliDashboard::render(const DashboardState& state,std::ostream& out) const
         for(const auto& line:panelLines("QUEUE TEST / ACTIVITY",activityLines(state,size.columns,std::max(8,size.rows-15)),size.columns))out<<line<<'\n';
         for(const auto& line:panelLines("QUEUE COMMANDS",{"Operator Mode: select 3 from Main for a guided queue/call-blast test.","Advanced commands remain available: blast, blast-audio, blast-file, blast-file-audio, cancel-launch."},size.columns))out<<line<<'\n';
     }
+    if(!fullClear){
+#ifdef _WIN32
+        if(vtEnabled_) out<<"\033[J";
+#else
+        // Erase only anything left below a shorter replacement frame. Do this
+        // after drawing, never before, so the user never sees a blank screen.
+        out<<"\033[J";
+#endif
+    }
     prepareInteractivePrompt(out);
+    if(!fullClear){
+#ifdef _WIN32
+        if(vtEnabled_) out<<"\033[?25h";
+#else
+        out<<"\033[?25h";
+#endif
+        out.flush();
+    }
 }
 
 void CliDashboard::prepareInteractivePrompt(std::ostream& out) const
 {
-    if(enabled_) out<<paint("select> ",BRIGHT_GREEN)<<std::flush;
+    if(enabled_) out<<paint("phreak> ",BRIGHT_GREEN)<<std::flush;
 }
 
 void CliDashboard::showOverlay(const std::string& title,const std::string& body,std::ostream& out) const
 {
-    if(!enabled_){out<<body; if(body.empty()||body.back()!='\n')out<<'\n'; return;}
+    // Overlay bodies may contain raw SIP headers/messages supplied by remote
+    // endpoints. Strip all C0/DEL control bytes before they reach the user's
+    // real terminal; dashboard ANSI is added only after this boundary.
+    const std::string safeTitle=sanitizeTerminalText(title);
+    const std::string safeBody=sanitizeTerminalText(body);
+    if(!enabled_){out<<safeBody; if(safeBody.empty()||safeBody.back()!='\n')out<<'\n'; return;}
     clear(out);
     const auto size=terminalSize();
     const int width=std::max(32,std::min(size.columns,120));
-    auto lines=splitLines(body);
+    auto lines=splitLines(safeBody);
     for(auto& line:lines) line=fit(line,static_cast<std::size_t>(std::max(10,width-6)));
-    out<<panel(title,lines,width);
+    out<<panel(safeTitle,lines,width);
 }
 
 void CliDashboard::pauseForEnter(std::istream& in,std::ostream& out) const

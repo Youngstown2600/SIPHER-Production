@@ -114,10 +114,22 @@ if(TRUNKMONKEY_BUILD_GUI)
   find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Widgets)
   set(SAK_QT_TARGET Qt${QT_VERSION_MAJOR})
  endif()
- add_executable(trunkmonkey-gui src/gui/main.cpp src/gui/MainWindow.cpp src/gui/MainWindow.h src/gui/ProfileDialog.cpp src/gui/ProfileDialog.h)
- set_target_properties(trunkmonkey-gui PROPERTIES AUTOMOC ON)
+ add_executable(trunkmonkey-gui
+  src/gui/main.cpp src/gui/MainWindow.cpp src/gui/MainWindow.h
+  src/gui/ProfileDialog.cpp src/gui/ProfileDialog.h
+  src/gui/ModernStyle.cpp src/gui/ModernStyle.h
+  src/gui/sipher_resources.qrc)
+ set_target_properties(trunkmonkey-gui PROPERTIES AUTOMOC ON AUTORCC ON)
  if(WIN32)
   set_target_properties(trunkmonkey-gui PROPERTIES WIN32_EXECUTABLE TRUE)
+ endif()
+ if(APPLE)
+  set_target_properties(trunkmonkey-gui PROPERTIES
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_BUNDLE_NAME "SIPHER"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.sipher.client"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0.0"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0")
  endif()
  target_include_directories(trunkmonkey-gui PRIVATE src/gui)
  target_link_libraries(trunkmonkey-gui PRIVATE trunkmonkey_core ${SAK_QT_TARGET}::Core ${SAK_QT_TARGET}::Widgets)
@@ -153,7 +165,12 @@ if(TRUNKMONKEY_BUILD_TESTS)
   target_link_libraries(tm-pbx-audit-test PRIVATE ws2_32)
  endif()
  add_test(NAME pbx-audit-test COMMAND tm-pbx-audit-test)
-set_tests_properties(pbx-audit-test PROPERTIES TIMEOUT 30)
+ set_tests_properties(pbx-audit-test PROPERTIES TIMEOUT 30)
+ if(UNIX)
+  add_test(NAME r15-core-preservation COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/core_r15_preservation_test.sh)
+  add_test(NAME r17-phreak-ui-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r17_phreak_ui_source_test.sh)
+  add_test(NAME freebsd-audio-compat-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/freebsd_audio_compat_test.sh)
+ endif()
  if(NOT MSVC)
   target_compile_options(tm-profile-test PRIVATE -Wall -Wextra -Wpedantic)
   target_compile_options(tm-sip-trace-test PRIVATE -Wall -Wextra -Wpedantic)
@@ -165,8 +182,33 @@ set_tests_properties(pbx-audit-test PROPERTIES TIMEOUT 30)
 endif()
 
 if(TM_INSTALL)
- install(TARGETS ${TM_INSTALL} RUNTIME DESTINATION bin)
+  if(APPLE AND TARGET trunkmonkey-gui)
+    if(TARGET trunkmonkey-cli)
+      install(TARGETS trunkmonkey-cli RUNTIME DESTINATION bin)
+    endif()
+    install(TARGETS trunkmonkey-gui BUNDLE DESTINATION .)
+  else()
+    install(TARGETS ${TM_INSTALL} RUNTIME DESTINATION bin)
+  endif()
 endif()
 install(FILES examples/profile.conf.example examples/destinations.txt examples/callerids.txt
         DESTINATION share/trunkmonkey/examples)
-install(FILES README.md OPERATOR_GUIDE.md RELEASE_NOTES.md CHANGELOG.md SECURITY_AUDIT.md DESTINATION share/doc/trunkmonkey)
+# Exploit-fix release notes are installed alongside the historical documentation.
+install(FILES README.md OPERATOR_GUIDE.md RELEASE_NOTES.md CHANGELOG.md SECURITY_AUDIT.md R16-MODERNIZATION.md UI-IDENTITY-R17.md
+        EXPLOIT-FIX-RELEASE-NOTES.md DESTINATION share/doc/trunkmonkey)
+
+# EXPLOIT_FIX_HARDENING: compiler/linker defenses for the security release.
+if(UNIX)
+  if(TARGET trunkmonkey-cli)
+    target_compile_options(trunkmonkey-cli PRIVATE -fstack-protector-strong $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
+    if(NOT APPLE)
+      target_link_options(trunkmonkey-cli PRIVATE -Wl,-z,relro -Wl,-z,now)
+    endif()
+  endif()
+  if(TARGET trunkmonkey-gui)
+    target_compile_options(trunkmonkey-gui PRIVATE -fstack-protector-strong $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
+    if(NOT APPLE)
+      target_link_options(trunkmonkey-gui PRIVATE -Wl,-z,relro -Wl,-z,now)
+    endif()
+  endif()
+endif()

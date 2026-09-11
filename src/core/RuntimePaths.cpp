@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <system_error>
+#include <vector>
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -71,10 +72,16 @@ void makePrivateDir(const std::filesystem::path& path)
         throw std::runtime_error("Unable to create S.I.P.H.E.R. data directory: " + path.string() + ": " + ec.message());
     }
 #ifndef _WIN32
-    // Profiles and diagnostics may contain credentials, identities, SIP
-    // messages, and endpoint metadata. Keep S.I.P.H.E.R.-owned directories
-    // private regardless of a permissive process umask.
-    (void)::chmod(path.c_str(), S_IRWXU);
+    struct stat st{};
+    if (::lstat(path.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode)) {
+        throw std::runtime_error("Unsafe S.I.P.H.E.R. runtime/data directory: " + path.string());
+    }
+    if (st.st_uid != ::geteuid()) {
+        throw std::runtime_error("Refusing S.I.P.H.E.R. directory not owned by the current user: " + path.string());
+    }
+    if (::chmod(path.c_str(), S_IRWXU) != 0) {
+        throw std::runtime_error("Unable to secure S.I.P.H.E.R. directory permissions: " + path.string());
+    }
 #endif
 }
 }
@@ -118,7 +125,36 @@ std::filesystem::path logPath()
 std::filesystem::path tempDir()
 {
 #ifndef _WIN32
-    return std::filesystem::path("/tmp") / ("trunkmonkey-" + std::to_string(static_cast<unsigned long>(::getuid())));
+    // Use an unpredictable per-process directory. A fixed /tmp/sipher-<uid>
+    // path lets another local account pre-create a symlink or hostile directory
+    // before startup. mkdtemp() creates the directory atomically with mode 0700.
+    static const std::filesystem::path secure = [] {
+        std::filesystem::path base = absoluteEnvPath("XDG_RUNTIME_DIR");
+        if (!base.empty()) {
+            // XDG_RUNTIME_DIR is supplied by the environment, so do not trust
+            // it blindly.  It must already be a real directory owned by this
+            // user; otherwise fall back to the sticky system /tmp directory.
+            struct stat baseStat{};
+            if (::lstat(base.c_str(), &baseStat) != 0 ||
+                !S_ISDIR(baseStat.st_mode) || S_ISLNK(baseStat.st_mode) ||
+                baseStat.st_uid != ::geteuid() || ::access(base.c_str(), W_OK|X_OK) != 0) {
+                base.clear();
+            }
+        }
+        if (base.empty()) base = std::filesystem::path("/tmp");
+        std::string pattern = (base / "sipher-XXXXXX").string();
+        std::vector<char> buf(pattern.begin(), pattern.end());
+        buf.push_back('\0');
+        char* made = ::mkdtemp(buf.data());
+        if (!made) throw std::runtime_error("Unable to create secure S.I.P.H.E.R. runtime directory");
+        if (::chmod(made, S_IRWXU) != 0) {
+            const std::string failed = made;
+            (void)::rmdir(made);
+            throw std::runtime_error("Unable to secure S.I.P.H.E.R. runtime directory: " + failed);
+        }
+        return std::filesystem::path(made);
+    }();
+    return secure;
 #else
     auto portable = portableRoot();
     if (!portable.empty()) return portable / "data" / "tmp";

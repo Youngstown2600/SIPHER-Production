@@ -23,9 +23,21 @@ rm -f "$PREFIX/.trunkmonkey-pjsip-build"
 HOST_OS=$(uname -s)
 case "$HOST_OS" in
   Linux)
+    if [ -n "${TERMUX_VERSION:-}" ] || case "${PREFIX:-}" in *com.termux*) true;; *) false;; esac; then
+      HOST_OS=Termux
+      MAKE=make
+      TM_CC=${CC:-clang}
+      TM_CXX=${CXX:-clang++}
+    else
+      MAKE=make
+      TM_CC=${CC:-cc}
+      TM_CXX=${CXX:-c++}
+    fi
+    ;;
+  Darwin)
     MAKE=make
-    TM_CC=${CC:-cc}
-    TM_CXX=${CXX:-c++}
+    TM_CC=${CC:-clang}
+    TM_CXX=${CXX:-clang++}
     ;;
   FreeBSD)
     MAKE=gmake
@@ -171,6 +183,11 @@ elif [ -f build.mak ]; then
   fi
 fi
 
+# Apply the mandatory upstream exploit-fix patchset to the clean PJSIP 2.17
+# source before configure/compile. The helper is idempotent and fails closed
+# if the source no longer matches the vetted 2.17 patch context.
+"$ROOT_DIR/scripts/apply-pjsip-exploit-fixes.sh" "$SRC"
+
 cat > pjlib/include/pj/config_site.h <<'CONFIG'
 #pragma once
 /* TrunkMonkey requires up to 50 simultaneous independent calls. */
@@ -270,6 +287,17 @@ if [ "$HOST_OS" = FreeBSD ]; then
     exit 1
   }
 
+elif [ "$HOST_OS" = Darwin ]; then
+  echo "Configuring PJSIP for macOS with Apple Clang/CoreAudio..."
+  CC="$TM_CC" CXX="$TM_CXX" ./configure --prefix="$PREFIX" --disable-video
+elif [ "$HOST_OS" = Termux ]; then
+  echo "Configuring PJSIP for native Termux/Android..."
+  TERMUX_PREFIX=${TERMUX_SYS_PREFIX:-/data/data/com.termux/files/usr}
+  PA_OPT=
+  if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists portaudio-2.0 2>/dev/null; then PA_OPT=--with-external-pa; fi
+  CFLAGS="-fPIC -I$TERMUX_PREFIX/include ${CFLAGS:-}" CXXFLAGS="-fPIC -I$TERMUX_PREFIX/include ${CXXFLAGS:-}" \
+  LDFLAGS="-L$TERMUX_PREFIX/lib ${LDFLAGS:-}" CC="$TM_CC" CXX="$TM_CXX" \
+    ./configure --prefix="$PREFIX" --disable-video $PA_OPT
 elif [ "$HOST_OS" = Windows ]; then
   echo "Configuring PJSIP for Windows/MinGW-w64..."
   CFLAGS="${CFLAGS:-}-O2" CXXFLAGS="${CXXFLAGS:-}-O2" CC="$TM_CC" CXX="$TM_CXX" \
@@ -324,11 +352,19 @@ mkdir -p "$PREFIX"
 case "$HOST_OS" in
   Linux)
     TM_OS=linux
-    BUILD_ID="2.17-tm64-pic-linux-$(uname -m 2>/dev/null || echo unknown)-v9"
+    BUILD_ID="2.17-tm64-pic-linux-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
+    ;;
+  Darwin)
+    TM_OS=macos
+    BUILD_ID="2.17-tm64-macos-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
+    ;;
+  Termux)
+    TM_OS=termux
+    BUILD_ID="2.17-tm64-termux-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
     ;;
   Windows)
     TM_OS=windows
-    BUILD_ID="2.17-sak64-windows-mingw-$(uname -m 2>/dev/null || echo x86_64)-v1"
+    BUILD_ID="2.17-sak64-windows-mingw-$(uname -m 2>/dev/null || echo x86_64)-v1-exploitfix1"
     ;;
   FreeBSD)
     TM_OS=freebsd
@@ -352,7 +388,7 @@ case "$HOST_OS" in
     cxxver=$($TM_CXX --version 2>/dev/null | sed -n '1s/.*clang version \([^ ]*\).*/\1/p')
     [ -n "$cxxver" ] || cxxver=unknown
     cxxver=$(printf '%s' "$cxxver" | tr -c 'A-Za-z0-9._-' '_')
-    BUILD_ID="2.17-tm64-pic-freebsd-$(uname -m 2>/dev/null || echo unknown)-libcxx-${abi}-${cxxver}-v9"
+    BUILD_ID="2.17-tm64-pic-freebsd-$(uname -m 2>/dev/null || echo unknown)-libcxx-${abi}-${cxxver}-v9-exploitfix1"
     ;;
 esac
 printf '%s\n' "$BUILD_ID" > "$PREFIX/.trunkmonkey-pjsip-build"

@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/sipher">
+    <file alias="logo.png">assets/sipher-logo.png</file>
+  </qresource>
+</RCC>

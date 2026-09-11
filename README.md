@@ -1,3 +1,13 @@
+# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix — Underground Phone-Phreak / Signal Lab
+
+r17 deliberately moves S.I.P.H.E.R. away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue S.I.P.H.E.R. logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
+
+**Theme model:** 20 synchronized GUI/CLI themes. Shared with TrunkMonkey: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. S.I.P.H.E.R.-only: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. Legacy r16 theme keys map to the closest current palette.
+
+`tests/run_r17_regression.sh` runs the core-preservation gate plus profile, SIP trace, runtime-path, dashboard, capture-manager, PBX-audit, and FreeBSD audio compatibility tests.
+
+---
+
 ## r14 FreeBSD audio compatibility
 
 On FreeBSD, a normal CLI/GUI build now performs a conservative `snd_hda` compatibility pass before compilation. r14 discovers the machine's own HDA pins; it does **not** hardcode Project-2501 NIDs. A layout is eligible for automatic correction only when one HDA function group has exactly one fixed `Speaker` pin, exactly one jack `Headphones` pin, and no analog `Line-out`. The builder keeps the firmware Speaker association and tests the headphone in that same association at `seq=15`, which is FreeBSD's special headphone duplicate/auto-mute sequence.
@@ -46,7 +56,7 @@ The CLI dashboard now presents numbered guided workflows:
 10. Advanced command reference
 0. Exit
 
-Type `menu` at any time to reopen the guided menu. Every previous advanced command is still available directly, and all 26 CLI/GUI themes are retained.
+Type `menu` at any time to reopen the guided menu. Every previous advanced command is still available directly, and all 36 CLI/GUI themes are available.
 
 The existing runtime/config directories are intentionally retained for compatibility with TrunkMonkey installations (`~/.config/trunkmonkey`, `~/.local/state/trunkmonkey`, and `/tmp/trunkmonkey-<uid>`), so existing profiles and known-good FreeBSD audio fixes continue to work.
 
@@ -211,7 +221,9 @@ RTP/RTCP capture uses the negotiated/observed media ports for the selected norma
 
 **r8 Automated Audit:** use `audit` for the guided CLI workflow or `audit-auto <host> [user|-] [port] [udp|tcp] [ext-first ext-last]` for the new chained PBX/SIP audit. The GUI PBX Audit tab now leads with **RUN AUTOMATED CHAINED AUDIT** and reports phase progress plus HIGH/WARN/PASS/INFO posture counts. Extension differential testing is opt-in; bounded parser/rate checks, TLS posture, and public vulnerability metadata can be toggled.
 
-**r7 Auto RTP Decode:** after stopping an RTP-only or combined call PCAP, click **OPEN LAST PCAP (AUTO RTP)** in the GUI. S.I.P.H.E.R. launches Wireshark with the selected call's RTP/RTCP UDP ports already mapped to the RTP/RTCP dissectors, so **Telephony → RTP → RTP Streams** can be used without manually choosing **Decode As**. CLI users can run `pcap-open <id> <file>`. The `.pcap`/`.pcapng` remains a standard capture file; the decode mapping is passed only when Wireshark is launched.
+**r15 Full VoIP capture (recommended):** arm **START FULL VOIP PCAP (PRE-DIAL)** before placing the call and keep it running through hangup. The resulting file contains SIP/SDP and the negotiated RTP/RTCP in one chronology, which is the intended input for Wireshark **Telephony -> VoIP Calls**. CLI: `voipcap-start <file> [interface]`, then `voipcap-open <file>`.
+
+**r7 Auto RTP Decode:** after stopping an RTP-only PCAP, click **OPEN LAST PCAP (AUTO RTP)** in the GUI. S.I.P.H.E.R. launches Wireshark with the selected call's RTP/RTCP UDP ports already mapped to the RTP/RTCP dissectors, so **Telephony → RTP → RTP Streams** can be used without manually choosing **Decode As**. CLI users can run `pcap-open <id> <file>`. The `.pcap`/`.pcapng` remains a standard capture file; the decode mapping is passed only when Wireshark is launched.
 
 Packet-capture privileges are configured by the **builder**, not by the running softphone. On Linux the builder installs a capture helper when needed and grants it `CAP_NET_RAW` + `CAP_NET_ADMIN`. On FreeBSD it creates a persistent per-user `devfs` rule for `/dev/bpf*`. The builder requests `sudo`, `doas`, or root only for those setup operations; the GUI and CLI continue to run as the normal user. Re-run `./build.sh --configure-capture` at any time to repair capture permissions without rebuilding S.I.P.H.E.R..
 
@@ -490,7 +502,8 @@ tm> siptrace-stop 0
 Capture SIP and RTP packets on Linux's `any` interface:
 
 ```text
-tm> sipcap-start 0 call-0-sip.pcapng any
+tm> voipcap-start full-call.pcapng any    # start BEFORE dial; recommended for VoIP Calls
+tm> sipcap-start call-sip-only.pcapng any
 tm> rtpcap-start 0 call-0-rtp.pcapng any
 tm> capture-status
 tm> capture-stop all

@@ -31,11 +31,11 @@ Run `sipher` after installation, or run the built binary from `build/all/` or `b
 | 1 | Place a call | Normal outbound test call with optional caller ID |
 | 2 | Manage active calls | Answer, hang up, hold/resume, foreground, mute, DTMF, report |
 | 3 | Queue / call-blast test | Single destination or list-based load tests, with optional WAV/MP3/etc. audio |
-| 4 | Call diagnostics & packet capture | RTP/media stats, SIP ladder, SIP/RTP/combined PCAP, report export |
+| 4 | Call diagnostics & packet capture | RTP/media stats, SIP ladder, pre-dial Full VoIP PCAP, SIP-only/RTP-only PCAP, report export |
 | 5 | PBX / SIP security audit | Authorized PBX discovery and bounded audit workflows |
 | 6 | Audio & registration | Show/select microphone and playback devices, registration history |
 | 7 | SIP account / profile | View, edit, or reload the SIP account |
-| 8 | Themes & display | Select any of the 16 retained CLI themes |
+| 8 | Themes & display | Select any of the 20 synchronized CLI/GUI themes |
 | 9 | Logs & capture utilities | PJSIP engine log, capture status/interfaces, stop captures, SIP log |
 | 10 | Advanced commands | Complete original command reference |
 | 0 | Exit | Clean shutdown |
@@ -50,7 +50,7 @@ Type `menu` at any time to reopen the guided menu. Advanced users can type the o
 4. Use **4 — Call diagnostics & packet capture** to review RTP quality or create a combined PCAP.
 5. Choose **Export diagnostic report** when escalation needs a text summary.
 
-For an RTP-only capture, use **OPEN LAST PCAP (AUTO RTP)** in the GUI or `pcap-open <id> <file>` in the CLI after stopping the capture. S.I.P.H.E.R. supplies Wireshark with the call's RTP/RTCP Decode As mappings automatically. A combined call PCAP remains preferable when signaling context is useful.
+For Wireshark **Telephony -> VoIP Calls**, arm **START FULL VOIP PCAP (PRE-DIAL)** before placing the call and keep it running through hangup. This keeps the INVITE/SDP, responses, RTP/RTCP and BYE in one chronological file. CLI users can run `voipcap-start <file> [interface]` and later `voipcap-open <file>`. RTP-only captures still support `pcap-open <id> <file>` for explicit RTP/RTCP Decode As mappings.
 
 ## When capture fails
 

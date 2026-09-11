@@ -26,5 +26,6 @@ private:
     QLabel* destinationFileLabel_{nullptr};QLabel* callerIdFileLabel_{nullptr};QLabel* queueAudioFileLabel_{nullptr};QComboBox* theme_{nullptr};QTimer* refreshTimer_{nullptr};QTabWidget* tabs_{nullptr};QLabel* profileSummary_{nullptr};QPlainTextEdit* activityLog_{nullptr};
     QLineEdit* auditHost_{nullptr};QLineEdit* auditUser_{nullptr};QSpinBox* auditPort_{nullptr};QSpinBox* auditExtFirst_{nullptr};QSpinBox* auditExtLast_{nullptr};QComboBox* auditTransport_{nullptr};QPlainTextEdit* auditOutput_{nullptr};QLabel* auditProgress_{nullptr};
     QCheckBox* auditIncludeVulns_{nullptr};QCheckBox* auditIncludeParser_{nullptr};QCheckBox* auditIncludeResilience_{nullptr};QCheckBox* auditIncludeTls_{nullptr};QCheckBox* auditIncludeExtensions_{nullptr};
-    QString destinationFile_,callerIdFile_,queueAudioFile_,lastPcapPath_;std::string lastAuditReport_;std::string profilePath_;int pendingSelectId_{-1};int displayedTraceCallId_{-1};int lastPcapCallId_{-1};bool lastPcapIsSip_{false};std::size_t displayedTraceCount_{0};
+    enum class LastPcapKind { None, Sip, Rtp, Voip };
+    QString destinationFile_,callerIdFile_,queueAudioFile_,lastPcapPath_;std::string lastAuditReport_;std::string profilePath_;int pendingSelectId_{-1};int displayedTraceCallId_{-1};int lastPcapCallId_{-1};LastPcapKind lastPcapKind_{LastPcapKind::None};std::size_t displayedTraceCount_{0};
 };

@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BUILDER_REVISION="sipher-r14-20260819-freebsd-audio-compat"
+BUILDER_REVISION="sipher-r17-exploit-fix-20260824"
 
 # A shell can keep an old logical $PWD after a desktop file manager moves the
 # directory to Trash. Building from that relocated inode is especially unsafe
@@ -58,6 +58,29 @@ PKGCONF_BIN=
 SYSTEM_PACKAGES=
 MISSING_DESCRIPTIONS=
 
+# All-platform dispatch layer.  The legacy Linux/FreeBSD builder remains below.
+SELECTED_OS=
+case "${1:-}" in
+  --os) [ "$#" -ge 2 ] || { echo "--os requires linux|freebsd|macos|termux" >&2; exit 2; }; SELECTED_OS=$2; shift 2 ;;
+  --os=*) SELECTED_OS=${1#--os=}; shift ;;
+esac
+if [ -z "$SELECTED_OS" ]; then
+  _host=$(uname -s 2>/dev/null || echo unknown)
+  case "$_host" in
+    Darwin) SELECTED_OS=macos ;;
+    FreeBSD) SELECTED_OS=freebsd ;;
+    Linux) case "${TERMUX_VERSION:-}:${PREFIX:-}" in *com.termux*) SELECTED_OS=termux ;; *) SELECTED_OS=linux ;; esac ;;
+    *) SELECTED_OS=unknown ;;
+  esac
+fi
+case "$(printf '%s' "$SELECTED_OS" | tr '[:upper:]' '[:lower:]')" in
+  mac|macos|darwin) exec "$ROOT_DIR/scripts/build-macos.sh" "$@" ;;
+  termux|android) exec "$ROOT_DIR/scripts/build-termux.sh" "$@" ;;
+  linux) [ "$(uname -s)" = Linux ] || { echo "Selected Linux builder but host is $(uname -s)." >&2; exit 2; } ;;
+  freebsd|bsd|unix) [ "$(uname -s)" = FreeBSD ] || { echo "Selected FreeBSD builder but host is $(uname -s)." >&2; exit 2; } ;;
+  *) echo "Unsupported/unknown OS. Use --os linux|freebsd|macos|termux." >&2; exit 2 ;;
+esac
+
 HOST_OS=$(uname -s)
 case "$HOST_OS" in
   Linux) OS_FAMILY=linux ;;
@@ -72,11 +95,11 @@ if [ "$OS_FAMILY" = freebsd ]; then
   FREEBSD_CXX_VERSION=$($FREEBSD_CXX --version 2>/dev/null | sed -n '1s/.*clang version \([^ ]*\).*/\1/p')
   [ -n "$FREEBSD_CXX_VERSION" ] || FREEBSD_CXX_VERSION=unknown
   FREEBSD_CXX_VERSION=$(printf '%s' "$FREEBSD_CXX_VERSION" | tr -c 'A-Za-z0-9._-' '_')
-  PJSIP_BUILD_ID="2.17-tm64-pic-${OS_FAMILY}-${HOST_ARCH}-libcxx-${FREEBSD_ABI}-${FREEBSD_CXX_VERSION}-v9"
+  PJSIP_BUILD_ID="2.17-tm64-pic-${OS_FAMILY}-${HOST_ARCH}-libcxx-${FREEBSD_ABI}-${FREEBSD_CXX_VERSION}-v9-exploitfix1"
 else
   FREEBSD_CC=
   FREEBSD_CXX=
-  PJSIP_BUILD_ID="2.17-tm64-pic-${OS_FAMILY}-${HOST_ARCH}-v9"
+  PJSIP_BUILD_ID="2.17-tm64-pic-${OS_FAMILY}-${HOST_ARCH}-v9-exploitfix1"
 fi
 # FreeBSD ports/packages are normally rooted at LOCALBASE (/usr/local).
 # Keep this separate from S.I.P.H.E.R.'s own install prefix: PJSIP may link
@@ -101,8 +124,8 @@ case "$JOBS" in ''|*[!0-9]*) JOBS=1 ;; esac
 logo() {
 cat <<'LOGO'
 ============================================================
-                    S.I.P.H.E.R. 1.0.0
-          SIP / RTP / PBX DIAGNOSTICS — LINUX + FREEBSD
+                 S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix
+       MODERN SIP / RTP / PBX WORKSTATION — LINUX + FREEBSD
 ============================================================
 LOGO
 }
@@ -127,7 +150,7 @@ EOF2
 
 usage() {
   cat <<EOF2
-Usage: ./build.sh [--cli] [--gui] [--all] [--pjsip] [--clean]
+Usage: ./build.sh [--os linux|freebsd|macos|termux] [--cli] [--gui] [--all] [--pjsip] [--clean]
                   [--deps] [--audio-diagnose] [--configure-capture] [--dry-run] [--install | --no-install]
                   [--uninstall] [--purge-user-data]
                   [--auto-deps | --no-auto-deps]
@@ -1001,9 +1024,9 @@ configure_known_alc236_audio_fix() {
     run_privileged cp -p /boot/device.hints "/boot/device.hints.trunkmonkey-backup-$stamp"
     tmp_hints=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-device.hints.XXXXXX")
     awk '
-      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# S.I.P.H.E.R. 1.0.0 disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# S.I.P.H.E.R. 1.0.0 disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# S.I.P.H.E.R. 1.0.0 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
       {print}
     ' /boot/device.hints > "$tmp_hints"
     run_privileged install -m 0644 "$tmp_hints" /boot/device.hints
@@ -1309,7 +1332,7 @@ configure_capture_permissions() {
   fi
   {
     echo "# BEGIN TRUNKMONKEY BPF"
-    echo "# Managed by S.I.P.H.E.R. 1.0.0 for non-root SIP/RTP packet capture."
+    echo "# Managed by S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix for non-root SIP/RTP packet capture."
     echo "[trunkmonkey_bpf=$ruleset_id]"
     [ -z "$existing_id" ] || echo "add include $existing_id"
     echo "add path 'bpf*' user $capture_user mode 0600"
@@ -1901,18 +1924,18 @@ fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
-  echo "S.I.P.H.E.R. 1.0.0 dry run complete."
+  echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix dry run complete."
 else
   echo
   if [ "$BUILD_CLI" -eq 1 ] || [ "$BUILD_GUI" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0 build complete."
+    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix build complete."
     [ "$INSTALL_MODE" = yes ] && echo "Selected client(s) installed under $INSTALL_PREFIX/bin."
   elif [ "$BUILD_PJSIP" -eq 1 ]; then
     echo "S.I.P.H.E.R. PJSIP dependency build complete."
   elif [ "$CONFIGURE_CAPTURE_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0 packet-capture permission setup complete."
+    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix packet-capture permission setup complete."
   elif [ "$AUDIO_DIAG_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0 audio diagnostic complete."
+    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix audio diagnostic complete."
   elif [ "$UNINSTALL" -eq 1 ]; then
     echo "S.I.P.H.E.R. installed files removed."
   elif [ "$CLEAN" -eq 1 ]; then

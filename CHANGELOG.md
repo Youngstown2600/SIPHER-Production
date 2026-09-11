@@ -1,3 +1,49 @@
+
+# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix — Exploit Fix — 2026-08-24
+- Mandatory PJSIP 2.17 exploit patchset for reachable registration/SRTP/STUN/TLS vulnerabilities.
+- SIP TLS certificate and hostname verification is now mandatory and fail-closed.
+- PBX audit TCP responses are capped at 256 KiB and bounded by a total elapsed deadline.
+- CLI overlays sanitize remote control characters before terminal rendering.
+- Unix runtime temp directories are unpredictable, atomically created, owner-only paths.
+- Hardened compiler/linker flags are enabled on Unix release builds.
+
+- Main/Alt+1 now opens a live active-call telemetry panel only while a call exists, showing remote number, elapsed time, media addresses/quality, and direct call-control commands; the panel refreshes once per second while preserving typed CLI input.
+- Active-call Main refresh is now buffered and painted in place without a full-screen clear, eliminating the once-per-second terminal flash while preserving the live timer, RTP statistics, and typed command line.
+## S.I.P.H.E.R. 1.0.0 r17 — Underground Phone-Phreak / Signal Lab — 2026-08-20
+
+- Recast the GUI as a phreak/carrier-access rail while keeping the supplied blue S.I.P.H.E.R. logo embedded in the executable.
+- Recast the CLI with double-line phreak frames, `PHREAK DECK`, and the `phreak>` prompt; the exact wide banner remains adaptive.
+- Theme family is now 10 shared baseline themes + 10 S.I.P.H.E.R.-exclusive underground/phreak themes.
+- Legacy r16 theme IDs remain accepted as aliases.
+- r15 SIP/RTP/audio/capture/audit core remains byte-for-byte protected.
+- Builder revision: `sipher-r17-20260820-phreak-lab`.
+
+## S.I.P.H.E.R. 1.0.0 r16 — Modern GUI / CLI — 2026-08-20
+
+- GUI sidebar branding now uses the supplied blue S.I.P.H.E.R. logo artwork with proportional scaling and text fallback.
+- CLI uses the supplied 99-column Unicode S.I.P.H.E.R. banner at 103+ columns and a compact text brand on narrower terminals to prevent cropping.
+- Added 10 additional synchronized GUI/CLI themes: Black Ice, Night Vision, Signal Red, Ultraviolet, Deep Space, Copper, Arctic, Synthwave, Terminal Gold, and High Contrast.
+
+- Rebuilt the Qt front end around a modern left-navigation control deck while retaining every r15 workflow.
+- Added shared modern theme styling for cards, rounded controls, tables, menus, status surfaces, scrollbars, and dialogs.
+- Reworked the ANSI dashboard with rounded Unicode panels, a modern page rail, and `❯` prompt.
+- Retained the original 26 themes and added 10 new synchronized GUI/CLI themes for 36 total.
+- Preserved r15 protocol/audio/audit source byte-for-byte; only presentation/version/build metadata changed outside that locked core.
+- Added r16 source-contract and r15 core-preservation regression gates.
+- Builder revision: `sipher-r16-20260820-modern-ui`.
+
+## S.I.P.H.E.R. 1.0.0 r15 — Wireshark full-call correlation capture — 2026-08-19
+
+- Reworked the combined-call PCAP into a true **pre-dial Full VoIP PCAP** that starts before the initial INVITE.
+- Full VoIP capture no longer waits for negotiated RTP ports; it captures UDP/TCP during the test window so SIP, SDP, RTP/RTCP, BYE, and final responses live in one chronological PCAP/PCAPNG.
+- This fixes empty/uncorrelated `Telephony -> VoIP Calls` results caused by keeping signaling and media in separate files or starting the combined capture after SDP negotiation.
+- GUI adds **START FULL VOIP PCAP (PRE-DIAL)** and opens that file with SIP forced on the configured local SIP port plus RTP heuristic fallback.
+- CLI adds `voipcap-start <file> [interface]` and `voipcap-open <file>`; `callcap-start` remains a compatibility alias but is now pre-dial and does not require a call ID.
+- SIP-only and RTP-only captures remain available for narrow troubleshooting.
+- Windows `pktmon` fallback now permits the broad pre-dial capture even when no negotiated media ports exist yet.
+- Retains all r14 FreeBSD HDA compatibility, r13 main-screen dial-prefix, and r12 live audio switching behavior.
+- Builder revision: `sipher-r15-20260819-full-voip-pcap`.
+
 ## S.I.P.H.E.R. 1.0.0 r14 — FreeBSD audio compatibility hardening — 2026-08-19
 
 - Adds a hardware-discovered FreeBSD `snd_hda` compatibility pass to normal CLI/GUI builds.

@@ -1,3 +1,21 @@
+
+Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
+# r17 Underground Phone-Phreak / Signal Lab — 2026-08-20
+
+S.I.P.H.E.R. now intentionally contrasts with TrunkMonkey's carrier-operations look. Shared themes: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. Exclusive themes: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. All behavior-bearing r15 Full VoIP PCAP, audio, and audit code remains preserved.
+
+# r16 Modern GUI / CLI — 2026-08-20
+
+S.I.P.H.E.R. r16 promotes the modern interface language proven in WaffleHouse-Client 3.0 into the SIP troubleshooting suite. The Qt GUI now uses a persistent left navigation rail, contextual page header, status surface, rounded cards, modern controls, and shared theme palette. The ANSI CLI now uses rounded Unicode cards, a compact CONTROL DECK rail, and a modern prompt while preserving its responsive page model and operator workflows.
+
+The r15 Full VoIP PCAP workflow, SIP/RTP diagnostics, 50-call independent queue testing, SIP ladder/raw trace, audio routing/hot-swap logic, and bounded PBX audit suite are retained.
+
+# r15 Full VoIP / Wireshark correlation update — 2026-08-19
+
+S.I.P.H.E.R. r15 changes the recommended packet-capture workflow to one **Full VoIP PCAP** that is armed before dialing and kept running through hangup. Because SIP/SDP and RTP/RTCP now share the same chronological capture, Wireshark can use the signaling to correlate the media in **Telephony -> VoIP Calls**. The GUI exposes **START FULL VOIP PCAP (PRE-DIAL)**; the CLI uses `voipcap-start <file> [interface]`. `voipcap-open <file>` launches Wireshark with SIP forced on the configured local SIP port and RTP heuristic fallback enabled.
+
+SIP-only and RTP-only captures are retained for focused analysis, but they are no longer presented as substitutes for the full-call capture when the goal is Wireshark VoIP-call correlation.
+
 # r14 FreeBSD audio compatibility update — 2026-08-19
 
 S.I.P.H.E.R. r14 turns the FreeBSD speaker/headphone association fix into a conservative builder compatibility feature instead of a machine-specific troubleshooting step. During a normal FreeBSD CLI/GUI build, `build.sh` inspects `snd_hda` pin topology. If—and only if—the codec exposes a simple laptop pattern of one fixed Speaker and one jack Headphones output with no analog Line-out, r14 can test a corrected same-association layout with the headphone at sequence 15. The SIP application itself is not required for this check.

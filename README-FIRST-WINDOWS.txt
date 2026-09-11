@@ -5,7 +5,7 @@ FAST PATH
 On a Windows 10/11 x64 BUILD machine, right-click BUILD-PORTABLE.ps1 and run with PowerShell.
 It can bootstrap MSYS2 if needed, installs missing compiler/Qt/tool dependencies, builds PJSIP 2.17, builds both sipher.exe and sipher-gui.exe, runs tests, and stages the portable runtime under dist/.
 
-r7 adds automatic RTP/RTCP Wireshark decoding: capture RTP or the combined call, stop the PCAP, then use OPEN LAST PCAP (AUTO RTP). S.I.P.H.E.R. launches Wireshark with the dynamic media ports already decoded.
+r15 adds the recommended pre-dial FULL VOIP PCAP workflow for Wireshark Telephony -> VoIP Calls. Start the full capture before dialing and keep it running through hangup so SIP/SDP and RTP/RTCP stay together. RTP-only auto-decode remains available.
 
 This source kit itself does NOT contain precompiled Windows EXEs because it was generated in a Linux build environment without a Windows compiler/runtime. The included builder is the reproducible path that creates the actual portable EXEs on Windows.
 

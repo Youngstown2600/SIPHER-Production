@@ -36,7 +36,7 @@ The builder automatically downloads/builds **PJSIP 2.17**, preserving S.I.P.H.E.
 
 ## Automatic RTP decode in Wireshark (r7)
 
-After an RTP-only or combined call capture is stopped, the GUI's **OPEN LAST PCAP (AUTO RTP)** button launches `Wireshark.exe` with the current call's dynamic RTP and RTCP ports supplied as Decode As rules. The CLI equivalent is `pcap-open <id> <file>`. This avoids the manual **Analyze → Decode As → RTP** step while leaving the capture as a standard PCAP/PCAPNG file.
+For Wireshark **Telephony -> VoIP Calls**, use the r15 **FULL VOIP PCAP** workflow: start it before dialing, keep it running through hangup, then open it from S.I.P.H.E.R. The file contains SIP/SDP and RTP/RTCP together. RTP-only captures still support `pcap-open <id> <file>` for explicit media Decode As mappings.
 
 S.I.P.H.E.R. looks for `Wireshark.exe` on PATH and in the normal 64-bit/32-bit Wireshark install directories. Wireshark itself is not redistributed in the portable application package.
 

@@ -23,7 +23,7 @@ Both portable Windows targets are built from the same core as S.I.P.H.E.R. 1.0.0
 - audio device enumeration and separate capture/playback selection
 - microphone/speaker testing
 - GUI and CLI
-- all 26 S.I.P.H.E.R. themes
+- all 20 current S.I.P.H.E.R. themes
 - `S.I.P.H.E.R. By GITSC` branding
 - portable folder-local config, state, logs, CVE cache, and temporary files
 

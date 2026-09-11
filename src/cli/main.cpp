@@ -288,10 +288,12 @@ Advanced Commands:
  sipcap-start <file> [interface]      start SIP PCAP BEFORE dialing (captures prefixed INVITE + 403/401/407 responses)
  sipcap-start <id> <file> [interface] legacy form; call ID is accepted but not required
  rtpcap-start <id> <file> [interface]
- callcap-start <id> <file> [interface]   combined SIP+RTP/RTCP for an active call
+ voipcap-start <file> [interface]      RECOMMENDED: full SIP/SDP/RTP/RTCP capture BEFORE dialing
+ callcap-start <file> [interface]      alias for voipcap-start (legacy name; no call ID required)
  capture-stop [sip|rtp|call|all] | capture-status | capture-ifaces
  sipcap-open <file>               open SIP PCAP in Wireshark with forced SIP decode on local SIP port
- pcap-open <id> <file>            open in Wireshark with RTP/RTCP auto-decoded
+ voipcap-open <file>               open full capture for Telephony > VoIP Calls
+ pcap-open <id> <file>            open RTP-only capture with RTP/RTCP auto-decoded
  pjsiplog | log-up [n] | log-down [n] | log-tail   (PgUp/PgDn also scroll Engine Log)
  themes | theme <name>
  blast <count> <interval-ms> <dest> [cid]
@@ -513,23 +515,28 @@ std::string guidedOperatorWorkflow(CliDashboard& dashboard,SipEngine& engine,int
     if(category==4){
         std::cout<<"\nCALL DIAGNOSTICS\n----------------\n";
         const int action=askOperatorChoice("Diagnostic action",{
-            "START PRE-DIAL SIP PCAP (captures initial INVITE + 401/407 retry)","Media / RTP summary","Detailed PJSIP media statistics","SIP ladder","Live SIP message view","Combined SIP + RTP PCAP","SIP-only PCAP for selected call","RTP-only PCAP","Export diagnostic report"
+            "START FULL VOIP PCAP BEFORE DIAL (recommended for Wireshark VoIP Calls)","START PRE-DIAL SIP-ONLY PCAP","Media / RTP summary","Detailed PJSIP media statistics","SIP ladder","Live SIP message view","SIP-only PCAP for selected call","RTP-only PCAP","Export diagnostic report"
         });
         if(action==0)return{};
         if(action==1){
-            const auto path=askOperator("Capture file","/tmp/sipher-predial-sip.pcapng");
+            const auto path=askOperator("Full VoIP capture file","/tmp/sipher-full-voip.pcapng");
+            const auto iface=askOperator("Capture interface","any");
+            return "voipcap-start "+commandArg(path)+" "+commandArg(iface);
+        }
+        if(action==2){
+            const auto path=askOperator("SIP-only capture file","/tmp/sipher-predial-sip.pcapng");
             const auto iface=askOperator("Capture interface","any");
             return "sipcap-start "+commandArg(path)+" "+commandArg(iface);
         }
         std::cout<<"\n"<<callsText(engine)<<"\n";
         const auto id=askOperator("Call ID");if(id.empty())return{};
-        if(action==2) return "media "+id;
-        if(action==3) return "stats "+id;
-        if(action==4) return "ladder "+id;
-        if(action==5) return "siplog "+id;
-        if(action>=6&&action<=8){
-            const std::string type=action==6?"callcap-start":action==7?"sipcap-start":"rtpcap-start";
-            const std::string suffix=action==6?"call":action==7?"sip":"rtp";
+        if(action==3) return "media "+id;
+        if(action==4) return "stats "+id;
+        if(action==5) return "ladder "+id;
+        if(action==6) return "siplog "+id;
+        if(action==7||action==8){
+            const std::string type=action==7?"sipcap-start":"rtpcap-start";
+            const std::string suffix=action==7?"sip":"rtp";
             const auto path=askOperator("Capture file","/tmp/sipher-call-"+id+"-"+suffix+".pcapng");
             const auto iface=askOperator("Capture interface","any");
             return type+" "+id+" "+commandArg(path)+" "+commandArg(iface);
@@ -789,12 +796,29 @@ int main(int argc,char** argv)
     if(!dashboard.enabled()) std::cout<<"Type menu for guided workflows, or help for advanced commands.\n\n";
 
     std::string line;
+    auto lastLiveCallRefresh=std::chrono::steady_clock::now();
+    bool lastMainHadLiveCall=false;
     for(;;){
         if(dashboard.enabled()) dashboard.render(makeDashboardState(),std::cout);
         else std::cout<<"sipher> "<<std::flush;
         int altPage=0;
         if(!readInteractiveCommand(dashboard.enabled(),line,altPage,[&](){
             try{if(engine.pollSystemAudioRoute()) addNotice("Audio route changed; PJSIP sound device reopened and foreground call reattached.",DashboardNotice::Level::Success);}catch(const std::exception& e){addNotice(std::string("Audio hot-plug reopen failed: ")+e.what(),DashboardNotice::Level::Warning);}
+            const auto refreshNow=std::chrono::steady_clock::now();
+            if(currentPage==DashboardPage::Main && refreshNow-lastLiveCallRefresh>=std::chrono::seconds(1)){
+                auto liveState=makeDashboardState();
+                const bool hasLiveCall=std::any_of(liveState.calls.begin(),liveState.calls.end(),[](const CallSnapshot& c){return !c.disconnected;});
+                if(hasLiveCall || lastMainHadLiveCall){
+                    // Build the refreshed frame off-screen, then emit it in one write.
+                    // render(..., false) homes the cursor without ESC[2J, preventing
+                    // the visible once-per-second full-screen flash during calls.
+                    std::ostringstream frame;
+                    dashboard.render(liveState,frame,false);
+                    std::cout<<frame.str()<<line<<std::flush;
+                }
+                lastMainHadLiveCall=hasLiveCall;
+                lastLiveCallRefresh=refreshNow;
+            }
         })) break;
         if(line=="__resize__") continue;
         if(altPage>=1 && altPage<=9){currentPage=static_cast<DashboardPage>(altPage);continue;}
@@ -1057,13 +1081,13 @@ int main(int argc,char** argv)
                     engine.startSipPcap(path,iface);
                 }
                 addNotice("SIP PCAP armed BEFORE DIAL: "+path+" — place the call now to capture the exact prefixed INVITE and PBX response.",DashboardNotice::Level::Success);
-            }else if(cmd=="rtpcap-start" || cmd=="callcap-start"){
+            }else if(cmd=="voipcap-start" || cmd=="callcap-start"){
+                std::string path=readArg(in),iface="any";if(path.empty())throw std::runtime_error("voipcap-start requires a pcap file path");in>>std::ws;if(!in.eof())iface=readArg(in);engine.startCallPcap(path,iface);addNotice("FULL VOIP PCAP armed BEFORE DIAL: "+path+" — keep it running through hangup, then use Telephony > VoIP Calls.",DashboardNotice::Level::Success);
+            }else if(cmd=="rtpcap-start"){
                 const int id=requireCallId(in);std::string path=readArg(in),iface="any";
                 if(path.empty()) throw std::runtime_error("pcap file path required");
                 in>>std::ws;if(!in.eof()) iface=readArg(in);
-                if(cmd=="rtpcap-start")engine.startRtpPcap(id,path,iface);else engine.startCallPcap(id,path,iface);
-                focusCallId=id;
-                const std::string kind=cmd=="rtpcap-start"?"RTP":"CALL";addNotice(kind+" PCAP started: "+path,DashboardNotice::Level::Success);
+                engine.startRtpPcap(id,path,iface);focusCallId=id;addNotice("RTP PCAP started: "+path,DashboardNotice::Level::Success);
             }else if(cmd=="capture-stop"){
                 std::string which="all";in>>which;
                 if(which=="sip") engine.stopCapture(CaptureKind::Sip);
@@ -1079,6 +1103,8 @@ int main(int argc,char** argv)
                 dashboard.showOverlay("CAPTURE INTERFACES",list.str(),std::cout);dashboard.pauseForEnter(std::cin,std::cout);
             }else if(cmd=="sipcap-open"){
                 std::string path=readArg(in);if(path.empty())throw std::runtime_error("pcap file path required");engine.openSipPcapInWireshark(path);addNotice("Opened SIP PCAP in Wireshark with forced SIP Decode As: "+path,DashboardNotice::Level::Success);
+            }else if(cmd=="voipcap-open"){
+                std::string path=readArg(in);if(path.empty())throw std::runtime_error("pcap file path required");engine.openVoipPcapInWireshark(path);addNotice("Opened FULL VOIP PCAP in Wireshark. Use Telephony > VoIP Calls; signaling and media are in one file: "+path,DashboardNotice::Level::Success);
             }else if(cmd=="pcap-open"){
                 const int id=requireCallId(in);std::string path=readArg(in);if(path.empty())throw std::runtime_error("pcap file path required");focusCallId=id;engine.openPcapInWireshark(id,path);addNotice("Opened PCAP in Wireshark with automatic RTP/RTCP decoding: "+path,DashboardNotice::Level::Success);
             }else if(cmd=="capture-status"){

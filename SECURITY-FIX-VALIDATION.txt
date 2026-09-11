@@ -1,0 +1,33 @@
+S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix
+Exploit-Fix Validation
+Date: 2026-08-24
+Platform package: Unix/Linux/FreeBSD source release
+
+SECURITY GATES
+PASS: exploit-fix source-contract gate.
+PASS: all shell scripts syntax-checked using their declared interpreter.
+PASS: all five bundled PJSIP 2.17 security backports parse as valid unified diffs.
+PASS: builders are fail-closed: a stale/unpatched managed PJSIP prefix is rejected and a fresh PJSIP 2.17 tree must pass the mandatory patch/marker checks before compilation.
+PASS: SIP TLS sets verifyServer=true, requires a CA bundle, and uses a 10-second handshake timeout.
+PASS: PJSIP UaConfig.nameserver remains empty so the app uses the OS resolver instead of PJSIP's vulnerable asynchronous DNS resolver path.
+PASS: secure unpredictable per-process runtime temp directory creation (mkdtemp on Unix).
+PASS: compiler/linker hardening configured: stack protector, FORTIFY for non-Debug builds, RELRO and immediate binding on ELF.
+
+Application-owned hardening validated:
+- PBX audit responses have a 256 KiB absolute cap plus a monotonic deadline.
+- Network-originated CLI overlay text is control-character sanitized before ANSI styling.
+
+REGRESSION
+PASS: complete tests/run_r17_regression.sh suite (profile/text-pool, SIP trace, runtime paths, CLI dashboard, capture manager, PBX audit, FreeBSD audio compatibility, source-contract/core-preservation gates).
+
+UPSTREAM PJSIP BACKPORTS
+- acc03b57cef7a7d31b8e1f5b9117437d7e87c591  Service-Route fixed-array stack overflow
+- a1b707c0c9b0506faf2a8a438b60f11ffd6a6fd9  SRTP/SDES a=crypto fixed-array stack overflow
+- 082948b0a2ed658229fc6a50e475b411c69b0d2a  legacy/simple STUN response authentication
+- 43d3bd77bb6833eab4c493503b8d564a754ddfdd  TLS SAN embedded-NUL identity bypass
+- c4a151af86fadd16d9480b2603eeb2abf4fb4f78  GnuTLS SAN counting stack overflow
+
+FULL-LINK VALIDATION LIMITATION
+Not fully linked in this validation container because libpjproject/Qt development packages are not installed globally. The project regression suite compiles and executes the independent core components, and the included builder dry-run passed.
+
+This package is a hardened source/build release, not a claim that every target-platform GUI binary was linked in this container. The included builders are the supported path and apply the mandatory PJSIP security patchset before building.

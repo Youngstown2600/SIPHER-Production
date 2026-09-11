@@ -30,6 +30,30 @@ static_assert(PJ_IOQUEUE_MAX_HANDLES >= 192,
               "S.I.P.H.E.R. requires PJ_IOQUEUE_MAX_HANDLES >= 192 for 64-call PJSIP. Rebuild PJSIP with scripts/build-pjsip.sh.");
 
 namespace {
+std::string tlsCaBundlePath()
+{
+    const char* env = std::getenv("SIPHER_TLS_CA_BUNDLE");
+    if(!env || !*env) env = std::getenv("PJSIP_CA_BUNDLE");
+    if(!env || !*env) env = std::getenv("SSL_CERT_FILE");
+    if(env && *env) {
+        std::error_code ec;
+        if(std::filesystem::is_regular_file(env, ec) && !ec) return env;
+        throw std::runtime_error("Configured TLS CA bundle does not exist: "+std::string(env));
+    }
+    static const char* candidates[] = {
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/ssl/cert.pem",
+        "/usr/local/share/certs/ca-root-nss.crt",
+        "/usr/local/etc/ssl/cert.pem"
+    };
+    for(const char* candidate:candidates) {
+        std::error_code ec;
+        if(std::filesystem::is_regular_file(candidate, ec) && !ec) return candidate;
+    }
+    return {};
+}
+
 std::string trim(std::string value)
 {
     const auto isSpace=[](unsigned char c){ return std::isspace(c)!=0; };
@@ -279,6 +303,10 @@ void SipEngine::start(const SipProfile& p,unsigned maxCalls)
         endpoint_->libCreate();
 
         pj::EpConfig ec;
+        // Exploit-Fix: keep PJSIP's asynchronous DNS resolver disabled.
+        // With an empty nameserver list PJSUA2 uses the OS resolver, avoiding
+        // the PJSIP 2.17 forged async-DNS-response path (GHSA-pvmg-ph43-54r2).
+        ec.uaConfig.nameserver.clear();
         ec.uaConfig.maxCalls=maxCalls;
         ec.uaConfig.userAgent=SIPHER_USER_AGENT;
         ec.uaConfig.threadCnt=2;
@@ -301,6 +329,16 @@ void SipEngine::start(const SipProfile& p,unsigned maxCalls)
         pjsip_transport_type_e transportType=PJSIP_TRANSPORT_UDP;
         if(p.transport==Transport::Tcp) transportType=PJSIP_TRANSPORT_TCP;
         else if(p.transport==Transport::Tls) transportType=PJSIP_TRANSPORT_TLS;
+        if(transportType==PJSIP_TRANSPORT_TLS) {
+            // PJSUA2 defaults verifyServer=false. Exploit-Fix authenticates
+            // the registrar/proxy and fails closed if no CA trust bundle exists.
+            tc.tlsConfig.verifyServer=true;
+            tc.tlsConfig.msecTimeout=10000;
+            const auto ca=tlsCaBundlePath();
+            if(ca.empty())
+                throw std::runtime_error("SIP TLS requires a CA bundle; set PJSIP_CA_BUNDLE or SSL_CERT_FILE");
+            tc.tlsConfig.CaListFile=ca;
+        }
         const pj::TransportId transportId=endpoint_->transportCreate(transportType,tc);
         endpoint_->libStart();
 
@@ -1240,10 +1278,17 @@ void SipEngine::startRtpPcap(int id,const std::string& path,const std::string& i
     if(!captures_) throw std::runtime_error("Capture manager is not available");
     captures_->startRtp(path,state,iface);
 }
+void SipEngine::startCallPcap(const std::string& path,const std::string& iface)
+{
+    if(!started_) throw std::runtime_error("SIP engine is not running");
+    if(!captures_) throw std::runtime_error("Capture manager is not available");
+    captures_->startCall(path,profile_.localSipPort,iface);
+    logger_.info("Full VoIP PCAP armed BEFORE DIAL on interface "+iface+": "+path);
+}
 void SipEngine::startCallPcap(int id,const std::string& path,const std::string& iface)
 {
-    auto call=requirePhoneCall(id);auto state=call->snapshot();if(state.disconnected)throw std::runtime_error("Cannot start call capture for a disconnected call");
-    call->refreshMediaInfo();state=call->snapshot();if(!captures_)throw std::runtime_error("Capture manager is not available");captures_->startCall(path,profile_.localSipPort,state,iface);
+    requirePhoneCall(id);
+    startCallPcap(path,iface);
 }
 void SipEngine::stopCapture(CaptureKind kind){if(captures_)captures_->stop(kind);}
 void SipEngine::stopCaptures(){if(captures_)captures_->stopAll();}
@@ -1258,6 +1303,11 @@ void SipEngine::openSipPcapInWireshark(const std::string& path)const
 {
     CaptureManager::openSipInWireshark(path,profile_.localSipPort);
     logger_.info("Opened SIP PCAP in Wireshark with forced SIP Decode As on local port "+std::to_string(profile_.localSipPort)+": "+path);
+}
+void SipEngine::openVoipPcapInWireshark(const std::string& path)const
+{
+    CaptureManager::openVoipInWireshark(path,profile_.localSipPort);
+    logger_.info("Opened full VoIP PCAP in Wireshark with SIP forced and RTP heuristic enabled: "+path);
 }
 
 void SipEngine::onSipMessage(SipTraceEntry entry)
