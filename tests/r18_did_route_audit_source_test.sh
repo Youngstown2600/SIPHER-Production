@@ -32,3 +32,10 @@ if printf '%s' "$legacy" | grep -Eq 'sendDtmf|playTone|dial\(|makeCall|pjsua_cal
 fi
 grep -q 'COMPONENTS Core Widgets Network' CMakeLists.txt
 echo 'r18 DID/route/audit source contract passed'
+# Qt defines `emit` as a macro; using it as a local identifier breaks GUI compilation.
+if grep -Eq '(^|[^A-Za-z0-9_])auto[[:space:]]+emit[[:space:]]*=' src/gui/MainWindow.cpp; then
+  echo 'Qt compatibility regression: do not use emit as a C++ identifier' >&2
+  exit 1
+fi
+grep -q 'appendHeaderList' src/gui/MainWindow.cpp
+

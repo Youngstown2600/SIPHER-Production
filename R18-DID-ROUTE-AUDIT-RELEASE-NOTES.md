@@ -1,5 +1,6 @@
 # S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit
 
+- Fixed the Qt GUI Linux/macOS/FreeBSD/Termux compile failure in `MainWindow::analyzeNextOut()`: the local lambda was named `emit`, which collides with Qt's `emit` macro. It is now named `appendHeaderList`.
 ## Linux/PJSIP 2.17 receive-peer hotfix — 2026-09-10
 
 - Fixed the r18 SIP wire monitor build against the required PJSIP 2.17 API. Incoming request/response peer capture now uses `pjsip_rx_data::pkt_info.src_name` and `src_port`; the invalid `pkt_info.addr` reference has been removed.

@@ -1,3 +1,4 @@
+r18 compile hotfix 2: Qt GUI analyzeNextOut helper renamed from reserved Qt macro identifier `emit` to `appendHeaderList`; PJSIP 2.17 RX peer hotfix retained.
 r18 PJSIP 2.17 hotfix: RX peer telemetry uses pkt_info.src_name/src_port; invalid pkt_info.addr reference removed and regression-guarded.
 r18: DID/number intelligence + spam/fraud reputation lookup; carrier handoff/next-out analysis with actual PJSIP peer capture; Switch Audit+ transport parity/topology exposure; offline Legacy Blue Tone/Blue Box and Red Box historical labs.
 
