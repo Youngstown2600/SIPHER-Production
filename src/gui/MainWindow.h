@@ -14,7 +14,7 @@ private slots:
     void startSipTrace();void stopSipTrace();void startSipPcap();void startRtpPcap();void startCallPcap();void stopPcaps();void openLastPcap();
     void launchBatch();void loadDestinations();void loadCallerIds();void loadQueueAudio();void hangupAll();void editProfile();void manageAccounts();void refreshAccountSelector();void showAudioDevices();void showAudioOutput();void reopenAudio();void showAudioStatus();void showRegistrationHistory();void applyTheme(const QString& theme);
     void showSipLadder();void exportCallReport();
-    void lookupDid();void lookupNeutrinoHlr();void openSpamCalls();void analyzeNextOut();void showBlueBoxLegacy();void showRedBoxLegacy();
+    void lookupDid();void lookupNeutrinoHlr();void analyzeNextOut();void showBlueBoxLegacy();void showRedBoxLegacy();
     void runAuditAuto();void runAuditFingerprint();void runAuditVulns();void runAuditProbe();void runAuditDiscover();void runAuditMethods();void runAuditAuth();void runAuditExtensions();void runAuditCompliance();void runAuditParser();void runAuditResilience();void runAuditScenario();void runAuditTls();void runAuditTransportParity();void runAuditTopologyExposure();void runAuditFull();void saveAuditReport();
 private:
     int selectedCallId()const;void buildUi();void setDiagnosticsEnabled(bool enabled);void selectCallId(int id);

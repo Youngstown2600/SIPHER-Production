@@ -6,7 +6,7 @@ grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
 grep -q 'USACallerLookup' src/gui/MainWindow.cpp
 grep -q 'www.usacallerlookup.com/wp-json/ucl/v1/number/' src/gui/MainWindow.cpp
-grep -q 'OPEN SPAMCALLS PAGE' src/gui/MainWindow.cpp
+! grep -q 'OPEN SPAMCALLS PAGE' src/gui/MainWindow.cpp
 grep -q 'spamcalls.net/en/num/' src/gui/DidIntelHelpers.cpp
 ! grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
 ! grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp

@@ -1,7 +1,7 @@
 # SIPHER 2.0 — 2026-09-11
 
 - Replaced the runtime IPQualityScore DID dependency with USACallerLookup's no-key JSON API for US carrier/line-type/location and FTC/community complaint signals.
-- Added **Open SpamCalls Reputation** to launch the number's SpamCalls.net community page without scraping its HTML.
+- Replaced the external SpamCalls browser action with internal SpamCalls/tellows parsing; failed providers are hidden, SpamCalls 410 is treated as no-record, tellows NANPA URLs are corrected, and Data247/FreeCarrierLookup carrier fallback support adds carrier type plus SMS/MMS gateway fields when configured.
 - DID output now distinguishes NANPA registry carrier assignment from current serving-carrier/LRN data and warns about caller-ID spoofing.
 - Promoted r19 Multi-SIP to the SIPHER 2.0 major-version baseline.
 - Unified GUI and CLI into one public `sipher` executable name.
@@ -293,9 +293,9 @@
 - Fixed `CallSession::mediaDump()` const mismatch with PJSUA2 `pj::Call::dump()`.
 - Cleaned misleading-indentation warnings in call state, identity, multi-call, and SIP monitor code.
 - Limited Qt AUTOMOC to the GUI target so CLI-only CMake configuration does not emit Qt AUTOGEN developer warnings.
-### WaffleHouse 2.1 Alpha theme parity refresh
+### Theme palette refresh
 
-- Replaced the early Classic/Dark/Hacker GUI theme list with the WaffleHouse Client 2.1 Alpha set: System, Hacker, Matrix, Phosphor, Midnight, Amber, Ice, and Classic Light.
+- Replaced the early Classic/Dark/Hacker GUI theme list with: System, Hacker, Matrix, Phosphor, Midnight, Amber, Ice, and Classic Light.
 - Ported the 2.1 Alpha Qt palette/style rules and adapted them to S.I.P.H.E.R. tables, SIP trace views, tabs, buttons, forms, scrollbars, and diagnostics controls.
 - Theme selection now persists across launches using Qt `QSettings`.
 - System theme clears the application stylesheet so the native Qt/desktop appearance is restored.
@@ -328,7 +328,7 @@
 
 ## 0.2.0-beta — builder refresh
 
-- Added WaffleHouse-style top-level `build.sh` for Linux and FreeBSD.
+- Added the unified top-level `build.sh` for Linux and FreeBSD.
 - Added interactive CLI/GUI/PJSIP multi-select workflow.
 - Added non-interactive `--cli`, `--gui`, `--all`, `--pjsip`, `--clean`, `--deps`, and `--dry-run` modes.
 - Added optional `--install`, `--no-install`, `--prefix`, and privilege handling for system installation.

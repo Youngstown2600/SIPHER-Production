@@ -1,6 +1,6 @@
 # SIPHER — All-Platform Builder
 
-SIPHER 2.0 is based on the r19 Multi-SIP line and carries forward the r18 DID/route/audit and security fixes. The WaffleHouse-style platform builder remains available across Linux, FreeBSD, macOS, and Termux/Android.
+SIPHER 2.0 is based on the r19 Multi-SIP line and carries forward the r18 DID/route/audit and security fixes. The unified platform builder remains available across Linux, FreeBSD, macOS, and Termux/Android.
 
 A normal `--all` build produces one public executable named `sipher`. From a terminal/TTY it opens the CLI; from a graphical desktop launch without a TTY it opens the GUI. `sipher --cli`, `sipher --gui`, and `SIPHER_UI=cli|gui` override automatic selection.
 

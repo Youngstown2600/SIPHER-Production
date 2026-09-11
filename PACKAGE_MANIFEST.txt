@@ -1,53 +1,39 @@
-SIPHER 2.0: unified public `sipher` executable; terminal/TTY launches select CLI, desktop launches select GUI; --cli/--gui and SIPHER_UI override.
-r19 features retained: simultaneous multi-SIP registration, account manager/outbound selector, per-call account attribution, zero-account startup, legacy profile migration, CLI account list/select.
-r18 fixes retained: PJSIP 2.17 RX peer metadata uses src_name/src_port; Qt emit-macro collision removed; current CTest contracts replace stale r15/r17 release gates.
-r18 features retained: DID/number intelligence, carrier handoff/next-out analysis, Switch Audit+ transport parity/topology exposure, offline Legacy historical labs.
-SIPHER 2.0 DID provider update: USACallerLookup is the default no-key JSON source for US carrier/line-type/location + FTC/community complaints; SpamCalls.net opens as a separate browser reputation view and is not scraped.
+SIPHER 2.0 — GitHub-ready full source bundle
 
-Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
-r17: underground phone-phreak / signal-lab GUI+CLI; 10 shared + 10 S.I.P.H.E.R. themes; r15 core preserved.
-r16: modern GUI/CLI control-deck facelift on the complete r15 Full VoIP PCAP baseline; core behavior preserved.
-r15: pre-dial Full VoIP PCAP for Wireshark VoIP Calls; retains r14 FreeBSD audio compatibility.
-S.I.P.H.E.R. 1.0.0 r14 — FreeBSD audio compatibility + main-screen dial prefix + live audio hot-swap release
+Public executable
+-----------------
+- One executable: `sipher`.
+- Terminal/TTY launches select the CLI; desktop launches select the GUI.
+- `--cli`, `--gui`, and `SIPHER_UI=cli|gui` override automatic selection.
 
-Base: r13 main-screen prefix + r12 live audio hot-swap + r11 audio lifecycle + r10 SIP-capture updates
+Included 2.0 feature baseline
+-----------------------------
+- r18 DID/route/audit and security fixes retained.
+- r19 simultaneous multi-SIP registration and zero-account startup retained.
+- Qt 6 QTableWidget double-click compile fix retained.
+- Runtime/config/install namespace is SIPHER-only (`~/.config/sipher`, `~/.local/state/sipher`, `share/sipher`, `share/doc/sipher`).
+- DID Intelligence aggregates independent sources and hides failed provider sections.
+- USACallerLookup remains the no-key NANPA/FTC source.
+- SpamCalls/tellows page parsing is attempted only when the provider returns a usable page.
+- Missing carrier/type data can fall back to the Data247/Carrier247 backend when `SIPHER_DATA247_API_KEY` is configured.
+- Optional enhanced HLR/current-carrier lookup remains explicit-only.
 
-r14 additions:
-- Generic FreeBSD `snd_hda` laptop Speaker/Headphones compatibility detection; no hardcoded NIDs.
-- Auto-fix only for exactly one fixed Speaker + one jack Headphones + no analog Line-out.
-- Firmware Speaker association retained; Headphones moved to the same association at `seq=15`.
-- Existing custom HDA hints cause a safe skip.
-- Runtime HDA rebuild is validated for playback/capture and rolled back on regression.
-- Successful repairs are persisted to `/boot/device.hints` after timestamped backup.
-- New detector fixture tests: `tests/freebsd_audio_compat_test.sh`.
+Build entry point
+-----------------
+    ./build.sh
 
-r13 additions:
-- Main-screen/session dial prefix for GUI and CLI; profile prefix is startup default only.
-
-r12 additions:
-- Automatic headset/system-audio following on Linux and FreeBSD.
-- Linux: PipeWire/PulseAudio sink/source/active-port watcher.
-- FreeBSD: combined PulseAudio + native OSS/snd_hda watcher; tracks hw.snd.default_auto, hw.snd.default_unit, /dev/sndstat PCM inventory, and active mixer recording source.
-- Live route changes use PJSIP detach -> setNoDev -> refreshDevs -> setSndDevMode -> reattach without dropping the SIP dialog.
-- CLI `audio-auto on|off` and GUI automatic-follow toggle; enabled by default.
-- Removed-device fallback uses PJSIP system defaults instead of stale refreshed indexes.
-- Fixes CLI raw-SIP title string concatenation compile error carried from prior revisions.
-
-Retained feature set:
-- Dial prefix support and exact outbound SENT / inbound RECEIVED SIP views.
-- Pre-dial SIP PCAP capture and Wireshark SIP/RTP decode helpers.
-- Independent audio input/output selection and manual reopen/refresh controls.
-- Queue/blast testing, RTP diagnostics, SIP ladder, reports, themes, and bounded PBX audit suite.
-- Linux/FreeBSD builder, capture permissions, and verified Project-2501 ALC236 repair path.
-
-Builder:
-  ./build.sh
-
-Supported targets:
+Supported targets
+-----------------
 - Linux
 - FreeBSD
 - macOS 13+
 - Termux/Android
-- Windows 10/11 portable (plus legacy Win7 compatibility path)
+- Windows 10/11 portable
 
-The builder retains automatic dependency installation, managed PJSIP 2.17 validation/bootstrap, Qt 6 dependencies, ffmpeg support, Linux capture capabilities, FreeBSD BPF/devfs permissions, audio preflight, r14's guarded generic laptop HDA compatibility pass, and the narrowly recognized ALC236 repair.
+Validation
+----------
+Run the complete source/regression gate with:
+
+    bash tests/run_2_0_regression.sh
+
+This archive intentionally contains source, build scripts, tests, examples, documentation, and GitHub workflow files, but no local build directory or generated binaries.

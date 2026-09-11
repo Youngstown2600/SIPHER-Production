@@ -2,7 +2,7 @@
 
 SIPHER 2.0 promotes the r19 Multi-SIP tree to a new major-version baseline. The application now exposes a single public executable, `sipher`, that automatically selects CLI for terminal/TTY launches and GUI for graphical desktop launches. Use `--cli`, `--gui`, or `SIPHER_UI=cli|gui` to override selection.
 
-The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CTest registration are carried forward. The 2.0 DID Intelligence path now uses USACallerLookup with no API key and provides a separate SpamCalls.net community-reputation browser action. See `SIPHER-2.0-RELEASE-NOTES.md` for the complete 2.0 delta.
+The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CTest registration are carried forward. DID Intelligence now hides failed providers, parses SpamCalls.net/tellows results internally when available, fixes the tellows NANPA URL format, and can fall back to Data247 Carrier247 (the programmatic backend linked by FreeCarrierLookup.com) for carrier/type and SMS/MMS gateway data when configured. See `SIPHER-2.0-RELEASE-NOTES.md` for the complete 2.0 delta.
 
 ---
 
@@ -14,7 +14,7 @@ S.I.P.H.E.R. now intentionally contrasts with SIPHER's carrier-operations look. 
 
 # r16 Modern GUI / CLI — 2026-08-20
 
-S.I.P.H.E.R. r16 promotes the modern interface language proven in WaffleHouse-Client 3.0 into the SIP troubleshooting suite. The Qt GUI now uses a persistent left navigation rail, contextual page header, status surface, rounded cards, modern controls, and shared theme palette. The ANSI CLI now uses rounded Unicode cards, a compact CONTROL DECK rail, and a modern prompt while preserving its responsive page model and operator workflows.
+S.I.P.H.E.R. r16 introduces a modern interface language across the SIP troubleshooting suite. The Qt GUI now uses a persistent left navigation rail, contextual page header, status surface, rounded cards, modern controls, and shared theme palette. The ANSI CLI now uses rounded Unicode cards, a compact CONTROL DECK rail, and a modern prompt while preserving its responsive page model and operator workflows.
 
 The r15 Full VoIP PCAP workflow, SIP/RTP diagnostics, 50-call independent queue testing, SIP ladder/raw trace, audio routing/hot-swap logic, and bounded PBX audit suite are retained.
 
@@ -204,7 +204,7 @@ Packet capture is external by design: S.I.P.H.E.R. starts `dumpcap` when availab
 
 ## Builder refresh
 
-The package retains the WaffleHouse-style top-level `build.sh` workflow:
+The package retains the unified top-level `build.sh` workflow:
 
 - POSIX `/bin/sh` for Linux and FreeBSD.
 - Interactive multi-select builder.
@@ -254,7 +254,7 @@ Root privileges are never used for C++ compilation or for the local PJSIP compil
 
 ## Theme parity refresh
 
-The Qt GUI now carries the same eight theme choices as WaffleHouse Client 2.1 Alpha: System, Hacker, Matrix, Phosphor, Midnight, Amber, Ice, and Classic Light. The selected theme is persisted via Qt `QSettings` and restored at startup. S.I.P.H.E.R.-specific controls such as the active-call table, SIP transaction table, raw SIP viewer, media diagnostics, and Queue Test tab are included in the theme styling.
+The Qt GUI carries eight theme choices: System, Hacker, Matrix, Phosphor, Midnight, Amber, Ice, and Classic Light. The selected theme is persisted via Qt `QSettings` and restored at startup. S.I.P.H.E.R.-specific controls such as the active-call table, SIP transaction table, raw SIP viewer, media diagnostics, and Queue Test tab are included in the theme styling.
 
 ### Unix compile hotfix
 The Unix package was refreshed on 2026-08-15 after the first live Linux compile exposed a const-correctness mismatch with PJSUA2 `pj::Call::dump()`. The signature is corrected and the warnings surfaced by GCC were cleaned up.

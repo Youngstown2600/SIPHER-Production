@@ -97,7 +97,14 @@ NormalizedNumber normalizeNumber(const QString& entered,const QString& countryHi
 }
 
 QString spamCallsUrl(const NormalizedNumber& number){return QStringLiteral("https://spamcalls.net/en/num/")+number.e164Digits;}
-QString tellowsUrl(const NormalizedNumber& number){return QStringLiteral("https://www.tellows.com/num/+")+number.e164Digits;}
+QString tellowsUrl(const NormalizedNumber& number)
+{
+    // tellows' US/Canada pages use the national number in the path.  Passing a
+    // literal +E.164 value here is treated as a different/invalid resource and
+    // commonly produces 403/404 responses.
+    if(number.country=="US"||number.country=="CA")return QStringLiteral("https://www.tellows.com/num/")+number.nationalDigits;
+    return QStringLiteral("https://www.tellows.com/num/00")+number.e164Digits;
+}
 QString cQuiUrl(const NormalizedNumber& number)
 {
     if(number.country!="FR")return {};
@@ -130,9 +137,26 @@ QString parseUsaCallerLookup(const QByteArray& payload,const QString& entered,co
     out+=QString("Reputation:         %1\n").arg(reputation);if(sourceUrl!="N/A")out+=QString("Provider page:      %1\n").arg(sourceUrl);out+="Carrier source is numbering-registry data and may not reflect the serving carrier after porting.";return out;
 }
 
+bool usaCallerLookupNeedsCarrierFallback(const QByteArray& payload)
+{
+    QJsonParseError parseError{};const auto doc=QJsonDocument::fromJson(payload,&parseError);
+    if(parseError.error!=QJsonParseError::NoError||!doc.isObject())return true;
+    const QJsonObject o=doc.object(),prefix=o.value("prefix").toObject(),numbering=o.value("numbering").toObject();
+    QString carrier=firstString(o,{"carrier","carrier_name"}),lineType=firstString(o,{"line_type","type"});
+    if(o.value("carrier").isObject()){
+        const auto co=o.value("carrier").toObject();carrier=firstString(co,{"name","carrier","company"});
+        if(lineType=="N/A")lineType=firstString(co,{"line_type","type"});
+    }
+    if(carrier=="N/A")carrier=firstString(prefix,{"carrier","carrier_name","company"});
+    if(carrier=="N/A")carrier=firstString(numbering,{"carrier","carrier_name","company"});
+    if(lineType=="N/A")lineType=firstString(prefix,{"line_type","type"});
+    if(lineType=="N/A")lineType=firstString(numbering,{"line_type","type"});
+    return carrier=="N/A"||lineType=="N/A";
+}
+
 QString parseSpamCalls(const QByteArray& payload,const NormalizedNumber& number)
 {
-    const QString text=compactText(payload);if(text.isEmpty())return "No readable page content returned.";
+    const QString text=compactText(payload);if(text.isEmpty())return {};
     QString risk=match1(text,QStringLiteral("Spam-Risk\\s+([^()]+?)\\s*\\([0-9][0-9.,]*\\s+User Reports?\\)"));
     QString reports=match1(text,QStringLiteral("Spam-Risk\\s+[^()]+?\\s*\\(([0-9][0-9.,]*)\\s+User Reports?\\)"));
     if(reports=="N/A")reports=match1(text,QStringLiteral("([0-9][0-9.,]*)\\s+User Reports?"));
@@ -140,17 +164,22 @@ QString parseSpamCalls(const QByteArray& payload,const NormalizedNumber& number)
     QString harassment=match1(text,QStringLiteral("Harassment\\?\\s+([0-9]{1,3}%\\s+say\\s+Yes)"));
     QString answer=match1(text,QStringLiteral("Answer the phone\\?\\s+([0-9]{1,3}%\\s+say\\s+No)"));
     QString location=match1(text,QStringLiteral("(?:United States|France|Germany|United Kingdom|Australia|Canada|Japan)\\s+place\\s*([^0-9]{2,80}?)\\s+people"));
+    // A 200 page with no reputation fields is not useful to the operator; let
+    // the caller silently fall through to another reputation source.
+    if(risk=="N/A"&&reports=="N/A"&&latest=="N/A"&&harassment=="N/A"&&answer=="N/A")return {};
     QString out=QString("Number:             +%1\nSpam risk:          %2\nUser reports:       %3\nLatest report:      %4\nHarassment:         %5\nAnswer-phone signal:%6\n").arg(number.e164Digits,risk,reports,latest,harassment,answer);
     if(location!="N/A")out+=QString("Reported location:  %1\n").arg(location);out+=QString("Source page:        %1").arg(spamCallsUrl(number));return out;
 }
 
 QString parseTellows(const QByteArray& payload,const NormalizedNumber& number)
 {
-    const QString html=QString::fromUtf8(payload),text=compactText(payload);if(text.isEmpty())return "No readable page content returned.";
-    QString score=match1(html,QStringLiteral("(?:Phone number score|Score)[:\\s]+([1-9])"));if(score=="N/A")score=match1(text,QStringLiteral("(?:Phone number score|tellows score)[:\\s]+([1-9])"));
+    const QString html=QString::fromUtf8(payload),text=compactText(payload);if(text.isEmpty())return {};
+    QString score=match1(html,QStringLiteral("(?:Phone number score|Score)[:\\s]+([1-9])"));if(score=="N/A")score=match1(text,QStringLiteral("(?:Phone number score|tellows score)(?: for \\+?[0-9]+)?[:\\s]+([1-9])"));
     QString type=match1(text,QStringLiteral("Types? of call:\\s*(.{1,120}?)(?=\\s+(?:Caller Name|Owner|Details|City|Telephone number|Comments|Ratings|Where does|Your phone|$))"));
-    QString ratings=match1(text,QStringLiteral("([0-9][0-9.,]*)\\s+Ratings? for"));
-    QString out=QString("Number:             +%1\nTellows score:      %2 / 9\nType of call:       %3\nRatings:            %4\nSource page:        %5").arg(number.e164Digits,score,type,ratings,tellowsUrl(number));return out;
+    QString ratings=match1(text,QStringLiteral("([0-9][0-9.,]*)\\s+Ratings?"));
+    QString assessment=match1(text,QStringLiteral("Assessment:\\s*(.{1,100}?)(?=\\s+(?:Activity:|Details about this number|Your number\\?|Approximate caller location|$))"));
+    if(score=="N/A"&&type=="N/A"&&ratings=="N/A"&&assessment=="N/A")return {};
+    QString out=QString("Number:             +%1\nTellows score:      %2 / 9\nAssessment:         %3\nType of call:       %4\nRatings:            %5\nSource page:        %6").arg(number.e164Digits,score,assessment,type,ratings,tellowsUrl(number));return out;
 }
 
 QString parseCQui(const QByteArray& payload,const NormalizedNumber& number)
@@ -162,6 +191,35 @@ QString parseCQui(const QByteArray& payload,const NormalizedNumber& number)
     const QString allocation=match1(text,QStringLiteral("attribu(?:é|e) (?:à|a) la date du\\s+([0-9/]+)"));
     const QString range=match1(text,QStringLiteral("appartient (?:à|a) la tranche\\s+([0-9 ]+[–-][0-9 ]+)"));
     return QString("French original carrier: %1\nDirectory requests: %2\nOperator mnemonic:  %3\nAllocated:          %4\nNumber block:       %5\nPortability note: c-qui.fr reports the original assignment; the number may have been ported.\nSource page:        %6").arg(carrier,requests,mnemonic,allocation,range,cQuiUrl(number));
+}
+
+QString parseData247Carrier(const QByteArray& payload,const NormalizedNumber& number)
+{
+    QJsonParseError err{};const auto doc=QJsonDocument::fromJson(payload,&err);if(err.error!=QJsonParseError::NoError||!doc.isObject())return {};
+    QJsonObject root=doc.object();QJsonObject response=root.value("response").toObject();if(response.isEmpty())response=root;
+    const QString status=firstString(response,{"status"});if(status!="N/A"&&status.compare("OK",Qt::CaseInsensitive)!=0)return {};
+    QJsonObject r;
+    const auto results=response.value("results");if(results.isArray()&&!results.toArray().isEmpty()&&results.toArray().first().isObject())r=results.toArray().first().toObject();
+    else if(root.value("results").isArray()&&!root.value("results").toArray().isEmpty())r=root.value("results").toArray().first().toObject();
+    if(r.isEmpty())return {};
+    const QString carrier=firstString(r,{"carrier_name","carrier","dba"});
+    const QString wireless=firstString(r,{"wless","wireless"});
+    QString type=firstString(r,{"type","line_type"});
+    if(type=="M")type="Mobile";else if(type=="L")type="Landline";else if(type=="V")type="VoIP";
+    if(type=="N/A"){
+        if(wireless.compare("y",Qt::CaseInsensitive)==0)type="Mobile";
+        else if(wireless.compare("n",Qt::CaseInsensitive)==0)type="Landline / non-wireless";
+    }
+    const QString sms=firstString(r,{"sms_address","sms_gateway_address"});
+    const QString mms=firstString(r,{"mms_address","mms_gateway_address"});
+    const QString ocn=firstString(r,{"ocn"}),lastPort=firstString(r,{"last_port_date"}),mno=firstString(r,{"mno"});
+    const QString city=firstString(r,{"city"}),state=firstString(r,{"state"}),tz=firstString(r,{"timezone","iana"});
+    if(carrier=="N/A"&&type=="N/A"&&sms=="N/A"&&mms=="N/A")return {};
+    QString out;
+    out+=QString("Number:             +%1\nCarrier:            %2\nLine type:          %3\nWireless:           %4\n").arg(number.e164Digits,carrier,type,wireless);
+    out+=QString("SMS gateway:        %1\nMMS gateway:        %2\nOCN:                %3\nMNO:                %4\nLast port date:     %5\n").arg(sms,mms,ocn,mno,lastPort);
+    out+=QString("City / state:       %1 / %2\nTime zone:          %3\nSource:             Data247 Carrier247 (programmatic backend linked by FreeCarrierLookup.com)").arg(city,state,tz);
+    return out;
 }
 
 QString parseNeutrinoHlr(const QByteArray& payload,const NormalizedNumber& number)

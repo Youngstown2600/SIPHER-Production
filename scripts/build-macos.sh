@@ -114,7 +114,7 @@ MACOS_MINOR=$(printf '%s' "$MACOS_VERSION" | awk -F. '{print $2+0}')
 case "$MACOS_MAJOR" in ''|*[!0-9]*) fail "Could not determine macOS version ($MACOS_VERSION)";; 0|1|2|3|4|5|6|7|8|9|10|11|12) fail "$PRODUCT $VERSION macOS bundle targets macOS 13 or newer; detected $MACOS_VERSION.";; esac
 export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-13.0}
 
-# Ventura cannot use today's newest Xcode. Match the WaffleHouse 5.3 builder:
+# Ventura cannot use today's newest Xcode. Use Apple's last compatible archived Xcode:
 # choose Apple's last compatible archived Xcode and let Safari handle Apple sign-in.
 XCODE_RECOMMENDED=
 XCODE_DOWNLOAD_URL=https://developer.apple.com/download/all/

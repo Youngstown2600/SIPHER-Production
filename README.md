@@ -18,11 +18,11 @@ See `R19-MULTI-SIP-RELEASE-NOTES.md` for details.
 
 ## r18 DID Intelligence / Carrier Route Audit
 
-This release adds a dedicated **DID Intelligence** workspace with a no-key lookup through **USACallerLookup** plus a separate **Open SpamCalls Reputation** action, and a **Carrier Handoff / Next-Out** analyzer. The built-in lookup returns NANPA registry carrier/line-type/location data and FTC/community complaint signals. The route analyzer reports the configured outbound proxy/registrar, DNS candidates, SIP SRV candidates, the normalized Request-URI, SIP route-header disclosures, and — for captured outbound INVITEs — the actual resolved peer IP/port supplied by the PJSIP transport callback. Carrier-internal routing can still be hidden by an SBC and is not represented as an IP traceroute.
+This release adds a dedicated **DID Intelligence** workspace with a no-key **USACallerLookup** first pass, internally parsed **SpamCalls.net** and **tellows** reputation sources, an optional **Data247/FreeCarrierLookup carrier fallback**, and a **Carrier Handoff / Next-Out** analyzer. Failed web providers are silently skipped instead of filling the output pane with HTTP errors. The route analyzer reports the configured outbound proxy/registrar, DNS candidates, SIP SRV candidates, the normalized Request-URI, SIP route-header disclosures, and — for captured outbound INVITEs — the actual resolved peer IP/port supplied by the PJSIP transport callback. Carrier-internal routing can still be hidden by an SBC and is not represented as an IP traceroute.
 
 **Switch Audit+** now includes UDP/TCP transport-parity checks and topology/information-exposure analysis. A new **Legacy** menu includes offline Blue Tone / Blue Box and Red Box historical lab panels; these panels are visual/reference simulations only and produce no network-control or billing-control tones.
 
-The default DID lookup requires **no API key or signup**. SIPHER calls the public USACallerLookup JSON endpoint for US 10-digit numbers and opens SpamCalls.net in the default browser for an independent community-reputation view. SIPHER does not scrape SpamCalls.net. NANPA carrier data reflects registry assignment and can differ from the current serving carrier after LNP/porting; use a live LRN/MNP provider when current-carrier routing is required. Complaint/reputation data is an indicator only and is not proof of fraud or caller identity because ANI/caller ID can be spoofed.
+The default DID lookup requires **no API key or signup**. SIPHER calls USACallerLookup for US 10-digit numbers and parses SpamCalls.net/tellows pages internally when those providers permit the request. HTTP 410/403 failures are hidden. For carrier/type and email-to-SMS/email-to-MMS gateway data, configure `SIPHER_DATA247_API_KEY` to enable the Data247 Carrier247 fallback linked from FreeCarrierLookup.com. NANPA registry data can differ from the current serving carrier after LNP/porting; complaint/reputation data is an indicator only and is not proof of fraud or caller identity because ANI/caller ID can be spoofed.
 
 
 r17 deliberately moves SIPHER away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue SIPHER logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
@@ -299,7 +299,7 @@ User credentials, settings, logs, and diagnostic state are **preserved by defaul
 
 This removes the current user's standard SIPHER config/state directories in addition to the system installation. It deliberately does not remove the local PJSIP build or arbitrary custom files outside those directories.
 
-## WaffleHouse-style top-level builder
+## Unified top-level builder
 
 The normal entry point is:
 

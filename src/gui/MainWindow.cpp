@@ -20,7 +20,6 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QDateTime>
-#include <QDesktopServices>
 #include <QDialog>
 #include <QElapsedTimer>
 #include <QEventLoop>
@@ -229,8 +228,8 @@ void MainWindow::buildUi(){
     didNumber_=new QLineEdit;didNumber_->setPlaceholderText("DID / telephone number, preferably E.164 (for example +13305551212)");
     didCountry_=new QComboBox;didCountry_->setEditable(true);didCountry_->addItems({"US","CA","GB","AU","DE","FR","JP"});didCountry_->setCurrentText("US");didCountry_->setToolTip("Country hint used when the number is not already entered in +E.164 form.");
     didForm->addRow("DID / Number",didNumber_);didForm->addRow("Country hint",didCountry_);didBox->addLayout(didForm);
-    auto*didNote=new QLabel("DIP / LOOKUP DID aggregates independent carrier and reputation sources: USACallerLookup for US numbering/FTC data, SpamCalls.net and tellows for community reputation, and c-qui.fr for French original-carrier allocation. ENHANCED HLR uses Neutrino only when explicitly clicked and requires SIPHER_NEUTRINO_USER_ID and SIPHER_NEUTRINO_API_KEY. Reputation reports are signals, not proof of fraud; spoofed caller ID can implicate an innocent number.");didNote->setWordWrap(true);didBox->addWidget(didNote);
-    auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*hlrButton=new QPushButton("ENHANCED HLR / CURRENT CARRIER");hlrButton->setToolTip("Explicit Neutrino HLR lookup. This may consume paid API credits and never runs automatically.");connect(hlrButton,&QPushButton::clicked,this,&MainWindow::lookupNeutrinoHlr);didButtons->addWidget(hlrButton);auto*spamButton=new QPushButton("OPEN SPAMCALLS PAGE");connect(spamButton,&QPushButton::clicked,this,&MainWindow::openSpamCalls);didButtons->addWidget(spamButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
+    auto*didNote=new QLabel("DIP / LOOKUP DID aggregates carrier and reputation sources inside SIPHER. USACallerLookup provides free US numbering/FTC data; missing carrier/type data can fall back to the Data247 Carrier247 backend used by FreeCarrierLookup.com when SIPHER_DATA247_API_KEY is configured. SpamCalls.net and tellows are parsed internally and unavailable/blocked sources are hidden instead of consuming output space. ENHANCED HLR uses Neutrino only when explicitly clicked. Reputation reports are signals, not proof of fraud; spoofed caller ID can implicate an innocent number.");didNote->setWordWrap(true);didBox->addWidget(didNote);
+    auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*hlrButton=new QPushButton("ENHANCED HLR / CURRENT CARRIER");hlrButton->setToolTip("Explicit Neutrino HLR lookup. This may consume paid API credits and never runs automatically.");connect(hlrButton,&QPushButton::clicked,this,&MainWindow::lookupNeutrinoHlr);didButtons->addWidget(hlrButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
     didOutput_=new QPlainTextEdit;didOutput_->setReadOnly(true);didOutput_->setPlaceholderText("DID carrier and reputation results appear here.");didOutput_->setMaximumBlockCount(2000);didBox->addWidget(didOutput_,1);didLayout->addWidget(didGroup,1);
 
     auto*routeGroup=new QGroupBox("CARRIER HANDOFF / NEXT-OUT",didPage);auto*routeBox=new QVBoxLayout(routeGroup);auto*routeForm=new QFormLayout;routeDestination_=new QLineEdit;routeDestination_->setPlaceholderText("Number or SIP URI to analyze without placing a call");routeForm->addRow("Destination",routeDestination_);routeBox->addLayout(routeForm);
@@ -518,35 +517,83 @@ void MainWindow::lookupDid()
     if(!number.valid){QMessageBox::information(this,"DID Intelligence",number.error);return;}
 
     const int serial=++didLookupSerial_;
-    didOutput_->setPlainText(QString("SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n================================================\nQuery:      %1\nNormalized: +%2\nCountry:    %3\n\nProviders are queried independently; a failure from one source does not invalidate the others.\n").arg(entered,number.e164Digits,number.country));
+    didOutput_->setPlainText(QString("SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n================================================\nQuery:      %1\nNormalized: +%2\nCountry:    %3\n\nOnly providers that return usable data are shown. Unavailable/blocked lookups are silently skipped.\n").arg(entered,number.e164Digits,number.country));
     statusBar()->showMessage("Running DID intelligence providers...",5000);
 
-    auto getProvider=[this,serial](const QString&provider,const QUrl&url,auto parser){
-        QNetworkRequest request(url);request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0 DID-Intel"));request.setRawHeader("Accept-Language","en-US,en;q=0.8");
-        auto*reply=network_->get(request);
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,provider,parser](){
-            const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();const QString errorText=reply->errorString();reply->deleteLater();if(serial!=didLookupSerial_||!didOutput_)return;
-            QString section="\n\n[ "+provider+" ]\n"+QString(provider.size()+4,QChar('-'))+"\n";
-            if(error!=QNetworkReply::NoError)section+=QString("Lookup failed (HTTP %1): %2").arg(httpStatus).arg(errorText);
-            else section+=parser(payload);
-            didOutput_->appendPlainText(section);
+    auto appendResult=[this,serial](const QString&provider,const QString&result){
+        if(serial!=didLookupSerial_||!didOutput_||result.trimmed().isEmpty())return;
+        didOutput_->appendPlainText("\n\n[ "+provider+" ]\n"+QString(provider.size()+4,QChar('-'))+"\n"+result.trimmed());
+    };
+
+    auto makeRequest=[](const QUrl&url,bool html){
+        QNetworkRequest request(url);
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::NoLessSafeRedirectPolicy);
+        request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/152 Safari/537.36 SIPHER/2.0"));
+        request.setRawHeader("Accept-Language","en-US,en;q=0.8");
+        request.setRawHeader("Accept",html?"text/html,application/xhtml+xml;q=0.9,*/*;q=0.5":"application/json,*/*;q=0.5");
+        return request;
+    };
+
+    // FreeCarrierLookup.com itself currently sits behind anti-bot/CAPTCHA
+    // controls.  Its linked programmatic backend is Data247 Carrier247.  We
+    // call that backend only as a carrier fallback and only when the operator
+    // supplied a key, so a routine free lookup never consumes paid credits.
+    auto startCarrierFallback=[this,serial,number,appendResult,makeRequest](){
+        if(serial!=didLookupSerial_||!network_)return;
+        const QByteArray key=qgetenv("SIPHER_DATA247_API_KEY");if(key.isEmpty())return;
+        QUrl url(QStringLiteral("https://api.data247.com/v3.0"));QUrlQuery q;
+        q.addQueryItem("key",QString::fromUtf8(key));q.addQueryItem("api",qEnvironmentVariable("SIPHER_DATA247_API_CODE",QStringLiteral("C")));q.addQueryItem("phone",number.e164Digits);
+        q.addQueryItem("addfields",QStringLiteral("type,ocn,timezone,last_port_date,dba,mno,city,state,country,zip"));url.setQuery(q);
+        auto*reply=network_->get(makeRequest(url,false));
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();
+            if(serial!=didLookupSerial_||error!=QNetworkReply::NoError)return;
+            appendResult("FreeCarrierLookup / Data247",didintel::parseData247Carrier(payload,number));
         });
     };
 
-    // Free US carrier / numbering registry + FTC complaint information.
+    // US numbering / FTC result.  If carrier or line type are absent, move to
+    // the port-aware Carrier247 backend (when configured) instead of displaying
+    // a failed provider block.
     if(number.country=="US"&&number.nationalDigits.size()==10){
-        getProvider("USACallerLookup",QUrl(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+number.nationalDigits),[entered,number](const QByteArray&payload){return didintel::parseUsaCallerLookup(payload,entered,number);});
-    }else{
-        didOutput_->appendPlainText("\n\n[ USACallerLookup ]\n-------------------\nSkipped: provider is used only for US 10-digit numbering data.");
+        QUrl url(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+number.nationalDigits);
+        auto*reply=network_->get(makeRequest(url,false));
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,entered,number,appendResult,startCarrierFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;
+            if(error!=QNetworkReply::NoError){startCarrierFallback();return;}
+            appendResult("USACallerLookup",didintel::parseUsaCallerLookup(payload,entered,number));
+            if(didintel::usaCallerLookupNeedsCarrierFallback(payload))startCarrierFallback();
+        });
+    }else if(number.country=="CA"){
+        startCarrierFallback();
     }
 
-    // Community reputation providers recovered from the phoneintel workflow.
-    getProvider("SpamCalls.net",QUrl(didintel::spamCallsUrl(number)),[number](const QByteArray&payload){return didintel::parseSpamCalls(payload,number);});
-    getProvider("tellows",QUrl(didintel::tellowsUrl(number)),[number](const QByteArray&payload){return didintel::parseTellows(payload,number);});
+    // SpamCalls returns HTTP 410 for numbers for which it has no live number
+    // page.  That means "no result here", not an application error, so it is
+    // intentionally silent and tellows remains available as the next source.
+    {
+        auto*reply=network_->get(makeRequest(QUrl(didintel::spamCallsUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();if(serial!=didLookupSerial_)return;
+            if(error==QNetworkReply::NoError)appendResult("SpamCalls.net",didintel::parseSpamCalls(payload,number));
+            else if(httpStatus==410)return;
+        });
+    }
 
-    // French allocation/original carrier source.
+    // tellows uses national-number paths for NANPA numbers.  403 responses are
+    // treated as provider-side anti-automation policy and hidden; SIPHER does
+    // not attempt to defeat a WAF/Cloudflare challenge.
+    {
+        auto*reply=network_->get(makeRequest(QUrl(didintel::tellowsUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;
+            if(error==QNetworkReply::NoError)appendResult("tellows",didintel::parseTellows(payload,number));
+        });
+    }
+
     if(number.country=="FR"){
-        getProvider("c-qui.fr",QUrl(didintel::cQuiUrl(number)),[number](const QByteArray&payload){return didintel::parseCQui(payload,number);});
+        auto*reply=network_->get(makeRequest(QUrl(didintel::cQuiUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;if(error==QNetworkReply::NoError)appendResult("c-qui.fr",didintel::parseCQui(payload,number));});
     }
 
     didOutput_->appendPlainText("\n\nSafety note: carrier allocations and community spam reports can disagree. Porting changes the serving carrier, and caller-ID spoofing can attach complaints to an innocent subscriber. Use ENHANCED HLR / CURRENT CARRIER when a live mobile-network lookup is actually required.");
@@ -565,14 +612,6 @@ void MainWindow::lookupNeutrinoHlr()
     QNetworkRequest request(QUrl(QStringLiteral("https://neutrinoapi.net/hlr-lookup")));request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0 DID-Intel"));request.setRawHeader("User-ID",userId);request.setRawHeader("API-Key",apiKey);request.setHeader(QNetworkRequest::ContentTypeHeader,QStringLiteral("application/x-www-form-urlencoded"));
     QUrlQuery form;form.addQueryItem("number","+"+number.e164Digits);form.addQueryItem("country-code",QString{});auto*reply=network_->post(request,form.query(QUrl::FullyEncoded).toUtf8());
     connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number](){const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();const QString errorText=reply->errorString();reply->deleteLater();if(serial!=didLookupSerial_||!didOutput_)return;if(error!=QNetworkReply::NoError){didOutput_->appendPlainText(QString("\nNeutrino lookup failed (HTTP %1): %2").arg(httpStatus).arg(errorText));return;}didOutput_->appendPlainText("\n[ Neutrino HLR ]\n----------------\n"+didintel::parseNeutrinoHlr(payload,number)+"\n\nThis was an explicit live HLR request and may consume API credits.");statusBar()->showMessage("Enhanced HLR lookup complete",5000);});
-}
-
-void MainWindow::openSpamCalls()
-{
-    if(!didNumber_)return;
-    const QString entered=didNumber_->text().trimmed();if(entered.isEmpty()){QMessageBox::information(this,"SpamCalls Reputation","Enter a DID / telephone number first.");return;}
-    const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QStringLiteral("US");const auto number=didintel::normalizeNumber(entered,country);if(!number.valid){QMessageBox::information(this,"SpamCalls Reputation",number.error);return;}
-    const QUrl url(didintel::spamCallsUrl(number));if(!QDesktopServices::openUrl(url))QMessageBox::warning(this,"SpamCalls Reputation",QString("Could not open %1 in the default browser.").arg(url.toString()));else statusBar()->showMessage("Opened SpamCalls.net community reputation page",5000);
 }
 
 void MainWindow::analyzeNextOut()

@@ -1,8 +1,41 @@
+# Build products
 build/
-*.log
-*.conf
-!examples/*.conf.example
+build-*/
+out/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# Runtime/local configuration
+*.log
+*.conf
+!examples/*.conf.example
+.env
+.env.*
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Packaging
+*.zip
+*.tar
+*.tar.gz
+*.tgz

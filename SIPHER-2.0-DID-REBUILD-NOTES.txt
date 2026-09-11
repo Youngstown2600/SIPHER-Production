@@ -6,7 +6,7 @@ Changes in this bundle:
 - US number normalization accepts 10 digits or a leading 1/+1.
 - DID output includes carrier, line type, rate center/city, state, timezone, toll-free status when returned.
 - FTC complaint/community-report signals are displayed with spoofing/reputation caveats.
-- Added OPEN SPAMCALLS REPUTATION, which opens the number's SpamCalls.net page in the default browser.
+- Earlier browser-opening SpamCalls action is superseded by internal SpamCalls parsing in the DID lookup.
 - SIPHER does not scrape or depend on SpamCalls.net HTML.
 - Carrier output explicitly distinguishes NANPA registry assignment from live current-carrier/LRN data.
 - r18 route/audit fixes, r19 multi-SIP/zero-account behavior, and SIPHER 2.0 unified `sipher` binary behavior retained.
@@ -14,3 +14,11 @@ Changes in this bundle:
 Validation on packaging host:
 - tests/run_2_0_regression.sh: PASS
 - Qt/PJSIP full GUI link not performed because this packaging host lacks Qt and libpjproject development packages.
+
+DID lookup reliability hotfix:
+- hide failed provider sections
+- treat SpamCalls 410 as no-record
+- correct tellows NANPA URL format
+- carrier fallback to Data247/FreeCarrierLookup backend via SIPHER_DATA247_API_KEY
+- parse carrier type plus SMS/MMS gateway fields
+- remove browser-opening SpamCalls button
