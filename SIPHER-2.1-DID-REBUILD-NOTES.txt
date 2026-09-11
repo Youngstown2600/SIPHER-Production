@@ -1,0 +1,27 @@
+SIPHER 2.1 DID Intelligence rebuild
+===================================
+
+Primary free/no-key paths
+-------------------------
+US carrier/location/FTC: USACallerLookup JSON, then its public number page as a carrier/location fallback.
+US spam reputation:      SkipCalls JSON API.
+
+Carrier fallbacks when configured
+---------------------------------
+1. Carrier247/Data247 via SIPHER_DATA247_API_KEY
+2. Veriphone static lookup via SIPHER_VERIPHONE_API_KEY
+3. Omkar Phone Lookup via SIPHER_OMKAR_API_KEY
+
+The public FreeCarrierLookup.com browser form is not automated around CAPTCHA/Cloudflare controls. Its programmatic Carrier247/Data247 path is used when configured. Data247 responses are parsed for carrier, line type, wireless status, SMS/MMS gateway addresses, OCN, MNO, port date, location, and timezone when supplied by the account/service response.
+
+Reputation fallback
+-------------------
+If SkipCalls cannot return a usable verdict, SIPHER tries SpamCalls.net and then tellows as best-effort page parsers. HTTP failures are not expanded into full result sections.
+
+Reliability
+-----------
+Every network request has a 7-second transfer timeout so a dead provider cannot leave the DIP pending forever. If all live sources fail, SIPHER shows one compact provider-status line instead of an otherwise blank result pane.
+
+Enhanced/current carrier
+------------------------
+The Neutrino HLR/current-carrier action remains separate and explicit. It is never invoked by the normal DIP automatically.

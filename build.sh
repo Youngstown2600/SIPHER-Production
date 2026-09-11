@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BUILDER_REVISION="sipher-2.0-unified-multi-sip-20260911"
+BUILDER_REVISION="sipher-2.1-did-waterfall-20260911"
 
 # A shell can keep an old logical $PWD after a desktop file manager moves the
 # directory to Trash. Building from that relocated inode is especially unsafe
@@ -124,7 +124,7 @@ case "$JOBS" in ''|*[!0-9]*) JOBS=1 ;; esac
 logo() {
 cat <<'LOGO'
 ============================================================
-                 SIPHER 2.0
+                 SIPHER 2.1
        MODERN SIP / RTP / PBX WORKSTATION — LINUX + FREEBSD
 ============================================================
 LOGO
@@ -1024,9 +1024,9 @@ configure_known_alc236_audio_fix() {
     run_privileged cp -p /boot/device.hints "/boot/device.hints.sipher-backup-$stamp"
     tmp_hints=$(mktemp "${TMPDIR:-/tmp}/sipher-device.hints.XXXXXX")
     awk '
-      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# SIPHER 2.1 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# SIPHER 2.1 disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# SIPHER 2.1 disabled known-bad override: "$0; next}
       {print}
     ' /boot/device.hints > "$tmp_hints"
     run_privileged install -m 0644 "$tmp_hints" /boot/device.hints
@@ -1332,7 +1332,7 @@ configure_capture_permissions() {
   fi
   {
     echo "# BEGIN SIPHER BPF"
-    echo "# Managed by SIPHER 2.0 for non-root SIP/RTP packet capture."
+    echo "# Managed by SIPHER 2.1 for non-root SIP/RTP packet capture."
     echo "[sipher_bpf=$ruleset_id]"
     [ -z "$existing_id" ] || echo "add include $existing_id"
     echo "add path 'bpf*' user $capture_user mode 0600"
@@ -1928,18 +1928,18 @@ fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
-  echo "SIPHER 2.0 dry run complete."
+  echo "SIPHER 2.1 dry run complete."
 else
   echo
   if [ "$BUILD_CLI" -eq 1 ] || [ "$BUILD_GUI" -eq 1 ]; then
-    echo "SIPHER 2.0 build complete."
+    echo "SIPHER 2.1 build complete."
     [ "$INSTALL_MODE" = yes ] && echo "Selected client installed under $INSTALL_PREFIX/bin."
   elif [ "$BUILD_PJSIP" -eq 1 ]; then
     echo "SIPHER PJSIP dependency build complete."
   elif [ "$CONFIGURE_CAPTURE_ONLY" -eq 1 ]; then
-    echo "SIPHER 2.0 packet-capture permission setup complete."
+    echo "SIPHER 2.1 packet-capture permission setup complete."
   elif [ "$AUDIO_DIAG_ONLY" -eq 1 ]; then
-    echo "SIPHER 2.0 audio diagnostic complete."
+    echo "SIPHER 2.1 audio diagnostic complete."
   elif [ "$UNINSTALL" -eq 1 ]; then
     echo "SIPHER installed files removed."
   elif [ "$CLEAN" -eq 1 ]; then

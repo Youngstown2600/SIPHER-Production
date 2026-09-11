@@ -1,44 +1,56 @@
-# SIPHER 2.0 DID Intelligence
+# SIPHER 2.1 DID Intelligence
 
-The DID Intelligence panel intentionally separates numbering/carrier data from community reputation and from live mobile-network HLR data.
+SIPHER's DID Intelligence panel separates three different questions that are often incorrectly treated as one lookup: **numbering/carrier data**, **current serving carrier/HLR data**, and **spam/reputation data**.
 
 ## Normal DIP / LOOKUP DID
 
-The normal lookup never uses a paid API credential automatically.
+For a US 10-digit number, SIPHER starts two independent no-key lookups:
 
-- **USACallerLookup** — US numbering-registry carrier/line type/location plus FTC/community complaint information.
-- **SpamCalls.net** — community spam reputation, report count, recent activity and user-call signals parsed on a best-effort basis from the public number page.
-- **tellows** — community score, reported call category and rating count parsed on a best-effort basis from the public number page.
-- **c-qui.fr** — for French numbers only, original carrier allocation, request count, mnemonic/allocation information and number block where available.
+1. **USACallerLookup** — numbering-registry carrier, line type, rate center/location, and FTC/community complaint information.
+2. **SkipCalls** — a no-auth JSON spam-label signal.
 
-Each provider fails independently. A layout change, block, timeout or unavailable record at one source does not discard results from the others.
+The UI always shows the normalized E.164 number first. Only providers that return useful data get full result sections. If all live sources fail, SIPHER shows one compact provider-status line instead of a screen full of HTTP errors.
 
-## Enhanced HLR / Current Carrier
+### Carrier fallback waterfall
 
-Neutrino HLR is deliberately separate because an HLR request can consume paid API credits. SIPHER never runs it as part of the normal DIP.
+If USACallerLookup does not return usable carrier/type fields, SIPHER tries configured providers in order:
 
-Set these environment variables before launching SIPHER:
+- **Carrier247/Data247** — set `SIPHER_DATA247_API_KEY`; optional `SIPHER_DATA247_API_CODE` defaults to `C`. This is the supported programmatic backend associated with FreeCarrierLookup.com and can return carrier/type plus SMS/MMS gateway fields and optional OCN/MNO/port metadata depending on the account/service response.
+- **Veriphone** — set `SIPHER_VERIPHONE_API_KEY`. SIPHER uses `/v3/verify` with `mode=static` in the normal DIP to avoid silently spending higher-cost Current Carrier credits.
+- **Omkar Phone Lookup API** — set `SIPHER_OMKAR_API_KEY`. SIPHER uses the documented `/lookup` JSON endpoint.
+
+The public FreeCarrierLookup.com browser form is intentionally **not** automated around its Cloudflare/CAPTCHA protections. SIPHER does not attempt to bypass provider anti-bot controls.
+
+### Reputation fallback waterfall
+
+For US numbers SIPHER asks SkipCalls first. If it cannot provide a verdict, SIPHER tries the existing internal SpamCalls.net parser and then tellows. Provider failures such as SpamCalls HTTP 410 or tellows HTTP 403 are treated as unavailable-source conditions and are not expanded into large error blocks.
+
+A `Reported spam: NO` result means only that the queried reputation source does not currently label the number as spam. Caller ID can be spoofed, and an innocent subscriber can accumulate complaints.
+
+## Explicit current-carrier / HLR lookup
+
+The **ENHANCED HLR / CURRENT CARRIER** button remains explicit and uses Neutrino only when both environment variables are configured:
 
 ```sh
-export SIPHER_NEUTRINO_USER_ID='your-user-id'
-export SIPHER_NEUTRINO_API_KEY='your-api-key'
+export SIPHER_NEUTRINO_USER_ID='...'
+export SIPHER_NEUTRINO_API_KEY='...'
 ```
 
-Then use **ENHANCED HLR / CURRENT CARRIER**. SIPHER requests live HLR information such as origin network, current network, ported network/status, number type, HLR status and roaming status when the provider returns those fields.
+Because HLR/current-carrier services can consume paid credits, they never run automatically as part of a normal DIP.
 
-## Interpretation
+## Optional API keys
 
-- Registry/original-carrier data may not represent the current serving carrier after number portability.
-- Community spam reports are reputation signals, not proof that the subscriber placed a fraudulent call.
-- Caller ID/ANI can be spoofed, causing an otherwise legitimate number to collect complaints.
-- HTML-backed community sources are best-effort integrations and may need parser updates if the provider changes its public page layout.
+```sh
+# FreeCarrierLookup / Carrier247 programmatic backend
+export SIPHER_DATA247_API_KEY='...'
+# Optional if your Data247 account uses a different service code
+export SIPHER_DATA247_API_CODE='C'
 
+# Veriphone static carrier/line-type fallback
+export SIPHER_VERIPHONE_API_KEY='...'
 
-## Provider fallback behavior (2.0 hotfix)
+# Omkar carrier/line-type fallback
+export SIPHER_OMKAR_API_KEY='...'
+```
 
-- HTTP failures are not printed as full provider sections. A provider only appears in the DID output when it returned usable data.
-- SpamCalls HTTP 410 is interpreted as no live reputation page for that number and is silently skipped.
-- tellows NANPA URLs use the 10-digit national number (for example `/num/4155551212`) rather than a literal `+1...` URL. A remaining 403 is treated as provider-side anti-automation blocking and SIPHER does not try to bypass it.
-- USACallerLookup stays the free first pass. If it does not return carrier and line type, SIPHER can fall back to the Data247 Carrier247 API associated with FreeCarrierLookup.com. Configure `SIPHER_DATA247_API_KEY`; `SIPHER_DATA247_API_CODE` defaults to `C` and may be overridden for an account/service configuration.
-- Carrier247 results can include carrier, mobile/landline/VoIP type, SMS gateway, MMS gateway, OCN and port-related fields when the account returns them.
-- The public FreeCarrierLookup web form is not scraped automatically because it is protected by Cloudflare/CAPTCHA controls; the supported programmatic backend is used instead.
+Do not commit API keys to GitHub or hard-code them into the SIPHER source tree.

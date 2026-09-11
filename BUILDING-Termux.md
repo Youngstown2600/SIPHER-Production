@@ -1,4 +1,4 @@
-# Building SIPHER 2.0 in Termux
+# Building SIPHER 2.1 in Termux
 
 Run `./build.sh --os termux` from Termux. The builder installs the native clang/CMake/Ninja/Qt 6 stack, bootstraps the same patched PJSIP 2.17 core, builds CLI and GUI, and installs into `$PREFIX/bin`. The CLI runs directly in Termux; the GUI requires Termux:X11.
 

@@ -20,13 +20,13 @@ case "$TARGET" in
   win7)
     QT_MAJOR=5
     LABEL="Windows 7 SP1 x64"
-    DIST_NAME="SIPHER-2.0-Windows7-Portable-x64"
+    DIST_NAME="SIPHER-2.1-Windows7-Portable-x64"
     ;;
   win10|win11|modern|win10-11)
     TARGET=win10
     QT_MAJOR=6
     LABEL="Windows 10/11 x64"
-    DIST_NAME="SIPHER-2.0-Windows10-11-Portable-x64"
+    DIST_NAME="SIPHER-2.1-Windows10-11-Portable-x64"
     ;;
   *) echo "Target must be win7 or win10" >&2; exit 2 ;;
 esac
@@ -79,7 +79,7 @@ if [[ "$(pkg-config --modversion libpjproject)" != 2.17 ]]; then
   exit 1
 fi
 
-say "Configuring SIPHER 2.0 unified GUI + CLI ($LABEL / Qt $QT_MAJOR)"
+say "Configuring SIPHER 2.1 unified GUI + CLI ($LABEL / Qt $QT_MAJOR)"
 rm -rf "$APP_BUILD"
 cmake -S "$ROOT" -B "$APP_BUILD" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
@@ -90,7 +90,7 @@ cmake -S "$ROOT" -B "$APP_BUILD" -G Ninja \
 cmake --build "$APP_BUILD" --parallel
 
 if (( RUN_TESTS )); then
-  say "Running SIPHER 2.0 regression tests"
+  say "Running SIPHER 2.1 regression tests"
   ctest --test-dir "$APP_BUILD" --output-on-failure --timeout 60
 fi
 

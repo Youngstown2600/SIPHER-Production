@@ -1,6 +1,6 @@
 # SIPHER Windows Feature Parity
 
-Both portable Windows targets are built from the same core as SIPHER 2.0 and include:
+Both portable Windows targets are built from the same core as SIPHER 2.1 and include:
 
 - SIP registration and outbound/inbound call handling
 - Answer, hang up, hold/resume, mute/unmute, DTMF and active-call controls
@@ -24,7 +24,7 @@ Both portable Windows targets are built from the same core as SIPHER 2.0 and inc
 - microphone/speaker testing
 - GUI and CLI
 - all 20 current SIPHER themes
-- `SIPHER 2.0` branding
+- `SIPHER 2.1` branding
 - portable folder-local config, state, logs, CVE cache, and temporary files
 
 ## Windows-specific behavior

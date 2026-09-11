@@ -1,4 +1,4 @@
-SIPHER 2.0 — GitHub-ready full source bundle
+SIPHER 2.1 — GitHub-ready full source bundle
 
 Public executable
 -----------------
@@ -6,17 +6,18 @@ Public executable
 - Terminal/TTY launches select the CLI; desktop launches select the GUI.
 - `--cli`, `--gui`, and `SIPHER_UI=cli|gui` override automatic selection.
 
-Included 2.0 feature baseline
+Included 2.1 feature baseline
 -----------------------------
-- r18 DID/route/audit and security fixes retained.
-- r19 simultaneous multi-SIP registration and zero-account startup retained.
+- r18 route/audit/security fixes and r19 simultaneous multi-SIP/zero-account startup retained.
 - Qt 6 QTableWidget double-click compile fix retained.
 - Runtime/config/install namespace is SIPHER-only (`~/.config/sipher`, `~/.local/state/sipher`, `share/sipher`, `share/doc/sipher`).
-- DID Intelligence aggregates independent sources and hides failed provider sections.
-- USACallerLookup remains the no-key NANPA/FTC source.
-- SpamCalls/tellows page parsing is attempted only when the provider returns a usable page.
-- Missing carrier/type data can fall back to the Data247/Carrier247 backend when `SIPHER_DATA247_API_KEY` is configured.
-- Optional enhanced HLR/current-carrier lookup remains explicit-only.
+- DID Intelligence uses a provider waterfall and suppresses full failed-provider sections.
+- USACallerLookup remains the no-key US carrier/rate-center/FTC source.
+- SkipCalls is the no-key primary US spam reputation source.
+- Carrier fallback order when configured: Data247/Carrier247 → Veriphone → Omkar.
+- SpamCalls.net → tellows remain best-effort reputation fallbacks.
+- Optional enhanced Neutrino HLR/current-carrier lookup remains explicit-only.
+- Legacy Blue Box/Red Box panels play local-only non-signaling demo audio.
 
 Build entry point
 -----------------
@@ -34,6 +35,6 @@ Validation
 ----------
 Run the complete source/regression gate with:
 
-    bash tests/run_2_0_regression.sh
+    bash tests/run_2_1_regression.sh
 
 This archive intentionally contains source, build scripts, tests, examples, documentation, and GitHub workflow files, but no local build directory or generated binaries.

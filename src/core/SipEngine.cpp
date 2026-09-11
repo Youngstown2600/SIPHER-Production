@@ -1416,7 +1416,7 @@ std::string SipEngine::callReport(int id)const
 {
     const auto c=callSnapshot(id);std::ostringstream o;
     const double rxDen=static_cast<double>(c.rtpRxPackets+c.rtpRxLoss);const double lossPct=rxDen>0?100.0*c.rtpRxLoss/rxDen:0.0;
-    o<<"SIPHER 2.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\nCALL DIAGNOSTIC REPORT\n\n"
+    o<<"SIPHER 2.1 — SIP Inspection, Protocol Handling, Enumeration & Recon\nCALL DIAGNOSTIC REPORT\n\n"
      <<"Call ID:        "<<id<<"\nSIP Call-ID:    "<<c.callIdString<<"\nRemote URI:     "<<c.remoteUri<<"\nCaller ID:      "<<c.callerId<<"\nState:          "<<c.state<<"\nLast SIP:       "<<c.lastStatusCode<<" "<<c.lastReason<<"\n"
      <<"Codec:          "<<c.codecName<<(c.codecClockRate?"/"+std::to_string(c.codecClockRate):std::string{})<<"\n"
      <<"Microphone:     "<<(c.microphoneMuted?"MUTED":"live")<<"\n"

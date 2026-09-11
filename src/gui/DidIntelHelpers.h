@@ -14,12 +14,17 @@ struct NormalizedNumber {
 
 NormalizedNumber normalizeNumber(const QString& entered,const QString& countryHint);
 QString parseUsaCallerLookup(const QByteArray& payload,const QString& entered,const NormalizedNumber& number);
+QString parseUsaCallerLookupHtml(const QByteArray& payload,const QString& entered,const NormalizedNumber& number);
 bool usaCallerLookupNeedsCarrierFallback(const QByteArray& payload);
+QString usaCallerLookupHtmlUrl(const NormalizedNumber& number);
 QString parseSpamCalls(const QByteArray& payload,const NormalizedNumber& number);
 QString parseTellows(const QByteArray& payload,const NormalizedNumber& number);
 QString parseCQui(const QByteArray& payload,const NormalizedNumber& number);
 QString parseNeutrinoHlr(const QByteArray& payload,const NormalizedNumber& number);
 QString parseData247Carrier(const QByteArray& payload,const NormalizedNumber& number);
+QString parseSkipCalls(const QByteArray& payload,const NormalizedNumber& number);
+QString parseVeriphoneCarrier(const QByteArray& payload,const NormalizedNumber& number);
+QString parseOmkarCarrier(const QByteArray& payload,const NormalizedNumber& number);
 QString spamCallsUrl(const NormalizedNumber& number);
 QString tellowsUrl(const NormalizedNumber& number);
 QString cQuiUrl(const NormalizedNumber& number);

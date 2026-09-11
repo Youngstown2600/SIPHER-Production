@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(SIPHERClient VERSION 2.0.0 LANGUAGES CXX)
+project(SIPHERClient VERSION 2.1.0 LANGUAGES CXX)
 option(SIPHER_BUILD_GUI "Build Qt GUI" ON)
 option(SIPHER_BUILD_CLI "Build CLI" ON)
 option(SIPHER_BUILD_TESTS "Build tests" ON)
@@ -94,7 +94,7 @@ if(WIN32)
 endif()
 set(SIPHER_INSTALL)
 
-# SIPHER 2.0 exposes one public executable name: `sipher`.
+# SIPHER 2.1 exposes one public executable name: `sipher`.
 # - CLI-only build: sipher contains the CLI frontend.
 # - GUI-only build: sipher contains the Qt frontend.
 # - CLI+GUI build: sipher contains both frontends and src/app/main.cpp selects
@@ -151,8 +151,8 @@ if(SIPHER_APP_SOURCES)
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_BUNDLE_NAME "SIPHER"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.sipher.client"
-    MACOSX_BUNDLE_SHORT_VERSION_STRING "2.0"
-    MACOSX_BUNDLE_BUNDLE_VERSION "2.0.0")
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "2.1"
+    MACOSX_BUNDLE_BUNDLE_VERSION "2.1.0")
   endif()
  endif()
  list(APPEND SIPHER_INSTALL sipher-app)
@@ -190,7 +190,7 @@ if(SIPHER_BUILD_TESTS)
   # modules by design.
   add_test(NAME r18-did-route-audit-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r18_did_route_audit_source_test.sh)
   add_test(NAME r19-multi-account-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/r19_multi_account_source_test.sh)
-  add_test(NAME sipher-2.0-unified-entry-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/sipher_2_0_unified_entry_source_test.sh)
+  add_test(NAME sipher-2.1-unified-entry-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/sipher_2_1_unified_entry_source_test.sh)
   add_test(NAME all-platform-builder-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/all_platform_builder_source_test.sh)
   add_test(NAME exploit-fix-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/exploit_fix_source_test.sh)
   add_test(NAME did-intel-source COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/did_intel_source_test.sh)
@@ -216,7 +216,7 @@ endif()
 install(FILES examples/profile.conf.example examples/destinations.txt examples/callerids.txt
  DESTINATION share/sipher/examples)
 install(FILES README.md OPERATOR_GUIDE.md RELEASE_NOTES.md CHANGELOG.md SECURITY_AUDIT.md R16-MODERNIZATION.md UI-IDENTITY-R17.md
- EXPLOIT-FIX-RELEASE-NOTES.md R18-DID-ROUTE-AUDIT-RELEASE-NOTES.md R19-MULTI-SIP-RELEASE-NOTES.md SIPHER-2.0-RELEASE-NOTES.md DID-INTELLIGENCE.md
+ EXPLOIT-FIX-RELEASE-NOTES.md R18-DID-ROUTE-AUDIT-RELEASE-NOTES.md R19-MULTI-SIP-RELEASE-NOTES.md SIPHER-2.0-RELEASE-NOTES.md SIPHER-2.1-RELEASE-NOTES.md DID-INTELLIGENCE.md
  DESTINATION share/doc/sipher)
 
 # EXPLOIT_FIX_HARDENING: compiler/linker defenses for the security release.

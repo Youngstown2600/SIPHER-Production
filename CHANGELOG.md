@@ -1,3 +1,15 @@
+# SIPHER 2.1 — 2026-09-11
+
+- Rebuilt DID Intelligence as a carrier/reputation waterfall instead of firing all providers simultaneously.
+- Added SkipCalls' no-auth JSON spam lookup as the primary US spam signal.
+- Kept USACallerLookup as the no-key US carrier/rate-center/FTC source, with its public number page as a carrier fallback.
+- Added configured carrier fallbacks for Carrier247/Data247 (`SIPHER_DATA247_API_KEY`), Veriphone (`SIPHER_VERIPHONE_API_KEY`), and Omkar (`SIPHER_OMKAR_API_KEY`).
+- Kept SpamCalls.net and tellows as best-effort reputation fallbacks; unavailable 410/403 pages no longer dominate the operator output.
+- Normal DIP never automatically uses higher-cost Veriphone current-carrier mode or Neutrino HLR.
+- Data247/Carrier247 results retain SMS/MMS gateway, OCN/MNO, line-type, and port-date fields when returned by the configured service.
+- Legacy Blue Box/Red Box labs now play local-only non-signaling demo audio; no generated audio is bridged into SIP/RTP or an active call.
+- Bumped application/CMake/User-Agent packaging to 2.1 / 2.1.0 / SIPHER/2.1.
+
 # SIPHER 2.0 — 2026-09-11
 
 - Replaced the runtime IPQualityScore DID dependency with USACallerLookup's no-key JSON API for US carrier/line-type/location and FTC/community complaint signals.

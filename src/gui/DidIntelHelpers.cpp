@@ -59,6 +59,21 @@ QString stringList(const QJsonValue&v)
     return v.isString()?v.toString():QStringLiteral("N/A");
 }
 
+struct GatewayHints { QString sms; QString mms; };
+
+GatewayHints gatewayHintsForCarrier(const QString& carrier,const QString& nationalDigits)
+{
+    GatewayHints g;const QString c=carrier.toUpper();
+    if(c.contains("T-MOBILE")||c.contains("TMO")||c.contains("METROPCS")||c.contains("METRO BY T-MOBILE")){
+        g.sms=nationalDigits+"@tmomail.net";g.mms=nationalDigits+"@tmomail.net";
+    }else if(c.contains("AT&T")||c.contains("CINGULAR")){
+        g.sms=nationalDigits+"@txt.att.net";g.mms=nationalDigits+"@mms.att.net";
+    }else if(c.contains("VERIZON")||c.contains("CELLCO PARTNERSHIP")){
+        g.sms=nationalDigits+"@vtext.com";g.mms=nationalDigits+"@vzwpix.com";
+    }
+    return g;
+}
+
 QString countryCallingCode(const QString& country)
 {
     if(country=="US"||country=="CA")return "1";
@@ -96,6 +111,13 @@ NormalizedNumber normalizeNumber(const QString& entered,const QString& countryHi
     return out;
 }
 
+QString usaCallerLookupHtmlUrl(const NormalizedNumber& number)
+{
+    if(number.country!="US"||number.nationalDigits.size()!=10)return {};
+    return QStringLiteral("https://www.usacallerlookup.com/%1-%2-%3/")
+        .arg(number.nationalDigits.left(3),number.nationalDigits.mid(3,3),number.nationalDigits.right(4));
+}
+
 QString spamCallsUrl(const NormalizedNumber& number){return QStringLiteral("https://spamcalls.net/en/num/")+number.e164Digits;}
 QString tellowsUrl(const NormalizedNumber& number)
 {
@@ -114,7 +136,7 @@ QString cQuiUrl(const NormalizedNumber& number)
 QString parseUsaCallerLookup(const QByteArray& payload,const QString& entered,const NormalizedNumber& number)
 {
     QJsonParseError parseError{};const auto doc=QJsonDocument::fromJson(payload,&parseError);
-    if(parseError.error!=QJsonParseError::NoError||!doc.isObject())return QString("Provider returned unreadable JSON: %1").arg(parseError.errorString());
+    if(parseError.error!=QJsonParseError::NoError||!doc.isObject())return {};
     const QJsonObject o=doc.object(),location=o.value("location").toObject(),prefix=o.value("prefix").toObject(),numbering=o.value("numbering").toObject(),attribution=o.value("attribution").toObject();
     QJsonObject complaints=o.value("complaints").toObject();if(complaints.isEmpty())complaints=o.value("ftc_complaints").toObject();
     QString carrier=firstString(o,{"carrier","carrier_name"}),lineType=firstString(o,{"line_type","type"});
@@ -132,9 +154,45 @@ QString parseUsaCallerLookup(const QByteArray& payload,const QString& entered,co
     const QString states=stringList(complaints.value("states")),sourceUrl=firstString(attribution,{"url","source_url","number_url"});const bool tollFree=o.value("toll_free").toBool(false);
     QString reputation;if(total<=0)reputation="No FTC complaint records were returned at lookup time.";else if(total<5)reputation=QString("Complaint history present (%1 report%2); treat this as a signal, not a verdict.").arg(total).arg(total==1?"":"s");else if(total<20)reputation=QString("Elevated complaint history (%1 reports).").arg(total);else reputation=QString("Heavy complaint history (%1 reports); caller-ID spoofing can still implicate an innocent subscriber.").arg(total);
     QString out;out+=QString("Query:              %1\nNormalized:         +%2\n").arg(entered,number.e164Digits);out+=QString("Carrier:            %1\nLine type:          %2\nRate center/city:   %3\nState:              %4\nTime zone:          %5\nToll free:          %6\n").arg(carrier,lineType,city,state,timezone,tollFree?"YES":"NO");
+    const auto gateways=gatewayHintsForCarrier(carrier,number.nationalDigits);
+    if(!gateways.sms.isEmpty()||!gateways.mms.isEmpty()){out+=QString("SMS gateway hint:   %1\nMMS gateway hint:   %2\n").arg(gateways.sms.isEmpty()?QStringLiteral("N/A"):gateways.sms,gateways.mms.isEmpty()?QStringLiteral("N/A"):gateways.mms);out+="Gateway addresses are carrier-derived hints; carrier email gateways can be retired or disabled.\n";}
     out+=QString("FTC complaints:     %1\n").arg(total);if(robocallPct>=0)out+=QString("Reported robocall:   %1%\n").arg(robocallPct);else out+=QString("Robocall flag:      %1\n").arg(boolText(complaints.value("robocall")));
     out+=QString("First reported:     %1\nLast reported:      %2\nReporting states:   %3\nTop subjects:       %4\n").arg(firstReported,lastReported,states,subjects);if(communityCount>=0)out+=QString("Community reports:  %1\n").arg(communityCount);else if(o.value("community_reports").isArray())out+=QString("Community reports:  %1\n").arg(o.value("community_reports").toArray().size());
     out+=QString("Reputation:         %1\n").arg(reputation);if(sourceUrl!="N/A")out+=QString("Provider page:      %1\n").arg(sourceUrl);out+="Carrier source is numbering-registry data and may not reflect the serving carrier after porting.";return out;
+}
+
+QString parseUsaCallerLookupHtml(const QByteArray& payload,const QString& entered,const NormalizedNumber& number)
+{
+    const QString text=compactText(payload);if(text.isEmpty())return {};
+    auto field=[&](const QString&label,const QString&next){
+        return match1(text,QRegularExpression::escape(label)+QStringLiteral("\\s+(.{1,180}?)\\s+")+QRegularExpression::escape(next));
+    };
+    QString city=field("City","State");
+    QString state=field("State","Country");
+    QString carrier=field("Carrier","Line Type");
+    QString lineType=field("Line Type","Time Zone");
+    QString timezone=match1(text,QStringLiteral("Time Zone\\s+(.{1,100}?)(?=\\s+(?:Owner Name|Email Address|Current Address|Federal complaint record|Who called from|Common formats|$))"));
+    QString complaints=match1(text,QStringLiteral("([0-9][0-9,]*)\\s+complaints filed"));
+    if(complaints=="N/A"&&text.contains("no complaint",Qt::CaseInsensitive))complaints="0";
+    QString robocall=match1(text,QStringLiteral("([0-9]{1,3})%\\s*reported as robocalls"));
+    QString subject=match1(text,QStringLiteral("most common (?:subject reported|description) was\\s+(.{1,140}?)(?=\\.|\\s+Caller ID|$)"));
+    if(carrier=="N/A"&&lineType=="N/A"&&city=="N/A"&&state=="N/A")return {};
+
+    const auto gateways=gatewayHintsForCarrier(carrier,number.nationalDigits);
+    const QString sms=gateways.sms.isEmpty()?QStringLiteral("N/A"):gateways.sms;
+    const QString mms=gateways.mms.isEmpty()?QStringLiteral("N/A"):gateways.mms;
+    const QString gatewayNote=(!gateways.sms.isEmpty()||!gateways.mms.isEmpty())?QStringLiteral("Gateway addresses are carrier-derived hints; carrier email gateways can be retired or disabled."):QString{};
+
+    QString out;
+    out+=QString("Query:              %1\nNormalized:         +%2\nCarrier:            %3\nLine type:          %4\nRate center/city:   %5\nState:              %6\nTime zone:          %7\n")
+        .arg(entered,number.e164Digits,carrier,lineType,city,state,timezone);
+    if(sms!="N/A"||mms!="N/A")out+=QString("SMS gateway hint:   %1\nMMS gateway hint:   %2\n").arg(sms,mms);
+    if(complaints!="N/A")out+=QString("FTC complaints:     %1\n").arg(complaints);
+    if(robocall!="N/A")out+=QString("Reported robocall:  %1%\n").arg(robocall);
+    if(subject!="N/A")out+=QString("Top complaint:      %1\n").arg(subject);
+    if(!gatewayNote.isEmpty())out+=gatewayNote+"\n";
+    out+=QString("Provider page:      %1\nCarrier source is numbering-registry data and may not reflect the serving carrier after porting.").arg(usaCallerLookupHtmlUrl(number));
+    return out;
 }
 
 bool usaCallerLookupNeedsCarrierFallback(const QByteArray& payload)
@@ -219,6 +277,56 @@ QString parseData247Carrier(const QByteArray& payload,const NormalizedNumber& nu
     out+=QString("Number:             +%1\nCarrier:            %2\nLine type:          %3\nWireless:           %4\n").arg(number.e164Digits,carrier,type,wireless);
     out+=QString("SMS gateway:        %1\nMMS gateway:        %2\nOCN:                %3\nMNO:                %4\nLast port date:     %5\n").arg(sms,mms,ocn,mno,lastPort);
     out+=QString("City / state:       %1 / %2\nTime zone:          %3\nSource:             Data247 Carrier247 (programmatic backend linked by FreeCarrierLookup.com)").arg(city,state,tz);
+    return out;
+}
+
+QString parseSkipCalls(const QByteArray& payload,const NormalizedNumber& number)
+{
+    QJsonParseError err{};const auto doc=QJsonDocument::fromJson(payload,&err);
+    if(err.error!=QJsonParseError::NoError||!doc.isObject())return {};
+    const auto o=doc.object();const auto spam=o.value("is_spam");if(!spam.isBool())return {};
+    const int statusCode=firstInt(o,{"status_code"},-1);
+    const QString description=firstString(o,{"status_description","description","category"});
+    QString out=QString("Number:             +%1\nReported spam:      %2\n").arg(number.e164Digits,spam.toBool()?QStringLiteral("YES"):QStringLiteral("NO"));
+    if(statusCode>=0)out+=QString("Spam status code:   %1\n").arg(statusCode);
+    if(description!="N/A")out+=QString("Spam category:      %1\n").arg(description);
+    const auto rt=o.value("response_time_ms");if(rt.isDouble())out+=QString("Provider latency:   %1 ms\n").arg(rt.toDouble(),0,'f',2);
+    out+="Source:             SkipCalls free spam-check API\n";
+    out+="Interpretation:     A NO result means this provider does not currently label the number as spam; it is not proof that the caller is safe.";
+    return out;
+}
+
+QString parseVeriphoneCarrier(const QByteArray& payload,const NormalizedNumber& number)
+{
+    QJsonParseError err{};const auto doc=QJsonDocument::fromJson(payload,&err);
+    if(err.error!=QJsonParseError::NoError||!doc.isObject())return {};
+    const auto o=doc.object();if(o.value("status").toString().compare("success",Qt::CaseInsensitive)!=0)return {};
+    const QString carrier=firstString(o,{"carrier"}),type=firstString(o,{"phone_type"}),region=firstString(o,{"phone_region"}),country=firstString(o,{"country","country_code"});
+    const QString originalCarrier=firstString(o,{"original_carrier"}),currentCarrier=firstString(o,{"current_carrier"}),currentType=firstString(o,{"current_line_type"});
+    if(carrier=="N/A"&&type=="N/A"&&region=="N/A"&&originalCarrier=="N/A"&&currentCarrier=="N/A")return {};
+    QString out=QString("Number:             +%1\nValid numbering:    %2\nCarrier:            %3\nLine type:          %4\nRegion:             %5\nCountry:            %6\n")
+        .arg(number.e164Digits,boolText(o.value("phone_valid")),carrier,type,region,country);
+    const QString mode=firstString(o,{"mode"});if(mode!="N/A")out+=QString("Lookup mode:        %1\n").arg(mode);
+    if(originalCarrier!="N/A")out+=QString("Original carrier:   %1\n").arg(originalCarrier);
+    if(currentCarrier!="N/A")out+=QString("Current carrier:    %1\n").arg(currentCarrier);
+    if(currentType!="N/A")out+=QString("Current line type:  %1\n").arg(currentType);
+    if(o.value("ported").isBool())out+=QString("Ported:             %1\n").arg(o.value("ported").toBool()?"YES":"NO");
+    const QString tz=stringList(o.value("timezone"));if(tz!="N/A")out+=QString("Time zone:          %1\n").arg(tz);
+    out+="Source:             Veriphone API";
+    return out;
+}
+
+QString parseOmkarCarrier(const QByteArray& payload,const NormalizedNumber& number)
+{
+    QJsonParseError err{};const auto doc=QJsonDocument::fromJson(payload,&err);
+    if(err.error!=QJsonParseError::NoError||!doc.isObject())return {};
+    const auto o=doc.object();const QString carrier=firstString(o,{"carrier"}),type=firstString(o,{"line_type"});
+    if(carrier=="N/A"&&type=="N/A")return {};
+    QString out=QString("Number:             +%1\nValid numbering:    %2\nCarrier:            %3\nLine type:          %4\nCountry:            %5\nNational format:    %6\n")
+        .arg(number.e164Digits,boolText(o.value("is_valid_number")),carrier,type,firstString(o,{"country_code"}),firstString(o,{"national_format"}));
+    const QString mcc=firstString(o,{"mobile_country_code"}),mnc=firstString(o,{"mobile_network_code"});
+    if(mcc!="N/A"||mnc!="N/A")out+=QString("MCC / MNC:          %1 / %2\n").arg(mcc,mnc);
+    out+="Source:             Omkar Phone Lookup API";
     return out;
 }
 

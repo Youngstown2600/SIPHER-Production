@@ -437,7 +437,7 @@ void CallSession::startSipTraceFile(const std::string& path)
     }
     protectFile(path);
     sipTracePath_ = path;
-    sipTraceFile_ << "# SIPHER 2.0 single-call SIP trace\n# Call-ID: "
+    sipTraceFile_ << "# SIPHER 2.1 single-call SIP trace\n# Call-ID: "
                   << snapshot_.callIdString << "\n\n";
     for (const auto& entry : sipTrace_) {
         sipTraceFile_ << formatTraceEntry(entry);

@@ -23,6 +23,7 @@
 #include <QDialog>
 #include <QElapsedTimer>
 #include <QEventLoop>
+#include <QFile>
 #include <QFileDialog>
 #include <QFontDatabase>
 #include <QFormLayout>
@@ -48,19 +49,25 @@
 #include <QUrlQuery>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QPixmap>
 #include <QPushButton>
 #include <QSettings>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTabBar>
 #include <QTableWidget>
 #include <QTableWidgetItem>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <cmath>
+#include <cstdint>
+#include <memory>
 #include <filesystem>
 #include <sstream>
 #include <QStringList>
@@ -120,11 +127,55 @@ std::string safeAccountId(QString seed,const std::vector<SipAccountStatus>& exis
     for(unsigned n=2;used(candidate);++n)candidate=base+"-"+std::to_string(n);
     return candidate;
 }
+
+struct DemoToneSegment { double f1; double f2; int milliseconds; };
+
+void appendLe16(QByteArray& out,quint16 v){out.append(char(v&0xff));out.append(char((v>>8)&0xff));}
+void appendLe32(QByteArray& out,quint32 v){out.append(char(v&0xff));out.append(char((v>>8)&0xff));out.append(char((v>>16)&0xff));out.append(char((v>>24)&0xff));}
+
+QString createLocalDemoTone(const std::vector<DemoToneSegment>& segments)
+{
+    constexpr int sampleRate=44100;constexpr double amplitude=0.16;constexpr double pi=3.14159265358979323846;
+    QByteArray pcm;
+    for(const auto&seg:segments){
+        const int count=std::max(1,(sampleRate*seg.milliseconds)/1000);
+        for(int i=0;i<count;++i){
+            const double t=double(i)/double(sampleRate);double sample=0.0;int voices=0;
+            if(seg.f1>0.0){sample+=std::sin(2.0*pi*seg.f1*t);++voices;}
+            if(seg.f2>0.0){sample+=std::sin(2.0*pi*seg.f2*t);++voices;}
+            if(voices)sample/=double(voices);
+            const auto value=static_cast<qint16>(std::clamp(sample*amplitude,-1.0,1.0)*32767.0);
+            appendLe16(pcm,static_cast<quint16>(value));
+        }
+    }
+    QByteArray wav;wav.reserve(44+pcm.size());wav.append("RIFF",4);appendLe32(wav,36u+quint32(pcm.size()));wav.append("WAVEfmt ",8);appendLe32(wav,16);appendLe16(wav,1);appendLe16(wav,1);appendLe32(wav,sampleRate);appendLe32(wav,sampleRate*2);appendLe16(wav,2);appendLe16(wav,16);wav.append("data",4);appendLe32(wav,quint32(pcm.size()));wav.append(pcm);
+    QTemporaryFile file(QDir::tempPath()+QStringLiteral("/sipher-legacy-demo-XXXXXX.wav"));file.setAutoRemove(false);if(!file.open())return {};if(file.write(wav)!=wav.size()){const auto name=file.fileName();file.close();QFile::remove(name);return {};}const QString path=file.fileName();file.close();return path;
+}
+
+bool playLocalDemoTone(const std::vector<DemoToneSegment>& segments)
+{
+    const QString path=createLocalDemoTone(segments);if(path.isEmpty()){QApplication::beep();return false;}
+    QString player;QStringList args;
+#if defined(Q_OS_MACOS)
+    player=QStandardPaths::findExecutable(QStringLiteral("afplay"));args<<path;
+#elif defined(Q_OS_WIN)
+    player=QStandardPaths::findExecutable(QStringLiteral("powershell.exe"));if(player.isEmpty())player=QStandardPaths::findExecutable(QStringLiteral("powershell"));
+    QString escaped=path;escaped.replace("'","''");args<<QStringLiteral("-NoProfile")<<QStringLiteral("-Command")<<QStringLiteral("$p=New-Object System.Media.SoundPlayer('%1');$p.PlaySync()").arg(escaped);
+#else
+    player=QStandardPaths::findExecutable(QStringLiteral("pw-play"));if(!player.isEmpty())args<<path;
+    else{player=QStandardPaths::findExecutable(QStringLiteral("paplay"));if(!player.isEmpty())args<<path;
+    else{player=QStandardPaths::findExecutable(QStringLiteral("aplay"));if(!player.isEmpty())args<<QStringLiteral("-q")<<path;
+    else{player=QStandardPaths::findExecutable(QStringLiteral("ffplay"));if(!player.isEmpty())args<<QStringLiteral("-nodisp")<<QStringLiteral("-autoexit")<<QStringLiteral("-loglevel")<<QStringLiteral("quiet")<<path;}}}
+#endif
+    const bool ok=!player.isEmpty()&&QProcess::startDetached(player,args);
+    if(!ok)QApplication::beep();
+    QTimer::singleShot(15000,qApp,[path](){QFile::remove(path);});return ok;
+}
 }
 
 MainWindow::MainWindow(SipEngine&e,MultiCallManager&m,Logger&l,std::string profilePath,QWidget*p):QMainWindow(p),engine_(e),multi_(m),logger_(l),profilePath_(std::move(profilePath)){
     accountsDir_=(std::filesystem::path(profilePath_).parent_path()/"accounts").string();
-    network_=new QNetworkAccessManager(this);buildUi();setWindowTitle("SIPHER 2.0 — Multi-Account / DID Intelligence / Route Audit");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
+    network_=new QNetworkAccessManager(this);buildUi();setWindowTitle("SIPHER 2.1 — Multi-Account / DID Intelligence / Route Audit");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
 }
 void MainWindow::buildUi(){
     auto* fileMenu=menuBar()->addMenu(QStringLiteral("&File"));
@@ -162,10 +213,10 @@ void MainWindow::buildUi(){
 
     auto* legacyMenu=menuBar()->addMenu(QStringLiteral("&Legacy"));
     auto* blueBoxAction=legacyMenu->addAction(QStringLiteral("&Blue Tone / Blue Box — Historical Lab..."));
-    blueBoxAction->setToolTip(QStringLiteral("Historical signaling reference/simulator panel. Live network-control tone generation is intentionally disabled."));
+    blueBoxAction->setToolTip(QStringLiteral("Historical signaling audio demo. Tones play only on the local speaker and are never injected into SIP/RTP."));
     connect(blueBoxAction,&QAction::triggered,this,&MainWindow::showBlueBoxLegacy);
     auto* redBoxAction=legacyMenu->addAction(QStringLiteral("&Red Box — Historical Lab..."));
-    redBoxAction->setToolTip(QStringLiteral("Historical payphone-signaling reference/simulator panel. Live coin-control tone generation is intentionally disabled."));
+    redBoxAction->setToolTip(QStringLiteral("Historical audio demo. Local-only demo sequences are never injected into SIP/RTP or an active call."));
     connect(redBoxAction,&QAction::triggered,this,&MainWindow::showRedBoxLegacy);
 
     auto*c=new QWidget;
@@ -179,7 +230,7 @@ void MainWindow::buildUi(){
     if(!brandPixmap.isNull()) brand->setPixmap(brandPixmap.scaledToWidth(192,Qt::SmoothTransformation));
     else { brand->setText(QStringLiteral("SIPHER")); brand->setObjectName(QStringLiteral("BrandTitle")); }
     side->addWidget(brand);
-    auto*edition=new QLabel(QStringLiteral("r19 // MULTI-SIP / DID INTEL"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
+    auto*edition=new QLabel(QStringLiteral("2.1 // MULTI-SIP / DID INTEL"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
     auto*tagline=new QLabel(QStringLiteral("DID INTEL / SIGNAL TAP / SWITCH AUDIT"),sidebar);tagline->setObjectName(QStringLiteral("Muted"));tagline->setWordWrap(true);side->addWidget(tagline);
     side->addSpacing(14);
     auto*navHost=new QWidget(sidebar);auto*nav=new QVBoxLayout(navHost);nav->setContentsMargins(0,0,0,0);nav->setSpacing(4);side->addWidget(navHost);
@@ -228,7 +279,7 @@ void MainWindow::buildUi(){
     didNumber_=new QLineEdit;didNumber_->setPlaceholderText("DID / telephone number, preferably E.164 (for example +13305551212)");
     didCountry_=new QComboBox;didCountry_->setEditable(true);didCountry_->addItems({"US","CA","GB","AU","DE","FR","JP"});didCountry_->setCurrentText("US");didCountry_->setToolTip("Country hint used when the number is not already entered in +E.164 form.");
     didForm->addRow("DID / Number",didNumber_);didForm->addRow("Country hint",didCountry_);didBox->addLayout(didForm);
-    auto*didNote=new QLabel("DIP / LOOKUP DID aggregates carrier and reputation sources inside SIPHER. USACallerLookup provides free US numbering/FTC data; missing carrier/type data can fall back to the Data247 Carrier247 backend used by FreeCarrierLookup.com when SIPHER_DATA247_API_KEY is configured. SpamCalls.net and tellows are parsed internally and unavailable/blocked sources are hidden instead of consuming output space. ENHANCED HLR uses Neutrino only when explicitly clicked. Reputation reports are signals, not proof of fraud; spoofed caller ID can implicate an innocent number.");didNote->setWordWrap(true);didBox->addWidget(didNote);
+    auto*didNote=new QLabel("DIP / LOOKUP DID uses a fallback waterfall. US numbers start with no-key USACallerLookup carrier/FTC data and SkipCalls spam reputation. Missing carrier/type can fall back to configured Carrier247/Data247, Veriphone, then Omkar; SpamCalls.net and tellows are best-effort reputation fallbacks. Failed providers stay compact instead of filling the output pane. ENHANCED HLR remains explicit-only. Reputation reports are signals, not proof of fraud; spoofed caller ID can implicate an innocent number.");didNote->setWordWrap(true);didBox->addWidget(didNote);
     auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*hlrButton=new QPushButton("ENHANCED HLR / CURRENT CARRIER");hlrButton->setToolTip("Explicit Neutrino HLR lookup. This may consume paid API credits and never runs automatically.");connect(hlrButton,&QPushButton::clicked,this,&MainWindow::lookupNeutrinoHlr);didButtons->addWidget(hlrButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
     didOutput_=new QPlainTextEdit;didOutput_->setReadOnly(true);didOutput_->setPlaceholderText("DID carrier and reputation results appear here.");didOutput_->setMaximumBlockCount(2000);didBox->addWidget(didOutput_,1);didLayout->addWidget(didGroup,1);
 
@@ -260,7 +311,7 @@ void MainWindow::buildUi(){
     std::vector<QPushButton*> navButtons;
     for(int i=0;i<navText.size();++i){auto*button=new QPushButton(navText[i],navHost);button->setCheckable(true);button->setProperty("nav",true);button->setChecked(i==0);nav->addWidget(button);navButtons.push_back(button);connect(button,&QPushButton::clicked,this,[this,i](){tabs_->setCurrentIndex(i);});}
     connect(tabs_,&QTabWidget::currentChanged,this,[pageTitle,pageSubtitle,navButtons,navNames,subtitles](int index){if(index>=0&&index<navNames.size()){pageTitle->setText(navNames[index]);pageSubtitle->setText(subtitles[index]);}for(int i=0;i<(int)navButtons.size();++i)navButtons[(std::size_t)i]->setChecked(i==index);});
-    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("SIPHER 2.0 // MULTI-SIP // DID INTEL // NEXT-OUT // SWITCH AUDIT+");refreshAccountSelector();setDiagnosticsEnabled(false);
+    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("SIPHER 2.1 // MULTI-SIP // DID INTEL // NEXT-OUT // SWITCH AUDIT+");refreshAccountSelector();setDiagnosticsEnabled(false);
 }
 
 void MainWindow::refreshAccountSelector()
@@ -516,87 +567,147 @@ void MainWindow::lookupDid()
     const auto number=didintel::normalizeNumber(entered,country);
     if(!number.valid){QMessageBox::information(this,"DID Intelligence",number.error);return;}
 
+    struct LookupState { int pending{0}; int results{0}; bool finalized{false}; QStringList notes; };
+    const auto state=std::make_shared<LookupState>();
     const int serial=++didLookupSerial_;
-    didOutput_->setPlainText(QString("SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n================================================\nQuery:      %1\nNormalized: +%2\nCountry:    %3\n\nOnly providers that return usable data are shown. Unavailable/blocked lookups are silently skipped.\n").arg(entered,number.e164Digits,number.country));
-    statusBar()->showMessage("Running DID intelligence providers...",5000);
-
-    auto appendResult=[this,serial](const QString&provider,const QString&result){
-        if(serial!=didLookupSerial_||!didOutput_||result.trimmed().isEmpty())return;
-        didOutput_->appendPlainText("\n\n[ "+provider+" ]\n"+QString(provider.size()+4,QChar('-'))+"\n"+result.trimmed());
-    };
+    didOutput_->setPlainText(QString("SIPHER 2.1 — DID / NUMBER INTELLIGENCE\n================================================\nQuery:      %1\nNormalized: +%2\nCountry:    %3\nValidation: E.164 syntax accepted\n\nRunning free carrier/reputation sources first; configured API fallbacks are used only when needed...\n").arg(entered,number.e164Digits,number.country));
+    statusBar()->showMessage("Running SIPHER 2.1 DID intelligence waterfall...",5000);
 
     auto makeRequest=[](const QUrl&url,bool html){
         QNetworkRequest request(url);
         request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::NoLessSafeRedirectPolicy);
-        request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/152 Safari/537.36 SIPHER/2.0"));
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+        // A dead/filtered reputation source must not leave the whole DIP looking hung.
+        request.setTransferTimeout(7000);
+#endif
+        request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/152 Safari/537.36 SIPHER/2.1"));
         request.setRawHeader("Accept-Language","en-US,en;q=0.8");
         request.setRawHeader("Accept",html?"text/html,application/xhtml+xml;q=0.9,*/*;q=0.5":"application/json,*/*;q=0.5");
         return request;
     };
+    auto finishIfDone=[this,serial,state](){
+        if(serial!=didLookupSerial_||!didOutput_||state->pending!=0||state->finalized)return;
+        state->finalized=true;
+        if(state->results==0){
+            QString text="\n\nNo live provider returned a usable carrier or reputation record.";
+            if(!state->notes.isEmpty())text+="\nProvider status: "+state->notes.join("; ");
+            text+="\n\nThe number itself normalized successfully. Optional carrier APIs can be enabled with SIPHER_DATA247_API_KEY, SIPHER_VERIPHONE_API_KEY, or SIPHER_OMKAR_API_KEY.";
+            didOutput_->appendPlainText(text);
+            statusBar()->showMessage("DID lookup finished — no live provider record",7000);
+        }else{
+            didOutput_->appendPlainText(QString("\n\nProvider summary: %1 usable result%2 returned. Failed/unavailable fallbacks were not expanded into output sections.")
+                .arg(state->results).arg(state->results==1?QString{}:QStringLiteral("s")));
+            statusBar()->showMessage(QString("DID lookup complete — %1 usable provider result(s)").arg(state->results),7000);
+        }
+        didOutput_->appendPlainText("\n\nSafety note: carrier allocations and community spam reports can disagree. Porting changes the serving carrier, and caller-ID spoofing can attach complaints to an innocent subscriber. Reputation data is a signal, not proof of fraud.");
+    };
+    auto begin=[state](){++state->pending;};
+    auto finish=[this,serial,state,finishIfDone](){if(serial!=didLookupSerial_)return;if(state->pending>0)--state->pending;finishIfDone();};
+    auto note=[state](const QString&provider,const QString&why){state->notes<<provider+": "+why;};
+    auto appendResult=[this,serial,state](const QString&provider,const QString&result){
+        if(serial!=didLookupSerial_||!didOutput_||result.trimmed().isEmpty())return false;
+        didOutput_->appendPlainText("\n\n[ "+provider+" ]\n"+QString(provider.size()+4,QChar('-'))+"\n"+result.trimmed());++state->results;return true;
+    };
 
-    // FreeCarrierLookup.com itself currently sits behind anti-bot/CAPTCHA
-    // controls.  Its linked programmatic backend is Data247 Carrier247.  We
-    // call that backend only as a carrier fallback and only when the operator
-    // supplied a key, so a routine free lookup never consumes paid credits.
-    auto startCarrierFallback=[this,serial,number,appendResult,makeRequest](){
+    // Carrier waterfall.  The public FreeCarrierLookup form is protected by
+    // Cloudflare/CAPTCHA, so SIPHER uses its supported Carrier247/Data247 API
+    // path when configured rather than attempting to bypass those controls.
+    auto startOmkarFallback=[this,serial,number,begin,finish,note,appendResult,makeRequest](){
         if(serial!=didLookupSerial_||!network_)return;
-        const QByteArray key=qgetenv("SIPHER_DATA247_API_KEY");if(key.isEmpty())return;
-        QUrl url(QStringLiteral("https://api.data247.com/v3.0"));QUrlQuery q;
-        q.addQueryItem("key",QString::fromUtf8(key));q.addQueryItem("api",qEnvironmentVariable("SIPHER_DATA247_API_CODE",QStringLiteral("C")));q.addQueryItem("phone",number.e164Digits);
-        q.addQueryItem("addfields",QStringLiteral("type,ocn,timezone,last_port_date,dba,mno,city,state,country,zip"));url.setQuery(q);
-        auto*reply=network_->get(makeRequest(url,false));
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
-            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();
-            if(serial!=didLookupSerial_||error!=QNetworkReply::NoError)return;
-            appendResult("FreeCarrierLookup / Data247",didintel::parseData247Carrier(payload,number));
+        const QByteArray key=qgetenv("SIPHER_OMKAR_API_KEY");if(key.isEmpty()){note("Omkar carrier API","API key not configured");return;}
+        QUrl url(QStringLiteral("https://carrier-lookup-api.omkar.cloud/lookup"));QUrlQuery q;q.addQueryItem("phone",QStringLiteral("+")+number.e164Digits);url.setQuery(q);
+        QNetworkRequest request=makeRequest(url,false);request.setRawHeader("API-Key",key);
+        begin();auto*reply=network_->get(request);
+        connect(reply,&QNetworkReply::finished,this,[reply,appendResult,note,finish,number](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            if(error==QNetworkReply::NoError){if(!appendResult("Omkar carrier fallback",didintel::parseOmkarCarrier(payload,number)))note("Omkar carrier API","no usable carrier fields returned");}
+            else note("Omkar carrier API",QString("HTTP %1").arg(status));finish();
         });
     };
 
-    // US numbering / FTC result.  If carrier or line type are absent, move to
-    // the port-aware Carrier247 backend (when configured) instead of displaying
-    // a failed provider block.
+    auto startVeriphoneFallback=[this,serial,number,begin,finish,note,appendResult,makeRequest,startOmkarFallback](){
+        if(serial!=didLookupSerial_||!network_)return;
+        const QByteArray key=qgetenv("SIPHER_VERIPHONE_API_KEY");if(key.isEmpty()){note("Veriphone","API key not configured");startOmkarFallback();return;}
+        QUrl url(QStringLiteral("https://api.veriphone.io/v3/verify"));QUrlQuery q;q.addQueryItem("phone",QStringLiteral("+")+number.e164Digits);q.addQueryItem("mode",QStringLiteral("static"));url.setQuery(q);
+        QNetworkRequest request=makeRequest(url,false);request.setRawHeader("Authorization",QByteArray("Bearer ")+key);
+        begin();auto*reply=network_->get(request);
+        connect(reply,&QNetworkReply::finished,this,[reply,appendResult,note,finish,number,startOmkarFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            bool usable=false;if(error==QNetworkReply::NoError)usable=appendResult("Veriphone carrier fallback",didintel::parseVeriphoneCarrier(payload,number));
+            if(!usable){note("Veriphone",error==QNetworkReply::NoError?QStringLiteral("no usable carrier fields returned"):QString("HTTP %1").arg(status));startOmkarFallback();}
+            finish();
+        });
+    };
+
+    auto startCarrierFallback=[this,serial,number,begin,finish,note,appendResult,makeRequest,startVeriphoneFallback](){
+        if(serial!=didLookupSerial_||!network_)return;
+        const QByteArray key=qgetenv("SIPHER_DATA247_API_KEY");if(key.isEmpty()){note("FreeCarrierLookup/Carrier247","API key not configured");startVeriphoneFallback();return;}
+        QUrl url(QStringLiteral("https://api.data247.com/v3.0"));QUrlQuery q;q.addQueryItem("key",QString::fromUtf8(key));q.addQueryItem("api",qEnvironmentVariable("SIPHER_DATA247_API_CODE",QStringLiteral("C")));q.addQueryItem("phone",number.e164Digits);q.addQueryItem("addfields",QStringLiteral("type,ocn,timezone,last_port_date,dba,mno,city,state,country,zip"));url.setQuery(q);
+        begin();auto*reply=network_->get(makeRequest(url,false));
+        connect(reply,&QNetworkReply::finished,this,[reply,number,appendResult,note,finish,startVeriphoneFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            bool usable=false;if(error==QNetworkReply::NoError)usable=appendResult("FreeCarrierLookup / Carrier247",didintel::parseData247Carrier(payload,number));
+            if(!usable){note("FreeCarrierLookup/Carrier247",error==QNetworkReply::NoError?QStringLiteral("no usable carrier fields returned"):QString("HTTP %1").arg(status));startVeriphoneFallback();}
+            finish();
+        });
+    };
+
+    auto startUsaHtmlFallback=[this,serial,entered,number,begin,finish,note,appendResult,makeRequest,startCarrierFallback](){
+        const QString target=didintel::usaCallerLookupHtmlUrl(number);if(target.isEmpty()){startCarrierFallback();return;}
+        begin();auto*reply=network_->get(makeRequest(QUrl(target),true));
+        connect(reply,&QNetworkReply::finished,this,[reply,entered,number,appendResult,note,finish,startCarrierFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            bool hasCarrier=false;
+            if(error==QNetworkReply::NoError){const QString parsed=didintel::parseUsaCallerLookupHtml(payload,entered,number);if(appendResult("USACallerLookup page fallback",parsed))hasCarrier=!parsed.contains("Carrier:            N/A")&&!parsed.contains("Line type:          N/A");else note("USACallerLookup page","no usable carrier/location fields found");}
+            else note("USACallerLookup page",QString("HTTP %1").arg(status));
+            if(!hasCarrier)startCarrierFallback();finish();
+        });
+    };
+
     if(number.country=="US"&&number.nationalDigits.size()==10){
-        QUrl url(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+number.nationalDigits);
-        auto*reply=network_->get(makeRequest(url,false));
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,entered,number,appendResult,startCarrierFallback](){
-            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;
-            if(error!=QNetworkReply::NoError){startCarrierFallback();return;}
-            appendResult("USACallerLookup",didintel::parseUsaCallerLookup(payload,entered,number));
-            if(didintel::usaCallerLookupNeedsCarrierFallback(payload))startCarrierFallback();
+        begin();QUrl url(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+number.nationalDigits);auto*reply=network_->get(makeRequest(url,false));
+        connect(reply,&QNetworkReply::finished,this,[reply,entered,number,appendResult,note,finish,startUsaHtmlFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            if(error==QNetworkReply::NoError){const QString parsed=didintel::parseUsaCallerLookup(payload,entered,number);if(!appendResult("USACallerLookup",parsed))note("USACallerLookup API","response contained no usable fields");if(didintel::usaCallerLookupNeedsCarrierFallback(payload))startUsaHtmlFallback();}
+            else{note("USACallerLookup API",QString("HTTP %1").arg(status));startUsaHtmlFallback();}finish();
         });
-    }else if(number.country=="CA"){
-        startCarrierFallback();
-    }
+    }else startCarrierFallback();
 
-    // SpamCalls returns HTTP 410 for numbers for which it has no live number
-    // page.  That means "no result here", not an application error, so it is
-    // intentionally silent and tellows remains available as the next source.
-    {
-        auto*reply=network_->get(makeRequest(QUrl(didintel::spamCallsUrl(number)),true));
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
-            const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();if(serial!=didLookupSerial_)return;
-            if(error==QNetworkReply::NoError)appendResult("SpamCalls.net",didintel::parseSpamCalls(payload,number));
-            else if(httpStatus==410)return;
+    // Reputation waterfall: SkipCalls is the primary no-auth US spam signal.
+    // Only if it cannot answer do we spend time on HTML community fallbacks.
+    auto startTellowsFallback=[this,serial,number,begin,finish,note,appendResult,makeRequest](){
+        begin();auto*reply=network_->get(makeRequest(QUrl(didintel::tellowsUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[reply,number,appendResult,note,finish](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            if(error==QNetworkReply::NoError){if(!appendResult("tellows reputation fallback",didintel::parseTellows(payload,number)))note("tellows","no reputation fields on page");}
+            else if(status==403)note("tellows","automated page access blocked");else note("tellows",QString("HTTP %1").arg(status));finish();
         });
-    }
+    };
 
-    // tellows uses national-number paths for NANPA numbers.  403 responses are
-    // treated as provider-side anti-automation policy and hidden; SIPHER does
-    // not attempt to defeat a WAF/Cloudflare challenge.
-    {
-        auto*reply=network_->get(makeRequest(QUrl(didintel::tellowsUrl(number)),true));
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){
-            const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;
-            if(error==QNetworkReply::NoError)appendResult("tellows",didintel::parseTellows(payload,number));
+    auto startSpamCallsFallback=[this,serial,number,begin,finish,note,appendResult,makeRequest,startTellowsFallback](){
+        begin();auto*reply=network_->get(makeRequest(QUrl(didintel::spamCallsUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[reply,number,appendResult,note,finish,startTellowsFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            bool usable=false;if(error==QNetworkReply::NoError)usable=appendResult("SpamCalls.net reputation fallback",didintel::parseSpamCalls(payload,number));
+            if(!usable){if(status==410)note("SpamCalls.net","no live reputation page");else if(error!=QNetworkReply::NoError)note("SpamCalls.net",QString("HTTP %1").arg(status));else note("SpamCalls.net","no reputation fields on page");startTellowsFallback();}
+            finish();
         });
-    }
+    };
+
+    if(number.country=="US"&&number.nationalDigits.size()==10){
+        begin();QUrl url(QStringLiteral("https://spam.skipcalls.com/check/")+number.nationalDigits);auto*reply=network_->get(makeRequest(url,false));
+        connect(reply,&QNetworkReply::finished,this,[reply,number,appendResult,note,finish,startSpamCallsFallback](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
+            bool usable=false;if(error==QNetworkReply::NoError)usable=appendResult("SkipCalls spam reputation",didintel::parseSkipCalls(payload,number));
+            if(!usable){note("SkipCalls",error==QNetworkReply::NoError?QStringLiteral("no usable spam verdict returned"):QString("HTTP %1").arg(status));startSpamCallsFallback();}finish();
+        });
+    }else startSpamCallsFallback();
 
     if(number.country=="FR"){
-        auto*reply=network_->get(makeRequest(QUrl(didintel::cQuiUrl(number)),true));
-        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number,appendResult](){const QByteArray payload=reply->readAll();const auto error=reply->error();reply->deleteLater();if(serial!=didLookupSerial_)return;if(error==QNetworkReply::NoError)appendResult("c-qui.fr",didintel::parseCQui(payload,number));});
+        begin();auto*reply=network_->get(makeRequest(QUrl(didintel::cQuiUrl(number)),true));
+        connect(reply,&QNetworkReply::finished,this,[reply,number,appendResult,note,finish](){const QByteArray payload=reply->readAll();const auto error=reply->error();const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();if(error==QNetworkReply::NoError){if(!appendResult("c-qui.fr original-carrier allocation",didintel::parseCQui(payload,number)))note("c-qui.fr","no carrier fields found");}else note("c-qui.fr",QString("HTTP %1").arg(status));finish();});
     }
-
-    didOutput_->appendPlainText("\n\nSafety note: carrier allocations and community spam reports can disagree. Porting changes the serving carrier, and caller-ID spoofing can attach complaints to an innocent subscriber. Use ENHANCED HLR / CURRENT CARRIER when a live mobile-network lookup is actually required.");
+    finishIfDone();
 }
 
 void MainWindow::lookupNeutrinoHlr()
@@ -608,8 +719,8 @@ void MainWindow::lookupNeutrinoHlr()
     if(userId.isEmpty()||apiKey.isEmpty()){
         QMessageBox::information(this,"Enhanced HLR","Neutrino HLR is optional and never runs automatically. Set SIPHER_NEUTRINO_USER_ID and SIPHER_NEUTRINO_API_KEY in the environment, restart SIPHER, then click this button again.");return;
     }
-    const int serial=++didLookupSerial_;didOutput_->setPlainText(QString("SIPHER 2.0 — ENHANCED HLR / CURRENT CARRIER\n================================================\nQuery: +%1\n\nSubmitting an explicit Neutrino HLR lookup...\n").arg(number.e164Digits));
-    QNetworkRequest request(QUrl(QStringLiteral("https://neutrinoapi.net/hlr-lookup")));request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0 DID-Intel"));request.setRawHeader("User-ID",userId);request.setRawHeader("API-Key",apiKey);request.setHeader(QNetworkRequest::ContentTypeHeader,QStringLiteral("application/x-www-form-urlencoded"));
+    const int serial=++didLookupSerial_;didOutput_->setPlainText(QString("SIPHER 2.1 — ENHANCED HLR / CURRENT CARRIER\n================================================\nQuery: +%1\n\nSubmitting an explicit Neutrino HLR lookup...\n").arg(number.e164Digits));
+    QNetworkRequest request(QUrl(QStringLiteral("https://neutrinoapi.net/hlr-lookup")));request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.1 DID-Intel"));request.setRawHeader("User-ID",userId);request.setRawHeader("API-Key",apiKey);request.setHeader(QNetworkRequest::ContentTypeHeader,QStringLiteral("application/x-www-form-urlencoded"));
     QUrlQuery form;form.addQueryItem("number","+"+number.e164Digits);form.addQueryItem("country-code",QString{});auto*reply=network_->post(request,form.query(QUrl::FullyEncoded).toUtf8());
     connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number](){const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();const QString errorText=reply->errorString();reply->deleteLater();if(serial!=didLookupSerial_||!didOutput_)return;if(error!=QNetworkReply::NoError){didOutput_->appendPlainText(QString("\nNeutrino lookup failed (HTTP %1): %2").arg(httpStatus).arg(errorText));return;}didOutput_->appendPlainText("\n[ Neutrino HLR ]\n----------------\n"+didintel::parseNeutrinoHlr(payload,number)+"\n\nThis was an explicit live HLR request and may consume API credits.");statusBar()->showMessage("Enhanced HLR lookup complete",5000);});
 }
@@ -626,7 +737,7 @@ void MainWindow::analyzeNextOut()
         else if(!p.registrar.empty()){configured=QString::fromStdString(p.registrar);source="Registrar (no outbound proxy configured)";}
         else{configured=QString::fromStdString(p.sipDomain);source="SIP domain (direct/RFC3263-style resolution)";}
         const auto target=parseSipTarget(configured,p.transport);
-        QString out="SIPHER 2.0 — CARRIER HANDOFF / NEXT-OUT\n================================================\n";
+        QString out="SIPHER 2.1 — CARRIER HANDOFF / NEXT-OUT\n================================================\n";
         out+=QString("Destination input:       %1\n").arg(destination.isEmpty()?QStringLiteral("<none>"):destination);
         out+=QString("Normalized Request-URI:  %1\n").arg(requestUri);
         out+=QString("Profile transport:       %1\n").arg(QString::fromStdString(toString(p.transport)).toUpper());
@@ -666,12 +777,23 @@ void MainWindow::analyzeNextOut()
 
 void MainWindow::showBlueBoxLegacy()
 {
-    QDialog d(this);d.setWindowTitle("Legacy — Blue Tone / Blue Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("BLUE TONE / BLUE BOX // HISTORICAL SIGNALING LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Blue boxes are historically associated with in-band telephone network-control signaling on older long-distance systems. This SIPHER panel is an offline visual/history simulator only: it does not generate network-control audio, inject signaling into calls, or provide live carrier manipulation functions.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QGridLayout;for(int i=0;i<12;++i){auto*b=new QPushButton(QString("LEGACY KEY %1").arg(i+1));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: legacy control %1 selected — visualization only; nothing transmitted.").arg(i+1));});g->addWidget(b,i/3,i%3);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
+    QDialog d(this);d.setWindowTitle("Legacy — Blue Tone / Blue Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);
+    auto*title=new QLabel("BLUE TONE / BLUE BOX // HISTORICAL AUDIO DEMO");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);
+    auto*text=new QLabel("These buttons now play audible local-speaker demo tones. The demo tones are deliberately detuned/non-signaling and are never connected to SIP, RTP, a call media bridge, DTMF, or carrier signaling.");text->setWordWrap(true);l->addWidget(text);
+    auto*status=new QLabel("LOCAL AUDIO DEMO: IDLE — NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QGridLayout;
+    const double pairs[12][2]={{440,660},{494,740},{523,784},{587,880},{659,988},{698,1047},{784,1175},{880,1319},{988,1480},{1047,1568},{1175,1760},{1319,1976}};
+    for(int i=0;i<12;++i){auto*b=new QPushButton(QString("DEMO KEY %1").arg(i+1));connect(b,&QPushButton::clicked,&d,[status,i,&pairs](){const bool external=playLocalDemoTone({{pairs[i][0],pairs[i][1],240}});status->setText(QString("LOCAL AUDIO DEMO: key %1 played %2 — nothing transmitted to SIP/RTP.").arg(i+1).arg(external?"through the system speaker":"with the platform beep fallback"));});g->addWidget(b,i/3,i%3);}l->addLayout(g);
+    auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
 }
 
 void MainWindow::showRedBoxLegacy()
 {
-    QDialog d(this);d.setWindowTitle("Legacy — Red Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("RED BOX // HISTORICAL PAYPHONE LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Red boxes are historically associated with imitating legacy payphone coin signaling. This panel preserves the history/aesthetic as an offline simulator only. It cannot produce live coin-control tones, interact with a payphone, alter billing, or transmit control signaling into a call.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QHBoxLayout;for(int i=0;i<3;++i){auto*b=new QPushButton(QString("COIN SIGNAL %1").arg(QChar('A'+i)));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: coin event %1 selected — visualization only; nothing transmitted.").arg(QChar('A'+i)));});g->addWidget(b);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
+    QDialog d(this);d.setWindowTitle("Legacy — Red Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);
+    auto*title=new QLabel("RED BOX // HISTORICAL AUDIO DEMO");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);
+    auto*text=new QLabel("These controls play local, deliberately non-operational demo sequences inspired by the historical subject. They are not the original signaling frequencies and are never injected into SIP/RTP or an active call.");text->setWordWrap(true);l->addWidget(text);
+    auto*status=new QLabel("LOCAL AUDIO DEMO: IDLE — NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QHBoxLayout;
+    for(int i=0;i<3;++i){auto*b=new QPushButton(QString("DEMO SIGNAL %1").arg(QChar('A'+i)));connect(b,&QPushButton::clicked,&d,[status,i](){std::vector<DemoToneSegment> seq;if(i==0)seq={{523,659,260}};else if(i==1)seq={{587,740,150},{0,0,90},{587,740,150}};else seq={{659,831,110},{0,0,70},{659,831,110},{0,0,70},{659,831,110}};const bool external=playLocalDemoTone(seq);status->setText(QString("LOCAL AUDIO DEMO: sequence %1 played %2 — nothing transmitted to SIP/RTP.").arg(QChar('A'+i)).arg(external?"through the system speaker":"with the platform beep fallback"));});g->addWidget(b);}l->addLayout(g);
+    auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
 }
 
 static AuditTransport guiAuditTransport(QComboBox* box){return PbxAudit::transportFromString(box?box->currentData().toString().toStdString():"udp");}

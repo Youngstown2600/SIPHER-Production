@@ -1,3 +1,9 @@
+# SIPHER 2.1 — DID Intelligence Waterfall — 2026-09-11
+
+SIPHER 2.1 keeps the unified multi-SIP 2.0 baseline and replaces the DID provider fan-out with a fallback waterfall. USACallerLookup and SkipCalls are the free/no-key first pass; configured Carrier247/Data247, Veriphone, and Omkar providers are used only when carrier/type data still needs a fallback. SpamCalls.net/tellows remain best-effort reputation sources. Legacy labs now play local-only non-signaling audio demonstrations. See `SIPHER-2.1-RELEASE-NOTES.md` for details.
+
+---
+
 # SIPHER 2.0 — Unified Multi-SIP Release — 2026-09-11
 
 SIPHER 2.0 promotes the r19 Multi-SIP tree to a new major-version baseline. The application now exposes a single public executable, `sipher`, that automatically selects CLI for terminal/TTY launches and GUI for graphical desktop launches. Use `--cli`, `--gui`, or `SIPHER_UI=cli|gui` to override selection.

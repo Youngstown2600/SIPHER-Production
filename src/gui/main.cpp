@@ -31,7 +31,7 @@ static QIcon makeSipherIcon(){
 }
 int sipherRunGui(int argc,char**argv){
     runtime::configurePortableEnvironment();
-    QApplication app(argc,argv);app.setApplicationName("SIPHER 2.0");app.setApplicationVersion(SIPHER_VERSION);
+    QApplication app(argc,argv);app.setApplicationName("SIPHER 2.1");app.setApplicationVersion(SIPHER_VERSION);
     app.setWindowIcon(makeSipherIcon());
     try{runtime::ensureUserDirectories();}catch(const std::exception&error){QMessageBox::critical(nullptr,"SIPHER",QString::fromStdString(error.what()));return 2;}
     const std::filesystem::path executable=argc>0?std::filesystem::path(argv[0]):std::filesystem::path{};

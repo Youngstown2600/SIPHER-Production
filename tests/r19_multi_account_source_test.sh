@@ -3,7 +3,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
+grep -q 'SIPHER_VERSION "2.1"' include/sipher/Version.h
 grep -q 'void start(unsigned maxCalls=50)' include/sipher/SipEngine.h
 grep -q 'std::map<std::string,std::unique_ptr<ManagedAccount>> accounts_' include/sipher/SipEngine.h
 grep -q 'addAccount(const SipProfile' include/sipher/SipEngine.h
@@ -34,7 +34,7 @@ grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp
 grep -q 'TOPOLOGY / INFORMATION EXPOSURE' src/gui/MainWindow.cpp
 grep -q '&Legacy' src/gui/MainWindow.cpp
 legacy=$(sed -n '/void MainWindow::showBlueBoxLegacy()/,/static AuditTransport guiAuditTransport/p' src/gui/MainWindow.cpp)
-printf '%s' "$legacy" | grep -q 'visualization only'
+printf '%s' "$legacy" | grep -q 'LOCAL AUDIO DEMO'
 if printf '%s' "$legacy" | grep -Eq 'sendDtmf|playTone|dial\(|makeCall|pjsua_call|pjmedia_tonegen'; then
   echo 'legacy simulator unexpectedly contains live call/tone control' >&2
   exit 1
@@ -47,4 +47,4 @@ grep -q 'sanitizeTerminalText' src/cli/CliDashboard.cpp
 grep -q 'mkdtemp' src/core/RuntimePaths.cpp
 grep -q 'apply-pjsip-exploit-fixes.sh' scripts/build-pjsip.sh
 
-echo 'r19 multi-account / zero-account feature contract passed under SIPHER 2.0'
+echo 'r19 multi-account / zero-account feature contract passed under SIPHER 2.1'

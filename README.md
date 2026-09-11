@@ -1,29 +1,34 @@
-# SIPHER 2.0 — Multi-SIP / DID Intelligence / Route Audit
+# SIPHER 2.1 — Multi-SIP / DID Intelligence / Route Audit
 
-## SIPHER 2.0 unified executable
+## SIPHER 2.1 unified executable
 
-SIPHER 2.0 exposes one application executable: `sipher`. A build with both frontends automatically opens the CLI when run from a real terminal/TTY and opens the Qt GUI when launched from an XFCE/KDE/GNOME/macOS/Windows desktop without a terminal. Use `sipher --cli` or `sipher --gui` to override the automatic choice; `SIPHER_UI=cli|gui` provides the same override for scripts/launchers.
+SIPHER 2.1 exposes one application executable: `sipher`. A build with both frontends automatically opens the CLI when run from a real terminal/TTY and opens the Qt GUI when launched from an XFCE/KDE/GNOME/macOS/Windows desktop without a terminal. Use `sipher --cli` or `sipher --gui` to override the automatic choice; `SIPHER_UI=cli|gui` provides the same override for scripts/launchers.
+
+## DID Intelligence 2.1
+
+The normal **DIP / LOOKUP DID** uses a waterfall instead of launching every provider at once. For US numbers, the default no-key path starts with **USACallerLookup** for carrier/line-type/rate-center + FTC/community complaint data and **SkipCalls** for a JSON spam verdict. If carrier/type data is still missing, configured fallbacks are tried in order: **FreeCarrierLookup/Carrier247 (Data247)**, **Veriphone**, then **Omkar Phone Lookup**. SpamCalls.net and tellows are now best-effort reputation fallbacks rather than primary dependencies.
+
+Provider failures are collapsed into a compact status note instead of consuming the result pane. The public FreeCarrierLookup.com form is not automated around Cloudflare/CAPTCHA controls; SIPHER uses the supported Carrier247/Data247 programmatic path when configured. Data247 results can include SMS/MMS gateway addresses in addition to carrier/type and port-related metadata.
+
+Optional keys are read from environment variables and are never hard-coded into the repository: `SIPHER_DATA247_API_KEY`, `SIPHER_VERIPHONE_API_KEY`, `SIPHER_OMKAR_API_KEY`, and the existing explicit-only Neutrino HLR variables. See `DID-INTELLIGENCE.md`.
+
+## Legacy local audio demo
+
+The Legacy Blue Box and Red Box panels now produce audible **local-speaker demonstration tones**. They generate temporary WAV audio and play it through the workstation only. The demo sequences are deliberately non-signaling and are never bridged into SIP, RTP, DTMF, or a live call.
 
 ## r19 Multi-SIP / zero-account startup
 
 - Multiple SIP accounts can be registered simultaneously under one PJSIP endpoint.
 - Settings → SIP Accounts provides Add/Edit/Remove/Use-for-Outbound management.
-- Line Access lets you choose which registered identity places new calls.
 - Existing calls remain attached to their original account when the outbound selection changes.
-- Incoming/outgoing calls show their SIP account ID.
 - SIP account setup is optional: SIPHER starts normally with zero accounts configured.
-- Existing configured legacy `profile.conf` installs are migrated non-destructively into the new `accounts/` store.
+- Existing configured legacy `profile.conf` installs are migrated non-destructively into the `accounts/` store.
 
-See `R19-MULTI-SIP-RELEASE-NOTES.md` for details.
+## r18 route/audit fixes retained
 
-## r18 DID Intelligence / Carrier Route Audit
+Carrier Handoff / Next-Out, Switch Audit+, packet capture, SIP/RTP diagnostics, the PJSIP 2.17 receive-peer fix, the Qt6 account-table double-click compile fix, and the security hardening from the 2.0 baseline are all retained.
 
-This release adds a dedicated **DID Intelligence** workspace with a no-key **USACallerLookup** first pass, internally parsed **SpamCalls.net** and **tellows** reputation sources, an optional **Data247/FreeCarrierLookup carrier fallback**, and a **Carrier Handoff / Next-Out** analyzer. Failed web providers are silently skipped instead of filling the output pane with HTTP errors. The route analyzer reports the configured outbound proxy/registrar, DNS candidates, SIP SRV candidates, the normalized Request-URI, SIP route-header disclosures, and — for captured outbound INVITEs — the actual resolved peer IP/port supplied by the PJSIP transport callback. Carrier-internal routing can still be hidden by an SBC and is not represented as an IP traceroute.
-
-**Switch Audit+** now includes UDP/TCP transport-parity checks and topology/information-exposure analysis. A new **Legacy** menu includes offline Blue Tone / Blue Box and Red Box historical lab panels; these panels are visual/reference simulations only and produce no network-control or billing-control tones.
-
-The default DID lookup requires **no API key or signup**. SIPHER calls USACallerLookup for US 10-digit numbers and parses SpamCalls.net/tellows pages internally when those providers permit the request. HTTP 410/403 failures are hidden. For carrier/type and email-to-SMS/email-to-MMS gateway data, configure `SIPHER_DATA247_API_KEY` to enable the Data247 Carrier247 fallback linked from FreeCarrierLookup.com. NANPA registry data can differ from the current serving carrier after LNP/porting; complaint/reputation data is an indicator only and is not proof of fraud or caller identity because ANI/caller ID can be spoofed.
-
+See `SIPHER-2.1-RELEASE-NOTES.md` for the 2.1 delta and `SIPHER-2.0-RELEASE-NOTES.md` for the previous major baseline.
 
 r17 deliberately moves SIPHER away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue SIPHER logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
 

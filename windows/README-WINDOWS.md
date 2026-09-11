@@ -45,7 +45,7 @@ SIPHER looks for `Wireshark.exe` on PATH and in the normal 64-bit/32-bit Wiresha
 The result is staged under `dist/`:
 
 ```text
-SIPHER-2.0-Windows...-Portable-x64/
+SIPHER-2.1-Windows...-Portable-x64/
   sipher.exe
   sipher.exe
   SIPHER-GUI.cmd

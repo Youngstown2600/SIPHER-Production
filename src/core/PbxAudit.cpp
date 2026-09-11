@@ -242,7 +242,7 @@ std::string sipRequest(const std::string& method,const std::string& uri,const st
      <<"Call-ID: "<<cid<<"\r\n"
      <<"CSeq: 1 "<<method<<"\r\n"
      <<"Contact: <sip:sipher-audit@127.0.0.1>\r\n"
-     <<"User-Agent: SIPHER/2.0\r\n";
+     <<"User-Agent: SIPHER/2.1\r\n";
     for(const auto&x:extra)s<<x<<"\r\n";
     s<<"Content-Length: 0\r\n\r\n";
     return s.str();
@@ -763,7 +763,7 @@ AutomatedAuditResult PbxAudit::automatedAudit(const AutomatedAuditOptions& optio
 std::string AutomatedAuditResult::toText() const
 {
     std::ostringstream o;
-    o<<"SIPHER 2.0 — AUTOMATED CHAINED PBX / SIP SECURITY AUDIT\n";
+    o<<"SIPHER 2.1 — AUTOMATED CHAINED PBX / SIP SECURITY AUDIT\n";
     o<<PbxAudit::warningText()<<"\n\n";
     o<<"Target: "<<options.host<<":"<<options.port<<"/"<<PbxAudit::transportName(options.transport)<<"\n";
     if(!options.username.empty())o<<"Authorized test account: "<<options.username<<"\n";
@@ -829,7 +829,7 @@ std::string PbxAudit::vulnerabilityLookupReport(const PbxFingerprint&fp,unsigned
     if(fp.product.empty()||fp.product.find("Unknown")!=std::string::npos){o<<"No recognized product fingerprint is available; CVE correlation skipped to avoid broad/noisy matching.\n";return o.str();}
     const std::string query=fp.product+(fp.version.empty()?std::string{}:" "+fp.version);
     const std::string url="https://services.nvd.nist.gov/rest/json/cves/2.0?keywordSearch="+urlEncode(query)+"&resultsPerPage="+std::to_string(maxResults);
-    std::vector<std::string> curl={"curl","-fsSL","--connect-timeout","6","--max-time","15","-A","SIPHER/2.0",url};
+    std::vector<std::string> curl={"curl","-fsSL","--connect-timeout","6","--max-time","15","-A","SIPHER/2.1",url};
     if(const char*key=std::getenv("NVD_API_KEY");key&&*key){curl.insert(curl.end()-1,"-H");curl.insert(curl.end()-1,std::string("apiKey:")+key);}
     int nvdRc=0;const auto json=runProgramCapture(curl,18000,&nvdRc);o<<"NIST NVD CVE 2.0 — query: "<<query<<"\n";
     unsigned shown=0;std::size_t pos=0;
@@ -884,7 +884,7 @@ std::string AuditResponse::toText(bool includeRaw) const
 
 std::string PbxAudit::report(const std::string&title,const std::vector<AuditResponse>&responses,const std::vector<ExtensionAuditEntry>&extensions,const std::string&tls,const std::vector<DiscoveryEntry>&discovery)
 {
-    std::ostringstream o;o<<"SIPHER 2.0 — SIP Inspection, Protocol Handling, Enumeration & Recon\n"<<title<<"\n"<<warningText()<<"\n\n";
+    std::ostringstream o;o<<"SIPHER 2.1 — SIP Inspection, Protocol Handling, Enumeration & Recon\n"<<title<<"\n"<<warningText()<<"\n\n";
     if(!discovery.empty()){
         o<<"Bounded SIP discovery results\n";
         o<<"HOST                 PORT  TRANSPORT  CODE  LATENCY   BANNER\n";
