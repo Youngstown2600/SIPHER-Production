@@ -1,41 +1,38 @@
-S.I.P.H.E.R. 1.0.0 r17 Exploit-Fix — All-Platform Builder Validation
-====================================================================
+S.I.P.H.E.R. 1.0.0 r18 DID-Route-Audit — All-Platform Source Validation
+=======================================================================
 Release date: 2026-09-10
 Baseline: SIPHER 1.0.0 r17 Exploit-Fix Phreak Lab
 
 Target platforms
 ----------------
-- Linux: native CLI + Qt GUI, preserving the existing Linux dependency/audio/capture flow.
-- FreeBSD: native CLI + Qt GUI, preserving existing base-Clang/libc++, BPF/devfs, audio preflight, and guarded HDA handling.
-- macOS 13+: native CLI + Qt GUI .app + optional DMG. Builder performs full-Xcode preflight, Homebrew dependency bootstrap, managed PJSIP 2.17, split-Qt/macdeployqt deployment, Cocoa plugin verification, ad-hoc signing, install/uninstall lifecycle.
-- Termux/Android: native CLI + Qt GUI build. CLI runs in the terminal; GUI requires Termux:X11. Builder installs the Termux toolchain/Qt dependencies and managed PJSIP 2.17.
+- Linux: native CLI + Qt GUI.
+- FreeBSD: native CLI + Qt GUI.
+- macOS 13+: native CLI + Qt GUI .app + optional DMG.
+- Termux/Android: native CLI + Qt GUI via Termux:X11.
+- Windows: existing CMake/portable build path retained.
 
-Builder entry points
---------------------
-./build.sh                         auto-detect current platform
-./build.sh --os linux ...          Linux builder
-./build.sh --os freebsd ...        FreeBSD builder
-./build.sh --os macos ...          macOS builder
-./build.sh --os termux ...         Termux/Android builder
+r18 validation performed in this packaging environment
+-------------------------------------------------------
+PASS - r18 core preservation/security gate (r17 exploit-fix invariants retained; only the intended PbxAudit/SipTrace/SipWireMonitor core modules changed).
+PASS - r18 DID/route/audit source contract.
+PASS - all-platform builder shell/source contract.
+PASS - FreeBSD audio compatibility detector tests.
+PASS - profile/text-pool C++ tests.
+PASS - SIP trace classifier C++ tests.
+PASS - runtime path C++ tests.
+PASS - CLI dashboard C++ tests.
+PASS - capture-manager C++ tests.
+PASS - PBX audit C++ tests, including topology exposure and UDP/TCP parity.
+PASS - Linux GUI builder dry-run reaches CMake configure/build/ctest flow with r18 identity.
 
-Validation performed in the packaging environment
---------------------------------------------------
-PASS - shell syntax for root, macOS, Termux, and PJSIP builders
-PASS - all-platform builder source contract
-PASS - r15 hardened protocol/audio/audit baseline preservation (platform-builder files intentionally excluded)
-PASS - r17 Phreak Lab GUI/CLI source contract
-PASS - FreeBSD audio compatibility detector tests
-PASS - profile/text-pool C++ tests
-PASS - SIP trace classifier C++ tests
-PASS - runtime path C++ tests
-PASS - CLI paged dashboard C++ tests
-PASS - capture manager C++ tests
-PASS - PBX audit C++ tests
-PASS - r17 regression gate
-PASS - exploit-fix source gate and bundled PJSIP 2.17 exploit-fix patch checks
-PASS - clean CMake configure/generate path with PJSIP 2.17 metadata discovery
-PASS - Linux all-target dependency/build dry-run dispatch
+Packaging-environment limitation
+--------------------------------
+A full Qt/PJSIP GUI link was not performed here because the packaging container does not have the Qt and PJSIP development packages installed. The builder is designed to install/bootstrap those dependencies on a supported target. The PJSIP next-hop fields used by r18 are part of the transport callback metadata; the source regression checks and non-Qt core tests pass.
 
-Target-native validation still required
----------------------------------------
-This packaging host is Linux. A native macOS .app/DMG compile and a native Termux compile cannot be truthfully claimed here. Run the bundled builder on each target OS for final compiler/runtime validation. The Linux/FreeBSD application core remains on the pre-existing hardened r17 baseline; platform expansion is isolated to CMake/build/packaging logic plus PJSIP platform configuration.
+Run the regression gate
+-----------------------
+  ./tests/run_r18_regression.sh
+
+Dry-run the Linux GUI builder
+-----------------------------
+  ./build.sh --os linux --gui --dry-run --no-install

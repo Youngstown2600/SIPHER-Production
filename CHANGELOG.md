@@ -1,3 +1,12 @@
+# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit — 2026-09-10
+
+- Added DID / number intelligence tab with carrier, line-type, validity, active-state, VOIP/prepaid and spam/fraud-reputation indicators through an optional IPQualityScore API key.
+- Added Carrier Handoff / Next-Out analysis for configured proxy/registrar/domain, DNS A/AAAA, SIP SRV candidates, Request-URI and observed SIP route headers.
+- SIP trace entries now retain the actual signaling peer address/port reported by PJSIP transport callbacks, allowing the first outbound INVITE next-hop to be displayed.
+- Expanded Switch Audit+ with UDP/TCP transport parity and SIP topology/information-exposure checks.
+- Added Legacy menu with offline Blue Tone / Blue Box and Red Box historical simulators. They intentionally emit no control audio and do not alter live calls or billing.
+- Qt Network is now a GUI build dependency.
+
 
 # S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix — Exploit Fix — 2026-08-24
 - Mandatory PJSIP 2.17 exploit patchset for reachable registration/SRTP/STUN/TLS vulnerabilities.

@@ -81,6 +81,16 @@ int main(){
     std::thread rateServer([&](){for(int i=0;i<3;++i){char b[8192];sockaddr_in peer{};socklen_t pl=sizeof(peer);auto n=recvfrom(rfd,b,sizeof(b),0,(sockaddr*)&peer,&pl);require(n>0,"recvfrom() failed");const char*resp="SIP/2.0 200 OK\r\nContent-Length: 0\r\n\r\n";sendto(rfd,resp,std::strlen(resp),0,(sockaddr*)&peer,pl);}});
     auto rate=PbxAudit::resilienceAudit("127.0.0.1",rport,AuditTransport::Udp,3,100,1000);rateServer.join();close(rfd);require(rate.size()==3,"resilience audit result count mismatch");for(const auto&x:rate)require(x.statusCode==200,"resilience audit did not receive 200");
 
+    // r18 topology-exposure audit should surface private addressing and detailed banners
+    // from one bounded OPTIONS response without any exploit behavior.
+    int xfd=::socket(AF_INET,SOCK_DGRAM,0);require(xfd>=0,"exposure socket() failed");sockaddr_in xsa{};xsa.sin_family=AF_INET;xsa.sin_addr.s_addr=htonl(INADDR_LOOPBACK);xsa.sin_port=0;require(::bind(xfd,(sockaddr*)&xsa,sizeof(xsa))==0,"exposure bind() failed");sl=sizeof(xsa);require(::getsockname(xfd,(sockaddr*)&xsa,&sl)==0,"exposure getsockname() failed");const auto xport=ntohs(xsa.sin_port);
+    std::thread exposureServer([&](){char b[8192];sockaddr_in peer{};socklen_t pl=sizeof(peer);auto n=recvfrom(xfd,b,sizeof(b),0,(sockaddr*)&peer,&pl);require(n>0,"exposure recvfrom() failed");const char*resp="SIP/2.0 200 OK\r\nServer: Asterisk/20.5.0\r\nVia: SIP/2.0/UDP 10.0.0.5:5060\r\nContact: <sip:10.0.0.5:5060>\r\nContent-Length: 0\r\n\r\n";sendto(xfd,resp,std::strlen(resp),0,(sockaddr*)&peer,pl);});
+    auto exposure=PbxAudit::topologyExposureAudit("127.0.0.1",xport,AuditTransport::Udp,1000);exposureServer.join();close(xfd);bool privateLeak=false,versionLeak=false;for(const auto&f:exposure.findings){if(f.title=="Private topology address disclosed")privateLeak=true;if(f.title=="Detailed product/version disclosure")versionLeak=true;}require(privateLeak,"topology exposure private-IP finding missing");require(versionLeak,"topology exposure version finding missing");
+
+    // Transport parity always produces a bounded UDP and TCP comparison, even when
+    // a deliberately unused local service port does not answer either transport.
+    auto parity=PbxAudit::transportParityAudit("127.0.0.1",9,80);require(parity.size()==2,"transport parity result count mismatch");require(parity[0].transport==AuditTransport::Udp&&parity[1].transport==AuditTransport::Tcp,"transport parity ordering mismatch");
+
     // Automated pipeline regression: one service-probe result is passed into
     // fingerprinting, later stages are conditionally chained, and a unified
     // prioritized report is produced. Optional network-heavy stages are off.

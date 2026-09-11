@@ -1,3 +1,4 @@
+r18: DID/number intelligence + spam/fraud reputation lookup; carrier handoff/next-out analysis with actual PJSIP peer capture; Switch Audit+ transport parity/topology exposure; offline Legacy Blue Tone/Blue Box and Red Box historical labs.
 
 Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
 r17: underground phone-phreak / signal-lab GUI+CLI; 10 shared + 10 S.I.P.H.E.R. themes; r15 core preserved.

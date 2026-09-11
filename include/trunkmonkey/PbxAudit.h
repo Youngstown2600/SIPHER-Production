@@ -218,6 +218,19 @@ public:
                                                           AuditTransport transport=AuditTransport::Udp,
                                                           unsigned timeoutMs=1500);
 
+    // Compares the same bounded OPTIONS probe over UDP and TCP and annotates
+    // mismatches in reachability, status, exposed methods, and banners.
+    static std::vector<AuditResponse> transportParityAudit(const std::string& host,
+                                                           std::uint16_t port=5060,
+                                                           unsigned timeoutMs=1500);
+
+    // Focused information-exposure/topology-hiding review. This is a single
+    // OPTIONS transaction; it does not attempt traversal or exploitation.
+    static AuditResponse topologyExposureAudit(const std::string& host,
+                                                std::uint16_t port=5060,
+                                                AuditTransport transport=AuditTransport::Udp,
+                                                unsigned timeoutMs=1500);
+
     // Uses the system OpenSSL client for a short TLS handshake summary.
     static std::string tlsAudit(const std::string& host,std::uint16_t port=5061,unsigned timeoutMs=5000);
 

@@ -4,6 +4,7 @@
 #include "trunkmonkey/SipTrace.h"
 #include <pjsua-lib/pjsua.h>
 #include <pjsip/sip_msg.h>
+#include <pj/sock.h>
 #include <algorithm>
 #include <chrono>
 #include <stdexcept>
@@ -121,19 +122,22 @@ void SipWireMonitor::stop()
     running_ = false;
 }
 
-void SipWireMonitor::dispatch(pjsip_msg* msg, bool sent, const char* raw, std::size_t rawLen)
+void SipWireMonitor::dispatch(pjsip_msg* msg, bool sent, const char* raw, std::size_t rawLen, const char* peerAddress, unsigned peerPort)
 {
     std::lock_guard<std::mutex> lock(activeMutex_);
     if (active_) {
-        active_->process(msg, sent, raw, rawLen);
+        active_->process(msg, sent, raw, rawLen, peerAddress, peerPort);
     }
 }
 
 pj_bool_t SipWireMonitor::onRxRequest(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
+        char peer[PJ_INET6_ADDRSTRLEN]{};
+        pj_sockaddr_print(&rdata->pkt_info.addr, peer, sizeof(peer), 0);
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len));
+                 static_cast<std::size_t>(rdata->msg_info.len), peer,
+                 static_cast<unsigned>(pj_sockaddr_get_port(&rdata->pkt_info.addr)));
     }
     return PJ_FALSE;
 }
@@ -141,8 +145,11 @@ pj_bool_t SipWireMonitor::onRxRequest(pjsip_rx_data* rdata)
 pj_bool_t SipWireMonitor::onRxResponse(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
+        char peer[PJ_INET6_ADDRSTRLEN]{};
+        pj_sockaddr_print(&rdata->pkt_info.addr, peer, sizeof(peer), 0);
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len));
+                 static_cast<std::size_t>(rdata->msg_info.len), peer,
+                 static_cast<unsigned>(pj_sockaddr_get_port(&rdata->pkt_info.addr)));
     }
     return PJ_FALSE;
 }
@@ -153,7 +160,8 @@ pj_status_t SipWireMonitor::onTxRequest(pjsip_tx_data* tdata)
         const auto length = (tdata->buf.start && tdata->buf.cur && tdata->buf.cur >= tdata->buf.start)
             ? static_cast<std::size_t>(tdata->buf.cur - tdata->buf.start)
             : 0;
-        dispatch(tdata->msg, true, tdata->buf.start, length);
+        dispatch(tdata->msg, true, tdata->buf.start, length,
+                 tdata->tp_info.dst_name, static_cast<unsigned>(tdata->tp_info.dst_port));
     }
     return PJ_SUCCESS;
 }
@@ -164,12 +172,13 @@ pj_status_t SipWireMonitor::onTxResponse(pjsip_tx_data* tdata)
         const auto length = (tdata->buf.start && tdata->buf.cur && tdata->buf.cur >= tdata->buf.start)
             ? static_cast<std::size_t>(tdata->buf.cur - tdata->buf.start)
             : 0;
-        dispatch(tdata->msg, true, tdata->buf.start, length);
+        dispatch(tdata->msg, true, tdata->buf.start, length,
+                 tdata->tp_info.dst_name, static_cast<unsigned>(tdata->tp_info.dst_port));
     }
     return PJ_SUCCESS;
 }
 
-void SipWireMonitor::process(pjsip_msg* msg, bool sent, const char* raw, std::size_t rawLen)
+void SipWireMonitor::process(pjsip_msg* msg, bool sent, const char* raw, std::size_t rawLen, const char* peerAddress, unsigned peerPort)
 {
     if (!msg) {
         return;
@@ -187,6 +196,8 @@ void SipWireMonitor::process(pjsip_msg* msg, bool sent, const char* raw, std::si
     entry.callIdString = pjstr(callId->id);
     entry.cseq = static_cast<std::uint32_t>(cseq->cseq);
     entry.method = pjstr(cseq->method.name);
+    if (peerAddress && *peerAddress) entry.peerAddress = peerAddress;
+    if (peerPort <= 65535u) entry.peerPort = static_cast<std::uint16_t>(peerPort);
     entry.rawMessage = storeRawMessage(raw, rawLen, msg);
 
     if (msg->type == PJSIP_RESPONSE_MSG) {

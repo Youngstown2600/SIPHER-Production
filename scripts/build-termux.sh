@@ -2,7 +2,7 @@
 set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT_DIR"
-PRODUCT="SIPHER"; VERSION="1.0.0-r17"; SLUG="sipher"; CLI_NAME="sipher"; GUI_NAME="sipher-gui"
+PRODUCT="SIPHER"; VERSION="1.0.0-r18"; SLUG="sipher"; CLI_NAME="sipher"; GUI_NAME="sipher-gui"
 [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]] || { echo "build-termux.sh must run inside Termux." >&2; exit 2; }
 PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
 PJSIP_PREFIX=${PJSIP_PREFIX:-$HOME/.local/trunkmonkey-pjsip}

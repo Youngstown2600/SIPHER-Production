@@ -1,4 +1,12 @@
-# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix — Underground Phone-Phreak / Signal Lab
+# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit — Underground Phone-Phreak / Signal Lab
+## r18 DID Intelligence / Carrier Route Audit
+
+This release adds a dedicated **DID Intelligence** workspace, optional live number reputation lookup through IPQualityScore, and a **Carrier Handoff / Next-Out** analyzer. The route analyzer reports the configured outbound proxy/registrar, DNS candidates, SIP SRV candidates, the normalized Request-URI, SIP route-header disclosures, and — for captured outbound INVITEs — the actual resolved peer IP/port supplied by the PJSIP transport callback. Carrier-internal routing can still be hidden by an SBC and is not represented as an IP traceroute.
+
+**Switch Audit+** now includes UDP/TCP transport-parity checks and topology/information-exposure analysis. A new **Legacy** menu includes offline Blue Tone / Blue Box and Red Box historical lab panels; these panels are visual/reference simulations only and produce no network-control or billing-control tones.
+
+For live DID reputation lookup, set `SIPHER_IPQS_API_KEY` or enter the key in the DID Intelligence tab. The key is sent in the `IPQS-KEY` request header rather than embedded in the request URL. Reputation flags are indicators from a third-party data source, not proof of fraud or caller identity.
+
 
 r17 deliberately moves S.I.P.H.E.R. away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue S.I.P.H.E.R. logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
 

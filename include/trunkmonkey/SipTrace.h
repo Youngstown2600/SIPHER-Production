@@ -18,6 +18,11 @@ struct SipTraceEntry {
     // in-dialog INVITE. This lets TrunkMonkey distinguish a real re-INVITE
     // from an authenticated/retried initial INVITE whose CSeq changed.
     bool inDialogRequest{false};
+    // Immediate network peer observed at the PJSIP transport layer. For TX this
+    // is the actual resolved next hop used for the message; for RX it is the
+    // source peer. It is deliberately separate from SIP Route/Via headers.
+    std::string peerAddress;
+    std::uint16_t peerPort{0};
     std::string rawMessage;
 };
 struct SipTraceClassifierState {

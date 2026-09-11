@@ -405,6 +405,41 @@ AuditResponse PbxAudit::serviceProbe(const std::string&host,std::uint16_t port,A
     return r;
 }
 
+std::vector<AuditResponse> PbxAudit::transportParityAudit(const std::string&host,std::uint16_t port,unsigned timeoutMs)
+{
+    std::vector<AuditResponse> out;out.reserve(2);
+    out.push_back(serviceProbe(host,port,AuditTransport::Udp,timeoutMs));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    out.push_back(serviceProbe(host,port,AuditTransport::Tcp,timeoutMs));
+    auto&udp=out[0];auto&tcp=out[1];
+    if(udp.statusCode&&tcp.statusCode){
+        if(udp.statusCode==tcp.statusCode)tcp.findings.push_back({"PASS","UDP/TCP status parity","Both transports returned SIP "+std::to_string(tcp.statusCode)+"."});
+        else tcp.findings.push_back({"INFO","UDP/TCP status differs","UDP returned "+std::to_string(udp.statusCode)+" while TCP returned "+std::to_string(tcp.statusCode)+"; verify intended edge policy."});
+        if(!udp.allow.empty()&&!tcp.allow.empty()&&lower(udp.allow)!=lower(tcp.allow))tcp.findings.push_back({"WARN","Method policy differs by transport","Allow differs between UDP and TCP. Confirm this split is intentional and consistently protected."});
+        if((!udp.server.empty()||!tcp.server.empty())&&lower(udp.server)!=lower(tcp.server))tcp.findings.push_back({"INFO","Different edge banner by transport","UDP and TCP appear to expose different Server banners; this may indicate separate edge nodes or policies."});
+    }else if(udp.statusCode&&!tcp.statusCode){
+        tcp.findings.push_back({"INFO","TCP not observed","UDP responded but TCP did not. Confirm whether TCP is intentionally disabled or filtered."});
+    }else if(!udp.statusCode&&tcp.statusCode){
+        tcp.findings.push_back({"INFO","UDP not observed","TCP responded but UDP did not. Confirm whether UDP is intentionally disabled or filtered."});
+    }
+    return out;
+}
+
+AuditResponse PbxAudit::topologyExposureAudit(const std::string&host,std::uint16_t port,AuditTransport transport,unsigned timeoutMs)
+{
+    auto r=serviceProbe(host,port,transport,timeoutMs);
+    r.testName="Topology / information exposure";
+    if(r.rawResponse.empty())return r;
+    const auto h=headers(r.rawResponse);
+    auto addHeader=[&](const char*name,const char*label){auto it=h.find(name);if(it!=h.end()&&!it->second.empty())r.findings.push_back({"INFO",std::string(label)+" disclosed",it->second});};
+    addHeader("via","Via path");addHeader("record-route","Record-Route");addHeader("contact","Contact");addHeader("server","Server banner");addHeader("user-agent","User-Agent banner");
+    const auto privateIps=privateIpv4Addresses(r.rawResponse);
+    if(!privateIps.empty()){std::ostringstream detail;for(std::size_t i=0;i<privateIps.size();++i){if(i)detail<<", ";detail<<privateIps[i];}r.findings.push_back({"WARN","Private topology address disclosed","Unauthenticated SIP signaling exposed RFC1918 address(es): "+detail.str()+". Review SBC topology hiding/header normalization if this interface is reachable by untrusted peers."});}
+    else r.findings.push_back({"PASS","No RFC1918 address observed","This single unauthenticated response did not disclose an RFC1918 IPv4 address."});
+    if(!r.server.empty()){bool hasVersion=false;for(char c:r.server)if(std::isdigit(static_cast<unsigned char>(c))){hasVersion=true;break;}if(hasVersion)r.findings.push_back({"WARN","Detailed product/version disclosure","Server banner appears to include version detail: "+r.server+". Minimize unauthenticated version disclosure where practical."});else r.findings.push_back({"INFO","Product banner disclosure","Server banner disclosed: "+r.server});}
+    return r;
+}
+
 std::vector<DiscoveryEntry> PbxAudit::discoverIpv4Cidr(const std::string&cidr,std::uint16_t port,AuditTransport transport,unsigned delayMs,unsigned timeoutMs)
 {
     if(delayMs<100)delayMs=100;

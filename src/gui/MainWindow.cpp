@@ -35,8 +35,18 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMenuBar>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QHostInfo>
+#include <QDnsLookup>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QUrl>
+#include <QUrlQuery>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QRegularExpression>
 #include <QPixmap>
 #include <QPushButton>
 #include <QSettings>
@@ -57,9 +67,48 @@ using namespace trunkmonkey;
 static std::vector<std::string> loadList(const QString&p){if(p.isEmpty())return{};TextPool t;t.load(p.toStdString());return t.values();}
 static QString showAddr(const std::string&s){return s.empty()?QStringLiteral("--"):QString::fromStdString(s);}
 
+namespace {
+struct ParsedSipTarget { QString host; quint16 port{0}; bool explicitPort{false}; };
+
+QString jsonTriState(const QJsonValue& value)
+{
+    if(value.isBool())return value.toBool()?QStringLiteral("YES"):QStringLiteral("NO");
+    return QStringLiteral("N/A");
+}
+
+ParsedSipTarget parseSipTarget(QString value,Transport transport)
+{
+    ParsedSipTarget out;value=value.trimmed();
+    const int lt=value.indexOf('<'),gt=value.indexOf('>');if(lt>=0&&gt>lt)value=value.mid(lt+1,gt-lt-1).trimmed();
+    if(value.startsWith("sip:",Qt::CaseInsensitive))value=value.mid(4);else if(value.startsWith("sips:",Qt::CaseInsensitive))value=value.mid(5);
+    if(value.startsWith("//"))value=value.mid(2);
+    const int semi=value.indexOf(';');if(semi>=0)value=value.left(semi);const int query=value.indexOf('?');if(query>=0)value=value.left(query);
+    const int at=value.lastIndexOf('@');if(at>=0)value=value.mid(at+1);
+    value=value.trimmed();
+    if(value.startsWith('[')){
+        const int end=value.indexOf(']');if(end>0){out.host=value.mid(1,end-1);if(end+1<value.size()&&value.at(end+1)==':'){bool ok=false;const int p=value.mid(end+2).toInt(&ok);if(ok&&p>0&&p<=65535){out.port=(quint16)p;out.explicitPort=true;}}}
+    }else{
+        const int first=value.indexOf(':'),last=value.lastIndexOf(':');
+        if(first>0&&first==last){bool ok=false;const int p=value.mid(last+1).toInt(&ok);if(ok&&p>0&&p<=65535){out.host=value.left(last);out.port=(quint16)p;out.explicitPort=true;}else out.host=value;}else out.host=value;
+    }
+    if(out.host.isEmpty())out.host=value;
+    if(!out.port)out.port=(transport==Transport::Tls)?5061:5060;
+    return out;
+}
+
+QStringList sipHeaderValues(const std::string& raw,const QString& wanted)
+{
+    QStringList out;const auto text=QString::fromStdString(raw);const auto lines=text.split(QRegularExpression("\r?\n"));
+    const QString prefix=wanted+":";
+    for(const auto&line:lines){if(line.startsWith(prefix,Qt::CaseInsensitive)){const auto v=line.mid(prefix.size()).trimmed();if(!v.isEmpty()&&!out.contains(v))out.push_back(v);}}
+    return out;
+}
+
+void appendUnique(QStringList&dst,const QStringList&src){for(const auto&v:src)if(!dst.contains(v))dst.push_back(v);}
+}
 
 MainWindow::MainWindow(SipEngine&e,MultiCallManager&m,Logger&l,std::string profilePath,QWidget*p):QMainWindow(p),engine_(e),multi_(m),logger_(l),profilePath_(std::move(profilePath)){
-    buildUi();setWindowTitle("S.I.P.H.E.R. r17-Exploit-Fix — Underground Phreak Lab");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
+    network_=new QNetworkAccessManager(this);buildUi();setWindowTitle("S.I.P.H.E.R. r18 — DID Intelligence / Route Audit");setMinimumSize(900,620);resize(1280,800);refreshTimer_=new QTimer(this);connect(refreshTimer_,&QTimer::timeout,this,&MainWindow::refresh);refreshTimer_->start(250);refresh();
 }
 void MainWindow::buildUi(){
     auto* fileMenu=menuBar()->addMenu(QStringLiteral("&File"));
@@ -95,6 +144,14 @@ void MainWindow::buildUi(){
     auto* regHistoryAction=settingsMenu->addAction(QStringLiteral("&Registration History..."));
     connect(regHistoryAction,&QAction::triggered,this,&MainWindow::showRegistrationHistory);
 
+    auto* legacyMenu=menuBar()->addMenu(QStringLiteral("&Legacy"));
+    auto* blueBoxAction=legacyMenu->addAction(QStringLiteral("&Blue Tone / Blue Box — Historical Lab..."));
+    blueBoxAction->setToolTip(QStringLiteral("Historical signaling reference/simulator panel. Live network-control tone generation is intentionally disabled."));
+    connect(blueBoxAction,&QAction::triggered,this,&MainWindow::showBlueBoxLegacy);
+    auto* redBoxAction=legacyMenu->addAction(QStringLiteral("&Red Box — Historical Lab..."));
+    redBoxAction->setToolTip(QStringLiteral("Historical payphone-signaling reference/simulator panel. Live coin-control tone generation is intentionally disabled."));
+    connect(redBoxAction,&QAction::triggered,this,&MainWindow::showRedBoxLegacy);
+
     auto*c=new QWidget;
     c->setObjectName(QStringLiteral("PhreakRoot"));
     auto*shell=new QHBoxLayout(c);shell->setContentsMargins(0,0,0,0);shell->setSpacing(0);
@@ -106,8 +163,8 @@ void MainWindow::buildUi(){
     if(!brandPixmap.isNull()) brand->setPixmap(brandPixmap.scaledToWidth(192,Qt::SmoothTransformation));
     else { brand->setText(QStringLiteral("S.I.P.H.E.R.")); brand->setObjectName(QStringLiteral("BrandTitle")); }
     side->addWidget(brand);
-    auto*edition=new QLabel(QStringLiteral("r17-Exploit-Fix // CARRIER ACCESS"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
-    auto*tagline=new QLabel(QStringLiteral("PHREAK LAB / SIGNAL TAP / SWITCH AUDIT"),sidebar);tagline->setObjectName(QStringLiteral("Muted"));tagline->setWordWrap(true);side->addWidget(tagline);
+    auto*edition=new QLabel(QStringLiteral("r18 // DID INTEL / CARRIER ACCESS"),sidebar);edition->setObjectName(QStringLiteral("BrandVersion"));side->addWidget(edition);
+    auto*tagline=new QLabel(QStringLiteral("DID INTEL / SIGNAL TAP / SWITCH AUDIT"),sidebar);tagline->setObjectName(QStringLiteral("Muted"));tagline->setWordWrap(true);side->addWidget(tagline);
     side->addSpacing(14);
     auto*navHost=new QWidget(sidebar);auto*nav=new QVBoxLayout(navHost);nav->setContentsMargins(0,0,0,0);nav->setSpacing(4);side->addWidget(navHost);
     side->addStretch(1);
@@ -147,7 +204,23 @@ void MainWindow::buildUi(){
     // SIP LOG
     auto*sipPage=new QWidget;auto*sl=new QVBoxLayout(sipPage);diagnosticNote_=new QLabel("Select a normal Phone call on Active Calls to inspect its SIP dialog.");diagnosticNote_->setWordWrap(true);sl->addWidget(diagnosticNote_);
     auto*sipButtons=new QGridLayout;sipTraceStart_=new QPushButton("START RAW SIP TRACE...");connect(sipTraceStart_,&QPushButton::clicked,this,&MainWindow::startSipTrace);sipButtons->addWidget(sipTraceStart_,0,0);sipTraceStop_=new QPushButton("STOP RAW SIP TRACE");connect(sipTraceStop_,&QPushButton::clicked,this,&MainWindow::stopSipTrace);sipButtons->addWidget(sipTraceStop_,0,1);sl->addLayout(sipButtons);
-    sipLog_=new QTableWidget(0,6);sipLog_->setHorizontalHeaderLabels({"Time","Flow","Signal","CSeq","Code","Reason"});sipLog_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);sipLog_->horizontalHeader()->setStretchLastSection(true);sipLog_->setSelectionBehavior(QAbstractItemView::SelectRows);sipLog_->setSelectionMode(QAbstractItemView::SingleSelection);connect(sipLog_,&QTableWidget::itemSelectionChanged,this,&MainWindow::showRawSip);sl->addWidget(sipLog_,2);rawSipFlow_=new QLabel("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");rawSipFlow_->setWordWrap(true);rawSipFlow_->setStyleSheet(QStringLiteral("font-weight:700;"));sl->addWidget(rawSipFlow_);rawSip_=new QPlainTextEdit;rawSip_->setReadOnly(true);rawSip_->setPlaceholderText("Select a SIP transaction above to inspect the full message.");rawSip_->setMaximumBlockCount(10000);sl->addWidget(rawSip_,2);tabs_->addTab(sipPage,"SIP Log");
+    sipLog_=new QTableWidget(0,7);sipLog_->setHorizontalHeaderLabels({"Time","Flow","Peer","Signal","CSeq","Code","Reason"});sipLog_->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);sipLog_->horizontalHeader()->setStretchLastSection(true);sipLog_->setSelectionBehavior(QAbstractItemView::SelectRows);sipLog_->setSelectionMode(QAbstractItemView::SingleSelection);connect(sipLog_,&QTableWidget::itemSelectionChanged,this,&MainWindow::showRawSip);sl->addWidget(sipLog_,2);rawSipFlow_=new QLabel("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");rawSipFlow_->setWordWrap(true);rawSipFlow_->setStyleSheet(QStringLiteral("font-weight:700;"));sl->addWidget(rawSipFlow_);rawSip_=new QPlainTextEdit;rawSip_->setReadOnly(true);rawSip_->setPlaceholderText("Select a SIP transaction above to inspect the full message.");rawSip_->setMaximumBlockCount(10000);sl->addWidget(rawSip_,2);tabs_->addTab(sipPage,"SIP Log");
+
+    // DID INTELLIGENCE / CARRIER HANDOFF
+    auto*didPage=new QWidget;auto*didLayout=new QVBoxLayout(didPage);
+    auto*didGroup=new QGroupBox("DID / NUMBER INTELLIGENCE",didPage);auto*didBox=new QVBoxLayout(didGroup);auto*didForm=new QFormLayout;
+    didNumber_=new QLineEdit;didNumber_->setPlaceholderText("DID / telephone number, preferably E.164 (for example +13305551212)");
+    didCountry_=new QComboBox;didCountry_->setEditable(true);didCountry_->addItems({"US","CA","GB","AU","DE","FR","JP"});didCountry_->setCurrentText("US");didCountry_->setToolTip("Country hint used by the reputation provider when the number is ambiguous.");
+    didApiKey_=new QLineEdit;didApiKey_->setEchoMode(QLineEdit::Password);didApiKey_->setPlaceholderText("IPQualityScore API key (or set SIPHER_IPQS_API_KEY)");
+    didForm->addRow("DID / Number",didNumber_);didForm->addRow("Country hint",didCountry_);didForm->addRow("Reputation API key",didApiKey_);didBox->addLayout(didForm);
+    auto*didNote=new QLabel("Lookup returns carrier/line type plus provider reputation signals such as spam reports, recent abuse, risk and fraud score. These are reputation indicators, not proof that a caller committed fraud. API keys are kept in memory for the current run and sent in the IPQS-KEY request header.");didNote->setWordWrap(true);didBox->addWidget(didNote);
+    auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
+    didOutput_=new QPlainTextEdit;didOutput_->setReadOnly(true);didOutput_->setPlaceholderText("DID carrier and reputation results appear here.");didOutput_->setMaximumBlockCount(2000);didBox->addWidget(didOutput_,1);didLayout->addWidget(didGroup,1);
+
+    auto*routeGroup=new QGroupBox("CARRIER HANDOFF / NEXT-OUT",didPage);auto*routeBox=new QVBoxLayout(routeGroup);auto*routeForm=new QFormLayout;routeDestination_=new QLineEdit;routeDestination_->setPlaceholderText("Number or SIP URI to analyze without placing a call");routeForm->addRow("Destination",routeDestination_);routeBox->addLayout(routeForm);
+    auto*routeNote=new QLabel("Shows the expected first carrier signaling hop from the active SIP profile, resolved IP candidates, normalized Request-URI and any Route / Record-Route / Via / Contact information already observed on the selected call. Carrier-internal routing may be hidden by an SBC.");routeNote->setWordWrap(true);routeBox->addWidget(routeNote);
+    auto*routeButton=new QPushButton("ANALYZE NEXT-OUT / HANDOFF");connect(routeButton,&QPushButton::clicked,this,&MainWindow::analyzeNextOut);routeBox->addWidget(routeButton);routeOutput_=new QPlainTextEdit;routeOutput_->setReadOnly(true);routeOutput_->setPlaceholderText("Expected and observed SIP handoff information appears here.");routeOutput_->setMaximumBlockCount(3000);routeBox->addWidget(routeOutput_,1);didLayout->addWidget(routeGroup,1);
+    tabs_->addTab(didPage,"DID Intelligence");
 
     // QUEUE TEST
     auto*q=new QWidget;auto*ql=new QVBoxLayout(q);f=new QFormLayout;batchCount_=new QSpinBox;batchCount_->setRange(1,50);batchCount_->setValue(5);launchInterval_=new QSpinBox;launchInterval_->setRange(50,60000);launchInterval_->setValue(250);launchInterval_->setSuffix(" ms");batchDestination_=new QLineEdit;batchDestination_->setPlaceholderText("Single queue/DID target");fixedCallerId_=new QLineEdit;fixedCallerId_->setPlaceholderText("Fixed CID (ignored when list is loaded)");f->addRow("Calls",batchCount_);f->addRow("Launch interval",launchInterval_);f->addRow("Single destination",batchDestination_);f->addRow("Fixed caller ID",fixedCallerId_);ql->addLayout(f);destinationFileLabel_=new QLabel("No destination list loaded");callerIdFileLabel_=new QLabel("No caller-ID list loaded");queueAudioFileLabel_=new QLabel("Live/no injected audio");r=new QGridLayout;b=new QPushButton("LOAD DESTINATIONS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadDestinations);r->addWidget(b,0,0);r->addWidget(destinationFileLabel_,0,1);b=new QPushButton("LOAD CALLERIDS.TXT");connect(b,&QPushButton::clicked,this,&MainWindow::loadCallerIds);r->addWidget(b,1,0);r->addWidget(callerIdFileLabel_,1,1);b=new QPushButton("LOAD AUDIO FILE...");connect(b,&QPushButton::clicked,this,&MainWindow::loadQueueAudio);r->addWidget(b,2,0);r->addWidget(queueAudioFileLabel_,2,1);ql->addLayout(r);auto*note=new QLabel("Each launched call is an independent SIP dialog and RTP session. Optional WAV/MP3 audio is normalized by ffmpeg and injected into every queue-test call. Batch calls are not conferenced and are not automatically routed to the local headset.");note->setWordWrap(true);ql->addWidget(note);b=new QPushButton("START QUEUE TEST");b->setProperty("role","primary");connect(b,&QPushButton::clicked,this,&MainWindow::launchBatch);ql->addWidget(b);ql->addStretch();tabs_->addTab(q,"Queue Test");
@@ -158,7 +231,7 @@ void MainWindow::buildUi(){
     auto*autoOptions=new QGridLayout;auditIncludeVulns_=new QCheckBox("Public CVE correlation");auditIncludeVulns_->setChecked(true);auditIncludeVulns_->setToolTip("Metadata lookup only; no exploit code is executed.");auditIncludeParser_=new QCheckBox("Parser normalization");auditIncludeParser_->setChecked(true);auditIncludeResilience_=new QCheckBox("Bounded rate resilience");auditIncludeResilience_->setChecked(true);auditIncludeTls_=new QCheckBox("SIP TLS posture");auditIncludeTls_->setChecked(true);auditIncludeExtensions_=new QCheckBox("Include extension range");auditIncludeExtensions_->setChecked(false);auditIncludeExtensions_->setToolTip("Opt-in scope-expanding differential audit; maximum 100 extensions.");autoOptions->addWidget(auditIncludeVulns_,0,0);autoOptions->addWidget(auditIncludeParser_,0,1);autoOptions->addWidget(auditIncludeResilience_,0,2);autoOptions->addWidget(auditIncludeTls_,1,0);autoOptions->addWidget(auditIncludeExtensions_,1,1);aul->addLayout(autoOptions);
     auto*runAuto=new QPushButton("RUN AUTOMATED CHAINED AUDIT");runAuto->setProperty("role","primary");runAuto->setMinimumHeight(36);runAuto->setToolTip("Recommended: chains each audit stage into a single prioritized report.");connect(runAuto,&QPushButton::clicked,this,&MainWindow::runAuditAuto);aul->addWidget(runAuto);auditProgress_=new QLabel("Ready — automated audit output feeds each applicable stage into the next.");auditProgress_->setWordWrap(true);aul->addWidget(auditProgress_);
     auto*aub=new QGridLayout;b=new QPushButton("PBX FINGERPRINT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFingerprint);aub->addWidget(b,0,0);b=new QPushButton("CVE / EXPLOIT-DB LOOKUP");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditVulns);aub->addWidget(b,0,1);b=new QPushButton("SAVE REPORT...");connect(b,&QPushButton::clicked,this,&MainWindow::saveAuditReport);aub->addWidget(b,0,2);
-    b=new QPushButton("SERVICE PROBE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditProbe);aub->addWidget(b,1,0);b=new QPushButton("DISCOVER CIDR");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditDiscover);aub->addWidget(b,1,1);b=new QPushButton("METHOD POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditMethods);aub->addWidget(b,1,2);b=new QPushButton("AUTH POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditAuth);aub->addWidget(b,2,0);b=new QPushButton("EXTENSION AUDIT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditExtensions);aub->addWidget(b,2,1);b=new QPushButton("COMPLIANCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditCompliance);aub->addWidget(b,2,2);b=new QPushButton("PARSER ABUSE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditParser);aub->addWidget(b,3,0);b=new QPushButton("RATE RESILIENCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditResilience);aub->addWidget(b,3,1);b=new QPushButton("ATTACK SCENARIO");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditScenario);aub->addWidget(b,3,2);b=new QPushButton("TLS 5061");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTls);aub->addWidget(b,4,0);b=new QPushButton("AUTOMATED FULL (DEFAULTS)");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFull);aub->addWidget(b,4,1);aul->addLayout(aub);auditOutput_=new QPlainTextEdit;auditOutput_->setReadOnly(true);auditOutput_->setPlaceholderText("Audit results appear here. The automated audit is recommended; individual tools remain available for focused troubleshooting.");aul->addWidget(auditOutput_,1);tabs_->addTab(auditPage,"PBX Audit");
+    b=new QPushButton("SERVICE PROBE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditProbe);aub->addWidget(b,1,0);b=new QPushButton("DISCOVER CIDR");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditDiscover);aub->addWidget(b,1,1);b=new QPushButton("METHOD POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditMethods);aub->addWidget(b,1,2);b=new QPushButton("AUTH POLICY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditAuth);aub->addWidget(b,2,0);b=new QPushButton("EXTENSION AUDIT");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditExtensions);aub->addWidget(b,2,1);b=new QPushButton("COMPLIANCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditCompliance);aub->addWidget(b,2,2);b=new QPushButton("PARSER ABUSE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditParser);aub->addWidget(b,3,0);b=new QPushButton("RATE RESILIENCE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditResilience);aub->addWidget(b,3,1);b=new QPushButton("ATTACK SCENARIO");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditScenario);aub->addWidget(b,3,2);b=new QPushButton("TLS 5061");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTls);aub->addWidget(b,4,0);b=new QPushButton("TRANSPORT PARITY");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTransportParity);aub->addWidget(b,4,1);b=new QPushButton("TOPOLOGY EXPOSURE");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditTopologyExposure);aub->addWidget(b,4,2);b=new QPushButton("AUTOMATED FULL (DEFAULTS)");connect(b,&QPushButton::clicked,this,&MainWindow::runAuditFull);aub->addWidget(b,5,0,1,3);aul->addLayout(aub);auditOutput_=new QPlainTextEdit;auditOutput_->setReadOnly(true);auditOutput_->setPlaceholderText("Audit results appear here. The automated audit is recommended; individual tools remain available for focused troubleshooting.");aul->addWidget(auditOutput_,1);tabs_->addTab(auditPage,"PBX Audit");
 
     // PROFILE / CONFIG
     auto*profilePage=new QWidget;auto*pfl=new QVBoxLayout(profilePage);profileSummary_=new QLabel;profileSummary_->setTextInteractionFlags(Qt::TextSelectableByMouse);profileSummary_->setAlignment(Qt::AlignTop|Qt::AlignLeft);profileSummary_->setWordWrap(true);pfl->addWidget(profileSummary_);b=new QPushButton("EDIT SIP PROFILE...");connect(b,&QPushButton::clicked,this,&MainWindow::editProfile);pfl->addWidget(b);pfl->addStretch();tabs_->addTab(profilePage,"Profile");
@@ -166,13 +239,13 @@ void MainWindow::buildUi(){
     // ACTIVITY
     auto*activityPage=new QWidget;auto*actl=new QVBoxLayout(activityPage);activityLog_=new QPlainTextEdit;activityLog_->setReadOnly(true);activityLog_->setMaximumBlockCount(2000);actl->addWidget(activityLog_);tabs_->addTab(activityPage,"Activity");
 
-    const QStringList navNames={QStringLiteral("// LINE ACCESS"),QStringLiteral("// ACTIVE LINES"),QStringLiteral("// SIGNAL TAP"),QStringLiteral("// BLAST DECK"),QStringLiteral("// SWITCH AUDIT"),QStringLiteral("// IDENTITY"),QStringLiteral("// WIRE LOG")};
-    const QStringList navText={QStringLiteral("[01] LINE ACCESS"),QStringLiteral("[02] ACTIVE LINES"),QStringLiteral("[03] SIGNAL TAP"),QStringLiteral("[04] BLAST DECK"),QStringLiteral("[05] SWITCH AUDIT"),QStringLiteral("[06] IDENTITY"),QStringLiteral("[07] WIRE LOG")};
-    const QStringList subtitles={QStringLiteral("Dial, tap and capture carrier sessions."),QStringLiteral("Control live dialogs, media and DTMF."),QStringLiteral("Read raw SIP traffic and transaction flow."),QStringLiteral("Queue and call-blast lab traffic."),QStringLiteral("Authorized PBX / SBC recon and audit bench."),QStringLiteral("SIP account, route and audio identity."),QStringLiteral("Local operator and engine activity trail.")};
+    const QStringList navNames={QStringLiteral("// LINE ACCESS"),QStringLiteral("// ACTIVE LINES"),QStringLiteral("// SIGNAL TAP"),QStringLiteral("// NUMBER INTEL"),QStringLiteral("// BLAST DECK"),QStringLiteral("// SWITCH AUDIT+"),QStringLiteral("// IDENTITY"),QStringLiteral("// WIRE LOG")};
+    const QStringList navText={QStringLiteral("[01] LINE ACCESS"),QStringLiteral("[02] ACTIVE LINES"),QStringLiteral("[03] SIGNAL TAP"),QStringLiteral("[04] NUMBER INTEL"),QStringLiteral("[05] BLAST DECK"),QStringLiteral("[06] SWITCH AUDIT+"),QStringLiteral("[07] IDENTITY"),QStringLiteral("[08] WIRE LOG")};
+    const QStringList subtitles={QStringLiteral("Dial, tap and capture carrier sessions."),QStringLiteral("Control live dialogs, media and DTMF."),QStringLiteral("Read raw SIP traffic and transaction flow."),QStringLiteral("DID carrier/reputation dip and carrier handoff analysis."),QStringLiteral("Queue and call-blast lab traffic."),QStringLiteral("Authorized PBX / SBC recon, exposure and transport audit bench."),QStringLiteral("SIP account, route and audio identity."),QStringLiteral("Local operator and engine activity trail.")};
     std::vector<QPushButton*> navButtons;
     for(int i=0;i<navText.size();++i){auto*button=new QPushButton(navText[i],navHost);button->setCheckable(true);button->setProperty("nav",true);button->setChecked(i==0);nav->addWidget(button);navButtons.push_back(button);connect(button,&QPushButton::clicked,this,[this,i](){tabs_->setCurrentIndex(i);});}
     connect(tabs_,&QTabWidget::currentChanged,this,[pageTitle,pageSubtitle,navButtons,navNames,subtitles](int index){if(index>=0&&index<navNames.size()){pageTitle->setText(navNames[index]);pageSubtitle->setText(subtitles[index]);}for(int i=0;i<(int)navButtons.size();++i)navButtons[(std::size_t)i]->setChecked(i==index);});
-    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("S.I.P.H.E.R. r17-Exploit-Fix // PHREAK LAB // SIP + RTP + SWITCH AUDIT");setDiagnosticsEnabled(false);
+    outer->addWidget(tabs_,1);shell->addWidget(content,1);setCentralWidget(c);applyTheme(theme_->currentData().toString());statusBar()->showMessage("S.I.P.H.E.R. r18 // DID INTEL // SIP + RTP + NEXT-OUT + SWITCH AUDIT+");setDiagnosticsEnabled(false);
 }
 
 void MainWindow::refresh(){
@@ -215,7 +288,7 @@ void MainWindow::refreshDiagnostics(){
         if(c.purpose!=CallPurpose::Phone){setDiagnosticsEnabled(false);diagnosticNote_->setText("Queue-test call selected. 2.0 keeps detailed SIP/RTP trace controls on normal single Phone calls only.");sipLog_->setRowCount(0);rawSip_->clear();if(rawSipFlow_)rawSipFlow_->setText("Select a SIP signal above. SENT means S.I.P.H.E.R. transmitted it to the PBX; RECEIVED means it came from the PBX.");displayedTraceCallId_=-1;displayedTraceCount_=0;return;}
         setDiagnosticsEnabled(true);auto rec=engine_.sipTraceRecording(id);sipTraceStart_->setEnabled(!rec);sipTraceStop_->setEnabled(rec);diagnosticNote_->setText(rec?QString("Raw SIP trace recording: %1").arg(QString::fromStdString(engine_.sipTracePath(id))):"Live SIP dialog logging active. Later INVITE transactions are labeled RE-INVITE.");
         auto t=engine_.sipTrace(id);if(displayedTraceCallId_!=id||displayedTraceCount_!=t.size()){
-            sipLog_->blockSignals(true);sipLog_->setRowCount((int)t.size());for(int r=0;r<(int)t.size();++r){auto&e=t[(std::size_t)r];QStringList s={QDateTime::fromMSecsSinceEpoch((qint64)e.timestampMs).toString("HH:mm:ss.zzz"),e.direction==SipDirection::Sent?"SENT →":"← RECEIVED",QString::fromStdString(e.label),QString::number(e.cseq),e.statusCode?QString::number(e.statusCode):QString{},QString::fromStdString(e.reason)};for(int col=0;col<s.size();++col){auto*i=new QTableWidgetItem(s[col]);if(col==0){i->setData(Qt::UserRole,QString::fromStdString(e.rawMessage));i->setData(Qt::UserRole+1,e.direction==SipDirection::Sent?QStringLiteral("SENT → PBX (TX)"):QStringLiteral("← RECEIVED FROM PBX (RX)"));}sipLog_->setItem(r,col,i);}}
+            sipLog_->blockSignals(true);sipLog_->setRowCount((int)t.size());for(int r=0;r<(int)t.size();++r){auto&e=t[(std::size_t)r];QString peer=e.peerAddress.empty()?QStringLiteral("--"):QString::fromStdString(e.peerAddress)+(e.peerPort?QString(":%1").arg(e.peerPort):QString{});QStringList s={QDateTime::fromMSecsSinceEpoch((qint64)e.timestampMs).toString("HH:mm:ss.zzz"),e.direction==SipDirection::Sent?"SENT →":"← RECEIVED",peer,QString::fromStdString(e.label),QString::number(e.cseq),e.statusCode?QString::number(e.statusCode):QString{},QString::fromStdString(e.reason)};for(int col=0;col<s.size();++col){auto*i=new QTableWidgetItem(s[col]);if(col==0){i->setData(Qt::UserRole,QString::fromStdString(e.rawMessage));i->setData(Qt::UserRole+1,e.direction==SipDirection::Sent?QStringLiteral("SENT → PBX (TX)"):QStringLiteral("← RECEIVED FROM PBX (RX)"));}sipLog_->setItem(r,col,i);}}
             sipLog_->blockSignals(false);displayedTraceCallId_=id;displayedTraceCount_=t.size();if(!t.empty())sipLog_->scrollToBottom();
         }
     }catch(const std::exception&e){diagnosticNote_->setText(QString("Diagnostics unavailable: %1").arg(e.what()));setDiagnosticsEnabled(false);}
@@ -372,6 +445,126 @@ void MainWindow::showAudioStatus()
 
 void MainWindow::showRegistrationHistory(){std::ostringstream out;for(const auto&line:engine_.registrationHistory())out<<line<<"\n";QMessageBox box(this);box.setWindowTitle("Registration History");box.setTextFormat(Qt::PlainText);box.setText(QString::fromStdString(out.str().empty()?std::string("No registration state changes recorded yet."):out.str()));box.exec();}
 
+void MainWindow::lookupDid()
+{
+    if(!didNumber_||!didOutput_||!network_)return;
+    const QString number=didNumber_->text().trimmed();
+    if(number.isEmpty()){QMessageBox::information(this,"DID Intelligence","Enter a DID / telephone number first.");return;}
+    QString key=didApiKey_?didApiKey_->text().trimmed():QString{};
+    if(key.isEmpty())key=QString::fromUtf8(qgetenv("SIPHER_IPQS_API_KEY")).trimmed();
+    if(key.isEmpty()){
+        QMessageBox::information(this,"DID Intelligence","An IPQualityScore API key is required for live carrier/reputation data. Enter it in the DID Intelligence panel or set SIPHER_IPQS_API_KEY before starting S.I.P.H.E.R.");
+        return;
+    }
+
+    QUrl url(QStringLiteral("https://ipqualityscore.com/api/json/phone"));
+    QUrlQuery query;query.addQueryItem(QStringLiteral("phone"),number);query.addQueryItem(QStringLiteral("strictness"),QStringLiteral("1"));
+    const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QString{};if(!country.isEmpty())query.addQueryItem(QStringLiteral("country[]"),country);
+    url.setQuery(query);
+    QNetworkRequest request(url);request.setRawHeader("IPQS-KEY",key.toUtf8());request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("S.I.P.H.E.R./1.0.0-r18"));
+    didOutput_->setPlainText(QString("Looking up %1...\n\nProvider: IPQualityScore Phone Number Validation API\nThe API key is being sent in the IPQS-KEY header, not embedded in the URL.").arg(number));
+    auto*reply=network_->get(request);
+    connect(reply,&QNetworkReply::finished,this,[this,reply,number](){
+        const QByteArray payload=reply->readAll();const auto networkError=reply->error();const QString networkErrorText=reply->errorString();reply->deleteLater();
+        if(networkError!=QNetworkReply::NoError){didOutput_->setPlainText(QString("DID lookup failed for %1\n\nNetwork/API error: %2").arg(number,networkErrorText));return;}
+        QJsonParseError parseError{};const auto doc=QJsonDocument::fromJson(payload,&parseError);if(parseError.error!=QJsonParseError::NoError||!doc.isObject()){didOutput_->setPlainText(QString("DID lookup returned an unreadable response for %1\n\n%2").arg(number,parseError.errorString()));return;}
+        const auto o=doc.object();const bool success=o.value("success").toBool(false);const int score=o.value("fraud_score").toInt(-1);const bool spammer=o.value("spammer").isBool()&&o.value("spammer").toBool();const bool recent=o.value("recent_abuse").isBool()&&o.value("recent_abuse").toBool();const bool risky=o.value("risky").isBool()&&o.value("risky").toBool();
+        QString verdict;
+        if(spammer)verdict="FLAGGED — provider reports recent spam/harassing-call or text reports.";
+        else if(recent)verdict="HIGH RISK — provider reports recent/ongoing abuse activity.";
+        else if(risky||score>=85)verdict="HIGH RISK — provider reputation/risk signals are elevated.";
+        else if(score>=75)verdict="SUSPICIOUS — elevated reputation score; investigate before treating as abusive.";
+        else verdict="No major spam/abuse flag returned by this provider at lookup time.";
+        auto textValue=[&](const char*key){const auto v=o.value(key);return v.isString()?v.toString():QStringLiteral("N/A");};
+        QString out;
+        out+="S.I.P.H.E.R. r18 — DID / NUMBER INTELLIGENCE\n";
+        out+="================================================\n";
+        out+=QString("Query:              %1\n").arg(number);
+        out+=QString("Provider message:   %1\n").arg(textValue("message"));
+        out+=QString("Lookup success:     %1\n").arg(success?"YES":"NO");
+        out+=QString("Formatted:          %1\n").arg(textValue("formatted"));
+        out+=QString("Valid:              %1\n").arg(jsonTriState(o.value("valid")));
+        out+=QString("Active:             %1\n").arg(jsonTriState(o.value("active")));
+        out+=QString("Carrier:            %1\n").arg(textValue("carrier"));
+        out+=QString("Line type:          %1\n").arg(textValue("line_type"));
+        out+=QString("Country:            %1\n").arg(textValue("country"));
+        out+=QString("Region:             %1\n").arg(textValue("region"));
+        out+=QString("VOIP:               %1\n").arg(jsonTriState(o.value("VOIP")));
+        out+=QString("Prepaid:            %1\n").arg(jsonTriState(o.value("prepaid")));
+        out+=QString("Active status:      %1\n").arg(textValue("active_status"));
+        out+="\nREPUTATION / ABUSE\n------------------\n";
+        out+=QString("Fraud score:        %1\n").arg(score>=0?QString::number(score)+" / 100":QStringLiteral("N/A"));
+        out+=QString("Risky:              %1\n").arg(jsonTriState(o.value("risky")));
+        out+=QString("Recent abuse:       %1\n").arg(jsonTriState(o.value("recent_abuse")));
+        out+=QString("Spammer flag:       %1\n").arg(jsonTriState(o.value("spammer")));
+        out+=QString("Do Not Call:        %1\n").arg(jsonTriState(o.value("do_not_call")));
+        out+=QString("Leaked/compromised:%1\n").arg(QString(" %1").arg(jsonTriState(o.value("leaked"))));
+        out+=QString("\nVERDICT\n-------\n%1\n").arg(verdict);
+        out+="\nInterpretation: reputation scores and flags are indicators from a third-party data set, not proof of criminal activity or caller identity. S.I.P.H.E.R. intentionally does not display reverse-owner identity enrichment or associated email/address data.\n";
+        didOutput_->setPlainText(out);statusBar()->showMessage("DID intelligence lookup complete",5000);
+    });
+}
+
+void MainWindow::analyzeNextOut()
+{
+    if(!routeOutput_)return;
+    try{
+        const auto&p=engine_.profile();
+        QString destination=routeDestination_?routeDestination_->text().trimmed():QString{};if(destination.isEmpty()&&didNumber_)destination=didNumber_->text().trimmed();if(destination.isEmpty()&&dialEdit_)destination=dialEdit_->text().trimmed();
+        QString requestUri=destination.isEmpty()?QStringLiteral("<destination not supplied>"):QString::fromStdString(engine_.normalizeDestination(destination.toStdString(),true));
+        QString configured;QString source;
+        if(!p.outboundProxy.empty()){configured=QString::fromStdString(p.outboundProxy);source="Outbound proxy";}
+        else if(!p.registrar.empty()){configured=QString::fromStdString(p.registrar);source="Registrar (no outbound proxy configured)";}
+        else{configured=QString::fromStdString(p.sipDomain);source="SIP domain (direct/RFC3263-style resolution)";}
+        const auto target=parseSipTarget(configured,p.transport);
+        QString out="S.I.P.H.E.R. r18 — CARRIER HANDOFF / NEXT-OUT\n================================================\n";
+        out+=QString("Destination input:       %1\n").arg(destination.isEmpty()?QStringLiteral("<none>"):destination);
+        out+=QString("Normalized Request-URI:  %1\n").arg(requestUri);
+        out+=QString("Profile transport:       %1\n").arg(QString::fromStdString(toString(p.transport)).toUpper());
+        out+=QString("Handoff source:          %1\n").arg(source);
+        out+=QString("Configured handoff URI:  %1\n").arg(configured.isEmpty()?QStringLiteral("<none>"):configured);
+        out+=QString("Expected next-hop host:  %1\n").arg(target.host.isEmpty()?QStringLiteral("<unresolved>"):target.host);
+        out+=QString("Expected next-hop port:  %1%2\n").arg(target.port).arg(target.explicitPort?QStringLiteral(" (explicit)"):QStringLiteral(" (default/candidate)"));
+
+        if(!target.host.isEmpty()){
+            const auto info=QHostInfo::fromName(target.host);out+="\nDNS A/AAAA CANDIDATES\n--------------------\n";
+            if(info.error()==QHostInfo::NoError&&!info.addresses().isEmpty()){QStringList ips;for(const auto&a:info.addresses()){const auto ip=a.toString();if(!ips.contains(ip))ips.push_back(ip);}for(const auto&ip:ips)out+=QString(" - %1:%2\n").arg(ip).arg(target.port);}else out+=QString(" - Resolution unavailable: %1\n").arg(info.errorString());
+
+            if(p.outboundProxy.empty()&&!target.explicitPort){
+                const QString service=(p.transport==Transport::Tls?QStringLiteral("_sips._tcp."):(p.transport==Transport::Tcp?QStringLiteral("_sip._tcp."):QStringLiteral("_sip._udp.")))+target.host;
+                QDnsLookup dns(QDnsLookup::SRV,service);QEventLoop loop;QTimer timer;timer.setSingleShot(true);connect(&dns,&QDnsLookup::finished,&loop,&QEventLoop::quit);connect(&timer,&QTimer::timeout,&loop,[&](){dns.abort();loop.quit();});timer.start(2200);dns.lookup();loop.exec();
+                out+=QString("\nSIP SRV CANDIDATES (%1)\n--------------------\n").arg(service);
+                if(dns.error()==QDnsLookup::NoError&&!dns.serviceRecords().isEmpty()){for(const auto&r:dns.serviceRecords())out+=QString(" - priority %1 weight %2  %3:%4\n").arg(r.priority()).arg(r.weight()).arg(r.target()).arg(r.port());}else out+=QString(" - No SRV result observed%1\n").arg(dns.error()==QDnsLookup::NoError?QString{}:QString(": ")+dns.errorString());
+            }
+        }
+
+        out+="\nOBSERVED SIP PATH DISCLOSURES\n-----------------------------\n";
+        const int id=selectedCallId();
+        if(id<0)out+="No call is selected. Select a Phone call under ACTIVE LINES and rerun this analysis to add observed SIP headers.\n";
+        else{
+            try{
+                const auto trace=engine_.sipTrace(id);QString firstInvite,observedPeer;QStringList routes,recordRoutes,vias,contacts;
+                for(const auto&e:trace){if(firstInvite.isEmpty()&&e.direction==SipDirection::Sent&&e.method=="INVITE"){const auto raw=QString::fromStdString(e.rawMessage);firstInvite=raw.split(QRegularExpression("\\r?\\n")).value(0).trimmed();if(!e.peerAddress.empty())observedPeer=QString::fromStdString(e.peerAddress)+(e.peerPort?QString(":%1").arg(e.peerPort):QString{});}appendUnique(routes,sipHeaderValues(e.rawMessage,"Route"));appendUnique(recordRoutes,sipHeaderValues(e.rawMessage,"Record-Route"));appendUnique(vias,sipHeaderValues(e.rawMessage,"Via"));appendUnique(contacts,sipHeaderValues(e.rawMessage,"Contact"));}
+                out+=QString("Selected Call ID:        %1\n").arg(id);if(!firstInvite.isEmpty())out+=QString("Observed INVITE line:    %1\n").arg(firstInvite);out+=QString("Actual INVITE peer:      %1\n").arg(observedPeer.isEmpty()?QStringLiteral("<not captured>"):observedPeer);
+                auto emit=[&](const QString&label,const QStringList&values){out+=label+"\n";if(values.isEmpty())out+=" - <none disclosed>\n";else for(const auto&v:values)out+=" - "+v+"\n";};
+                emit("Route headers:",routes);emit("Record-Route headers:",recordRoutes);emit("Via headers:",vias);emit("Contact headers:",contacts);
+            }catch(const std::exception&e){out+=QString("Selected call trace unavailable: %1\n").arg(e.what());}
+        }
+        out+="\nROUTE NOTE\n----------\nThe configured/resolved peer above is the expected SIP handoff from S.I.P.H.E.R. Once the carrier SBC accepts the INVITE, additional carrier-internal proxies, tandems or terminating-network hops may be intentionally hidden by topology-hiding. IP traceroute to the SBC is a network path, not a PSTN/SIP call-route trace.\n";
+        routeOutput_->setPlainText(out);statusBar()->showMessage("Next-out / carrier handoff analysis complete",5000);
+    }catch(const std::exception&e){QMessageBox::warning(this,"Carrier handoff analysis",e.what());}
+}
+
+void MainWindow::showBlueBoxLegacy()
+{
+    QDialog d(this);d.setWindowTitle("Legacy — Blue Tone / Blue Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("BLUE TONE / BLUE BOX // HISTORICAL SIGNALING LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Blue boxes are historically associated with in-band telephone network-control signaling on older long-distance systems. This S.I.P.H.E.R. panel is an offline visual/history simulator only: it does not generate network-control audio, inject signaling into calls, or provide live carrier manipulation functions.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QGridLayout;for(int i=0;i<12;++i){auto*b=new QPushButton(QString("LEGACY KEY %1").arg(i+1));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: legacy control %1 selected — visualization only; nothing transmitted.").arg(i+1));});g->addWidget(b,i/3,i%3);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
+}
+
+void MainWindow::showRedBoxLegacy()
+{
+    QDialog d(this);d.setWindowTitle("Legacy — Red Box Historical Lab");d.setMinimumWidth(560);auto*l=new QVBoxLayout(&d);auto*title=new QLabel("RED BOX // HISTORICAL PAYPHONE LAB");title->setStyleSheet("font-weight:700; font-size:16px;");l->addWidget(title);auto*text=new QLabel("Red boxes are historically associated with imitating legacy payphone coin signaling. This panel preserves the history/aesthetic as an offline simulator only. It cannot produce live coin-control tones, interact with a payphone, alter billing, or transmit control signaling into a call.");text->setWordWrap(true);l->addWidget(text);auto*status=new QLabel("SIMULATION: IDLE — NO AUDIO / NO NETWORK OUTPUT");status->setWordWrap(true);l->addWidget(status);auto*g=new QHBoxLayout;for(int i=0;i<3;++i){auto*b=new QPushButton(QString("COIN SIGNAL %1").arg(QChar('A'+i)));connect(b,&QPushButton::clicked,&d,[status,i](){status->setText(QString("SIMULATION: coin event %1 selected — visualization only; nothing transmitted.").arg(QChar('A'+i)));});g->addWidget(b);}l->addLayout(g);auto*close=new QPushButton("CLOSE");connect(close,&QPushButton::clicked,&d,&QDialog::accept);l->addWidget(close);d.exec();
+}
+
 static AuditTransport guiAuditTransport(QComboBox* box){return PbxAudit::transportFromString(box?box->currentData().toString().toStdString():"udp");}
 void MainWindow::runAuditAuto(){
     const auto host=auditHost_->text().trimmed().toStdString();if(host.empty()){QMessageBox::information(this,"Automated PBX audit","Enter a PBX/SBC target first.");return;}
@@ -396,6 +589,8 @@ void MainWindow::runAuditParser(){try{const auto host=auditHost_->text().trimmed
 void MainWindow::runAuditResilience(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");auto rs=PbxAudit::resilienceAudit(host,(std::uint16_t)auditPort_->value(),guiAuditTransport(auditTransport_));lastAuditReport_=PbxAudit::report("PBX BOUNDED RATE-RESILIENCE SIMULATION",rs);auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));}catch(const std::exception&e){QMessageBox::warning(this,"PBX resilience audit",e.what());}}
 void MainWindow::runAuditScenario(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");auto user=auditUser_->text().trimmed().toStdString();if(user.empty())user=engine_.profile().username;auto rs=PbxAudit::attackScenarioAudit(host,user,(std::uint16_t)auditPort_->value(),guiAuditTransport(auditTransport_));std::string tls;try{tls=PbxAudit::tlsAudit(host,5061,3500);}catch(const std::exception&e){tls=std::string("TLS probe unavailable: ")+e.what();}lastAuditReport_=PbxAudit::report("REAL-WORLD PBX ATTACK-SCENARIO SIMULATION",rs,{},tls);auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));}catch(const std::exception&e){QMessageBox::warning(this,"PBX attack scenario",e.what());}}
 void MainWindow::runAuditTls(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");const auto tls=PbxAudit::tlsAudit(host,5061);lastAuditReport_=PbxAudit::report("PBX TLS AUDIT",{}, {},tls);auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));}catch(const std::exception&e){QMessageBox::warning(this,"PBX TLS audit",e.what());}}
+void MainWindow::runAuditTransportParity(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");auto rs=PbxAudit::transportParityAudit(host,(std::uint16_t)auditPort_->value());lastAuditReport_=PbxAudit::report("PBX UDP/TCP TRANSPORT PARITY",rs);auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));}catch(const std::exception&e){QMessageBox::warning(this,"PBX transport parity",e.what());}}
+void MainWindow::runAuditTopologyExposure(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");auto r=PbxAudit::topologyExposureAudit(host,(std::uint16_t)auditPort_->value(),guiAuditTransport(auditTransport_));lastAuditReport_=PbxAudit::report("PBX TOPOLOGY / INFORMATION EXPOSURE",{r});auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));}catch(const std::exception&e){QMessageBox::warning(this,"PBX topology exposure",e.what());}}
 void MainWindow::runAuditFull(){try{const auto host=auditHost_->text().trimmed().toStdString();if(host.empty())throw std::runtime_error("Target is required");AutomatedAuditOptions opt;opt.host=host;opt.port=(std::uint16_t)auditPort_->value();opt.transport=guiAuditTransport(auditTransport_);opt.username=auditUser_->text().trimmed().toStdString();if(opt.username.empty())opt.username=engine_.profile().username;auto result=PbxAudit::automatedAudit(opt);lastAuditReport_=result.toText();auditOutput_->setPlainText(QString::fromStdString(lastAuditReport_));if(auditProgress_)auditProgress_->setText(QString("Complete — %1 HIGH, %2 WARN, %3 PASS, %4 INFO").arg(result.highCount).arg(result.warnCount).arg(result.passCount).arg(result.infoCount));}catch(const std::exception&e){QMessageBox::warning(this,"PBX audit",e.what());}}
 void MainWindow::saveAuditReport(){if(lastAuditReport_.empty()){QMessageBox::information(this,"PBX audit","Run an audit first.");return;}auto path=QFileDialog::getSaveFileName(this,"Save PBX audit report","sipher-pbx-audit.txt","Text reports (*.txt);;All files (*)");if(path.isEmpty())return;try{PbxAudit::saveReport(path.toStdString(),lastAuditReport_);statusBar()->showMessage("PBX audit report saved",5000);}catch(const std::exception&e){QMessageBox::warning(this,"PBX audit",e.what());}}
 

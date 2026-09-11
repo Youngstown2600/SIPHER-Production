@@ -2,7 +2,7 @@
 set -eu
 
 ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-BUILDER_REVISION="sipher-r17-exploit-fix-20260824"
+BUILDER_REVISION="sipher-r18-did-route-audit-20260910"
 
 # A shell can keep an old logical $PWD after a desktop file manager moves the
 # directory to Trash. Building from that relocated inode is especially unsafe
@@ -124,7 +124,7 @@ case "$JOBS" in ''|*[!0-9]*) JOBS=1 ;; esac
 logo() {
 cat <<'LOGO'
 ============================================================
-                 S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix
+                 S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit
        MODERN SIP / RTP / PBX WORKSTATION — LINUX + FREEBSD
 ============================================================
 LOGO
@@ -1024,9 +1024,9 @@ configure_known_alc236_audio_fix() {
     run_privileged cp -p /boot/device.hints "/boot/device.hints.trunkmonkey-backup-$stamp"
     tmp_hints=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-device.hints.XXXXXX")
     awk '
-      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
-      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
+      /^hint\.hdac\.0\.cad0\.nid25\.config="as=1 seq=2 device=Mic"$/ {print "# S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit disabled known-bad override: "$0; next}
       {print}
     ' /boot/device.hints > "$tmp_hints"
     run_privileged install -m 0644 "$tmp_hints" /boot/device.hints
@@ -1332,7 +1332,7 @@ configure_capture_permissions() {
   fi
   {
     echo "# BEGIN TRUNKMONKEY BPF"
-    echo "# Managed by S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix for non-root SIP/RTP packet capture."
+    echo "# Managed by S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit for non-root SIP/RTP packet capture."
     echo "[trunkmonkey_bpf=$ruleset_id]"
     [ -z "$existing_id" ] || echo "add include $existing_id"
     echo "add path 'bpf*' user $capture_user mode 0600"
@@ -1924,18 +1924,18 @@ fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo
-  echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix dry run complete."
+  echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit dry run complete."
 else
   echo
   if [ "$BUILD_CLI" -eq 1 ] || [ "$BUILD_GUI" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix build complete."
+    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit build complete."
     [ "$INSTALL_MODE" = yes ] && echo "Selected client(s) installed under $INSTALL_PREFIX/bin."
   elif [ "$BUILD_PJSIP" -eq 1 ]; then
     echo "S.I.P.H.E.R. PJSIP dependency build complete."
   elif [ "$CONFIGURE_CAPTURE_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix packet-capture permission setup complete."
+    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit packet-capture permission setup complete."
   elif [ "$AUDIO_DIAG_ONLY" -eq 1 ]; then
-    echo "S.I.P.H.E.R. 1.0.0-r17-Exploit-Fix audio diagnostic complete."
+    echo "S.I.P.H.E.R. 1.0.0-r18-DID-Route-Audit audio diagnostic complete."
   elif [ "$UNINSTALL" -eq 1 ]; then
     echo "S.I.P.H.E.R. installed files removed."
   elif [ "$CLEAN" -eq 1 ]; then

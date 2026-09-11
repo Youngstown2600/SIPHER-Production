@@ -5,7 +5,7 @@ cd "$ROOT_DIR"
 [ "$(uname -s)" = Darwin ] || { echo "build-macos.sh must run on macOS." >&2; exit 2; }
 
 PRODUCT="SIPHER"
-VERSION="1.0.0-r17"
+VERSION="1.0.0-r18"
 SLUG="sipher"
 CLI_NAME="sipher"
 GUI_NAME="sipher-gui"
