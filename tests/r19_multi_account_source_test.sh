@@ -26,7 +26,9 @@ grep -q 'accountsDir' src/gui/main.cpp
 ! grep -q 'createDefaultIfMissing(profilePath.string())' src/gui/main.cpp
 
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
-grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
+grep -q 'USACallerLookup' src/gui/MainWindow.cpp
+grep -q 'OPEN SPAMCALLS REPUTATION' src/gui/MainWindow.cpp
+! grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
 grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp
 grep -q 'TOPOLOGY / INFORMATION EXPOSURE' src/gui/MainWindow.cpp

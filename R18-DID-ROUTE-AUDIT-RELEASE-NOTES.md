@@ -2,14 +2,14 @@
 
 ## New
 
-- **DID Intelligence**: enter a DID/telephone number and retrieve carrier/line-type/validity plus spam, recent-abuse, risk and fraud-score indicators from IPQualityScore when an API key is configured.
+- **DID Intelligence (r18 original)**: introduced carrier/line-type and reputation lookup. **SIPHER 2.0 supersedes the original IPQualityScore integration with USACallerLookup (no API key) plus a SpamCalls.net browser action.**
 - **Carrier Handoff / Next-Out**: shows the expected signaling peer, DNS/SRV candidates, normalized Request-URI and observed Route/Record-Route/Via/Contact headers. When an outbound INVITE is captured, S.I.P.H.E.R. also displays the actual resolved peer address and port supplied by PJSIP.
 - **Switch Audit+**: adds UDP/TCP parity and topology/information-exposure checks.
 - **Legacy** menu: offline Blue Tone / Blue Box and Red Box historical lab panels. They are intentionally non-transmitting simulations and do not generate live carrier-control or coin-control tones.
 
 ## DID provider configuration
 
-Set `SIPHER_IPQS_API_KEY` before launch or paste the key into the DID Intelligence tab. The application sends the key in the `IPQS-KEY` HTTP header rather than embedding it in the request URL.
+SIPHER 2.0 requires no reputation API key for the built-in US lookup. USACallerLookup provides NANPA registry carrier/line-type/location data plus FTC/community complaint signals; SpamCalls.net is opened separately in the system browser and is not scraped.
 
 ## Route-analysis boundary
 

@@ -9,6 +9,9 @@ SIPHER 2.0 promotes the r19 Multi-SIP code line to a new major-version baseline 
 - Explicit overrides remain available: `sipher --cli`, `sipher --gui`, or `SIPHER_UI=cli|gui`.
 - r19 multiple-SIP-account support is retained, including simultaneous registrations and zero-account startup.
 - r18 DID Intelligence, carrier handoff/next-out analysis, Switch Audit+, and offline Legacy lab panels are retained.
+- DID Intelligence no longer requires IPQualityScore: the default provider is USACallerLookup's free JSON API (no key/signup) for US carrier/line-type/location plus FTC/community complaint signals.
+- Added **OPEN SPAMCALLS REPUTATION** to open the selected number's SpamCalls.net community page without scraping or depending on its HTML.
+- Carrier results are explicitly labeled as NANPA registry assignment; live current-carrier/LRN data remains a future pluggable-provider path.
 
 ## r18 fixes carried forward
 

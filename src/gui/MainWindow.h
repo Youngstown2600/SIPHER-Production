@@ -14,7 +14,7 @@ private slots:
     void startSipTrace();void stopSipTrace();void startSipPcap();void startRtpPcap();void startCallPcap();void stopPcaps();void openLastPcap();
     void launchBatch();void loadDestinations();void loadCallerIds();void loadQueueAudio();void hangupAll();void editProfile();void manageAccounts();void refreshAccountSelector();void showAudioDevices();void showAudioOutput();void reopenAudio();void showAudioStatus();void showRegistrationHistory();void applyTheme(const QString& theme);
     void showSipLadder();void exportCallReport();
-    void lookupDid();void analyzeNextOut();void showBlueBoxLegacy();void showRedBoxLegacy();
+    void lookupDid();void openSpamCalls();void analyzeNextOut();void showBlueBoxLegacy();void showRedBoxLegacy();
     void runAuditAuto();void runAuditFingerprint();void runAuditVulns();void runAuditProbe();void runAuditDiscover();void runAuditMethods();void runAuditAuth();void runAuditExtensions();void runAuditCompliance();void runAuditParser();void runAuditResilience();void runAuditScenario();void runAuditTls();void runAuditTransportParity();void runAuditTopologyExposure();void runAuditFull();void saveAuditReport();
 private:
     int selectedCallId()const;void buildUi();void setDiagnosticsEnabled(bool enabled);void selectCallId(int id);
@@ -24,7 +24,7 @@ private:
     QLabel* diagnosticNote_{nullptr};QLabel* captureStatus_{nullptr};QComboBox* captureInterface_{nullptr};QTableWidget* sipLog_{nullptr};QLabel* rawSipFlow_{nullptr};QPlainTextEdit* rawSip_{nullptr};
     QPushButton* sipTraceStart_{nullptr};QPushButton* sipTraceStop_{nullptr};QPushButton* sipPcapStart_{nullptr};QPushButton* rtpPcapStart_{nullptr};QPushButton* callPcapStart_{nullptr};QPushButton* pcapStop_{nullptr};QPushButton* muteButton_{nullptr};
     QSpinBox* batchCount_{nullptr};QSpinBox* launchInterval_{nullptr};QLineEdit* batchDestination_{nullptr};QLineEdit* fixedCallerId_{nullptr};
-    QLineEdit* didNumber_{nullptr};QLineEdit* didApiKey_{nullptr};QComboBox* didCountry_{nullptr};QPlainTextEdit* didOutput_{nullptr};QLineEdit* routeDestination_{nullptr};QPlainTextEdit* routeOutput_{nullptr};QNetworkAccessManager* network_{nullptr};
+    QLineEdit* didNumber_{nullptr};QComboBox* didCountry_{nullptr};QPlainTextEdit* didOutput_{nullptr};QLineEdit* routeDestination_{nullptr};QPlainTextEdit* routeOutput_{nullptr};QNetworkAccessManager* network_{nullptr};
     QLabel* destinationFileLabel_{nullptr};QLabel* callerIdFileLabel_{nullptr};QLabel* queueAudioFileLabel_{nullptr};QComboBox* theme_{nullptr};QTimer* refreshTimer_{nullptr};QTabWidget* tabs_{nullptr};QLabel* profileSummary_{nullptr};QPlainTextEdit* activityLog_{nullptr};
     QLineEdit* auditHost_{nullptr};QLineEdit* auditUser_{nullptr};QSpinBox* auditPort_{nullptr};QSpinBox* auditExtFirst_{nullptr};QSpinBox* auditExtLast_{nullptr};QComboBox* auditTransport_{nullptr};QPlainTextEdit* auditOutput_{nullptr};QLabel* auditProgress_{nullptr};
     QCheckBox* auditIncludeVulns_{nullptr};QCheckBox* auditIncludeParser_{nullptr};QCheckBox* auditIncludeResilience_{nullptr};QCheckBox* auditIncludeTls_{nullptr};QCheckBox* auditIncludeExtensions_{nullptr};

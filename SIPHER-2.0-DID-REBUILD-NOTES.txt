@@ -1,0 +1,16 @@
+SIPHER 2.0 DID Intelligence rebuild — 2026-09-11
+
+Changes in this bundle:
+- Runtime IPQualityScore dependency removed from DID Intelligence.
+- Default live DID provider changed to USACallerLookup public JSON API (no API key/signup).
+- US number normalization accepts 10 digits or a leading 1/+1.
+- DID output includes carrier, line type, rate center/city, state, timezone, toll-free status when returned.
+- FTC complaint/community-report signals are displayed with spoofing/reputation caveats.
+- Added OPEN SPAMCALLS REPUTATION, which opens the number's SpamCalls.net page in the default browser.
+- SIPHER does not scrape or depend on SpamCalls.net HTML.
+- Carrier output explicitly distinguishes NANPA registry assignment from live current-carrier/LRN data.
+- r18 route/audit fixes, r19 multi-SIP/zero-account behavior, and SIPHER 2.0 unified `sipher` binary behavior retained.
+
+Validation on packaging host:
+- tests/run_2_0_regression.sh: PASS
+- Qt/PJSIP full GUI link not performed because this packaging host lacks Qt and libpjproject development packages.

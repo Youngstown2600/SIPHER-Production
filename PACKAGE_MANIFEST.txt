@@ -2,6 +2,7 @@ SIPHER 2.0: unified public `sipher` executable; terminal/TTY launches select CLI
 r19 features retained: simultaneous multi-SIP registration, account manager/outbound selector, per-call account attribution, zero-account startup, legacy profile migration, CLI account list/select.
 r18 fixes retained: PJSIP 2.17 RX peer metadata uses src_name/src_port; Qt emit-macro collision removed; current CTest contracts replace stale r15/r17 release gates.
 r18 features retained: DID/number intelligence, carrier handoff/next-out analysis, Switch Audit+ transport parity/topology exposure, offline Legacy historical labs.
+SIPHER 2.0 DID provider update: USACallerLookup is the default no-key JSON source for US carrier/line-type/location + FTC/community complaints; SpamCalls.net opens as a separate browser reputation view and is not scraped.
 
 Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
 r17: underground phone-phreak / signal-lab GUI+CLI; 10 shared + 10 S.I.P.H.E.R. themes; r15 core preserved.

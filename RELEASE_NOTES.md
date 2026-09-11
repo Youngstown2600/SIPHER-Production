@@ -2,7 +2,7 @@
 
 SIPHER 2.0 promotes the r19 Multi-SIP tree to a new major-version baseline. The application now exposes a single public executable, `sipher`, that automatically selects CLI for terminal/TTY launches and GUI for graphical desktop launches. Use `--cli`, `--gui`, or `SIPHER_UI=cli|gui` to override selection.
 
-The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CTest registration are carried forward. See `SIPHER-2.0-RELEASE-NOTES.md` for the complete 2.0 delta.
+The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CTest registration are carried forward. The 2.0 DID Intelligence path now uses USACallerLookup with no API key and provides a separate SpamCalls.net community-reputation browser action. See `SIPHER-2.0-RELEASE-NOTES.md` for the complete 2.0 delta.
 
 ---
 

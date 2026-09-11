@@ -4,8 +4,12 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
-grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
-grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp
+grep -q 'USACallerLookup' src/gui/MainWindow.cpp
+grep -q 'www.usacallerlookup.com/wp-json/ucl/v1/number/' src/gui/MainWindow.cpp
+grep -q 'OPEN SPAMCALLS REPUTATION' src/gui/MainWindow.cpp
+grep -q 'spamcalls.net/en/num/' src/gui/MainWindow.cpp
+! grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
+! grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
 grep -q 'Actual INVITE peer' src/gui/MainWindow.cpp
 grep -q 'dst_name' src/core/SipWireMonitor.cpp

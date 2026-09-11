@@ -1,5 +1,8 @@
 # SIPHER 2.0 — 2026-09-11
 
+- Replaced the runtime IPQualityScore DID dependency with USACallerLookup's no-key JSON API for US carrier/line-type/location and FTC/community complaint signals.
+- Added **Open SpamCalls Reputation** to launch the number's SpamCalls.net community page without scraping its HTML.
+- DID output now distinguishes NANPA registry carrier assignment from current serving-carrier/LRN data and warns about caller-ID spoofing.
 - Promoted r19 Multi-SIP to the SIPHER 2.0 major-version baseline.
 - Unified GUI and CLI into one public `sipher` executable name.
 - Auto-selects CLI for terminal/TTY launches and GUI for desktop launches; `--cli`, `--gui`, and `SIPHER_UI` override auto-selection.
