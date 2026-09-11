@@ -9,6 +9,13 @@ grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
 grep -q 'Actual INVITE peer' src/gui/MainWindow.cpp
 grep -q 'dst_name' src/core/SipWireMonitor.cpp
+# PJSIP 2.17 RX metadata uses pkt_info.src_name/src_port (or src_addr), never pkt_info.addr.
+grep -q 'pkt_info.src_name' src/core/SipWireMonitor.cpp
+grep -q 'pkt_info.src_port' src/core/SipWireMonitor.cpp
+if grep -q 'rdata->pkt_info\.addr' src/core/SipWireMonitor.cpp; then
+  echo 'PJSIP 2.17 compatibility regression: pkt_info.addr does not exist' >&2
+  exit 1
+fi
 grep -q 'peerAddress' include/trunkmonkey/SipTrace.h
 grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp
 grep -q 'TOPOLOGY / INFORMATION EXPOSURE' src/gui/MainWindow.cpp

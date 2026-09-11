@@ -133,11 +133,12 @@ void SipWireMonitor::dispatch(pjsip_msg* msg, bool sent, const char* raw, std::s
 pj_bool_t SipWireMonitor::onRxRequest(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
-        char peer[PJ_INET6_ADDRSTRLEN]{};
-        pj_sockaddr_print(&rdata->pkt_info.addr, peer, sizeof(peer), 0);
+        // PJSIP 2.17 exposes the receive peer as pkt_info.src_name/src_port
+        // (and the sockaddr as src_addr). There is no generic RX address member with the old spelling.
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len), peer,
-                 static_cast<unsigned>(pj_sockaddr_get_port(&rdata->pkt_info.addr)));
+                 static_cast<std::size_t>(rdata->msg_info.len),
+                 rdata->pkt_info.src_name,
+                 static_cast<unsigned>(rdata->pkt_info.src_port));
     }
     return PJ_FALSE;
 }
@@ -145,11 +146,10 @@ pj_bool_t SipWireMonitor::onRxRequest(pjsip_rx_data* rdata)
 pj_bool_t SipWireMonitor::onRxResponse(pjsip_rx_data* rdata)
 {
     if (rdata && rdata->msg_info.msg) {
-        char peer[PJ_INET6_ADDRSTRLEN]{};
-        pj_sockaddr_print(&rdata->pkt_info.addr, peer, sizeof(peer), 0);
         dispatch(rdata->msg_info.msg, false, rdata->msg_info.msg_buf,
-                 static_cast<std::size_t>(rdata->msg_info.len), peer,
-                 static_cast<unsigned>(pj_sockaddr_get_port(&rdata->pkt_info.addr)));
+                 static_cast<std::size_t>(rdata->msg_info.len),
+                 rdata->pkt_info.src_name,
+                 static_cast<unsigned>(rdata->pkt_info.src_port));
     }
     return PJ_FALSE;
 }
