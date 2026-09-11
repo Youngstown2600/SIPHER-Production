@@ -1,4 +1,4 @@
-#include "trunkmonkey/RuntimePaths.h"
+#include "sipher/RuntimePaths.h"
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
@@ -15,7 +15,7 @@
 #include <unistd.h>
 #endif
 
-namespace trunkmonkey::runtime {
+namespace sipher::runtime {
 namespace {
 std::filesystem::path envPath(const char* name)
 {
@@ -34,9 +34,8 @@ std::filesystem::path absoluteEnvPath(const char* name)
 std::filesystem::path portableRoot()
 {
     auto explicitRoot = absoluteEnvPath("SIPHER_PORTABLE_ROOT");
-    if (explicitRoot.empty()) explicitRoot = absoluteEnvPath("SAK_PORTABLE_ROOT"); // legacy S.a.K. compatibility
     if (!explicitRoot.empty()) return explicitRoot;
-#ifdef SAK_PORTABLE_BUILD
+#ifdef SIPHER_PORTABLE_BUILD
     std::wstring buffer(32768, L'\0');
     const DWORD n = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
     if (n > 0 && n < buffer.size()) {
@@ -94,9 +93,9 @@ std::filesystem::path configDir()
 #endif
     auto xdg = absoluteEnvPath("XDG_CONFIG_HOME");
     if (!xdg.empty()) {
-        return xdg / "trunkmonkey";
+        return xdg / "sipher";
     }
-    return homeDir() / ".config" / "trunkmonkey";
+    return homeDir() / ".config" / "sipher";
 }
 
 std::filesystem::path stateDir()
@@ -107,19 +106,19 @@ std::filesystem::path stateDir()
 #endif
     auto xdg = absoluteEnvPath("XDG_STATE_HOME");
     if (!xdg.empty()) {
-        return xdg / "trunkmonkey";
+        return xdg / "sipher";
     }
-    return homeDir() / ".local" / "state" / "trunkmonkey";
+    return homeDir() / ".local" / "state" / "sipher";
 }
 
 std::filesystem::path settingsPath()
 {
-    return configDir() / "trunkmonkey.ini";
+    return configDir() / "sipher.ini";
 }
 
 std::filesystem::path logPath()
 {
-    return stateDir() / "logs" / "trunkmonkey.log";
+    return stateDir() / "logs" / "sipher.log";
 }
 
 std::filesystem::path tempDir()
@@ -161,7 +160,7 @@ std::filesystem::path tempDir()
     std::error_code ec;
     auto base = std::filesystem::temp_directory_path(ec);
     if (ec) base = std::filesystem::path{"."};
-    return base / "trunkmonkey";
+    return base / "sipher";
 #endif
 }
 
@@ -172,9 +171,7 @@ std::filesystem::path pjsipLogPath()
 
 std::filesystem::path defaultProfilePath(const std::filesystem::path& executablePath)
 {
-    auto explicitProfile = envPath("SAK_PROFILE");
-    if (explicitProfile.empty()) explicitProfile = envPath("SIPHER_PROFILE");
-    if (explicitProfile.empty()) explicitProfile = envPath("TRUNKMONKEY_PROFILE");
+    auto explicitProfile = envPath("SIPHER_PROFILE");
     if (!explicitProfile.empty()) {
         return explicitProfile;
     }
@@ -251,4 +248,4 @@ void ensureUserDirectories()
     makePrivateDir(stateDir() / "logs");
     makePrivateDir(tempDir());
 }
-} // namespace trunkmonkey::runtime
+} // namespace sipher::runtime

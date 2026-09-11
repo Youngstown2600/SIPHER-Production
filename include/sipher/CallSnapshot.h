@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
-namespace trunkmonkey {
+namespace sipher {
 enum class CallDirection { Incoming, Outgoing };
 enum class CallPurpose { Phone, QueueTest };
 struct CallSnapshot {

@@ -1,7 +1,7 @@
 #pragma once
-#include "trunkmonkey/Profile.h"
+#include "sipher/Profile.h"
 #include <QString>
 class QWidget;
 
-bool editSipProfileDialog(QWidget* parent, trunkmonkey::SipProfile& profile,
+bool editSipProfileDialog(QWidget* parent, sipher::SipProfile& profile,
                           const QString& profilePath, bool firstRun=false);

@@ -17,7 +17,7 @@ QString normalizeThemeKey(const QString& key){
 
 Palette paletteFor(const QString& raw){
     const QString k=normalizeThemeKey(raw);
-    // The first ten palettes are intentionally identical to TrunkMonkey r22.
+    // The first ten palettes are intentionally identical to SIPHER r22.
     Palette p{"#0d1117","#161b22","#21262d","#2a3038","#e6edf3","#8b949e","#58a6ff","#79c0ff","#30363d","#3fb950","#f85149","#d29922",false};
     if(k=="midnight")p={"#07111f","#0c2137","#112d49","#173859","#e5efff","#8298b8","#5aa7ff","#7bd6ff","#234b74","#68d391","#ff7182","#f6c453",false};
     else if(k=="slate")p={"#101214","#1a1d20","#252a2f","#30363c","#d9dde2","#929aa3","#7fa7c9","#a8c2d8","#3f4851","#71b58a","#d66b73","#c4a45f",false};

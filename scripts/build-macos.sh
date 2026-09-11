@@ -11,7 +11,7 @@ BINARY_NAME="sipher"
 BUNDLE_ID="org.sipher.client"
 APP_NAME="SIPHER.app"
 BUILD_DIR=${BUILD_DIR:-$ROOT_DIR/build-macos}
-PJSIP_PREFIX=${PJSIP_PREFIX:-${HOME:-$ROOT_DIR}/.local/trunkmonkey-pjsip}
+PJSIP_PREFIX=${PJSIP_PREFIX:-${HOME:-$ROOT_DIR}/.local/sipher-pjsip}
 INSTALL_PREFIX=${INSTALL_PREFIX:-/usr/local}
 APP_INSTALL_DIR=${APP_INSTALL_DIR:-/Applications}
 BUILD_CLI=1
@@ -210,8 +210,8 @@ export CMAKE_PREFIX_PATH="$QT_PREFIX:$QTTOOLS_PREFIX:$BREW_PREFIX:${CMAKE_PREFIX
 export CPPFLAGS="-I$OPENSSL_PREFIX/include -I$PORTAUDIO_PREFIX/include -I$OPUS_PREFIX/include ${CPPFLAGS:-}"
 export LDFLAGS="-L$OPENSSL_PREFIX/lib -L$PORTAUDIO_PREFIX/lib -L$OPUS_PREFIX/lib ${LDFLAGS:-}"
 
-if [ "$FORCE_PJSIP" -eq 1 ]; then rm -f "$PJSIP_PREFIX/.trunkmonkey-pjsip-build"; fi
-if [ ! -f "$PJSIP_PREFIX/.trunkmonkey-pjsip-build" ] || ! PKG_CONFIG_PATH="$PJSIP_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}" pkg-config --exists 'libpjproject = 2.17' 2>/dev/null; then
+if [ "$FORCE_PJSIP" -eq 1 ]; then rm -f "$PJSIP_PREFIX/.sipher-pjsip-build"; fi
+if [ ! -f "$PJSIP_PREFIX/.sipher-pjsip-build" ] || ! PKG_CONFIG_PATH="$PJSIP_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}" pkg-config --exists 'libpjproject = 2.17' 2>/dev/null; then
   say "Building managed PJSIP 2.17"
   PJSIP_PREFIX="$PJSIP_PREFIX" CC=clang CXX=clang++ "$ROOT_DIR/scripts/bootstrap-pjsip.sh"
 fi
@@ -222,7 +222,7 @@ CLI_OPT=OFF; GUI_OPT=OFF; [ "$BUILD_CLI" -eq 0 ] || CLI_OPT=ON; [ "$BUILD_GUI" -
 say "Configuring $PRODUCT $VERSION"
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" \
-  -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" -DTRUNKMONKEY_BUILD_CLI="$CLI_OPT" -DTRUNKMONKEY_BUILD_GUI="$GUI_OPT" -DTRUNKMONKEY_BUILD_TESTS=OFF
+  -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" -DSIPHER_BUILD_CLI="$CLI_OPT" -DSIPHER_BUILD_GUI="$GUI_OPT" -DSIPHER_BUILD_TESTS=OFF
 cmake --build "$BUILD_DIR" --parallel "$JOBS"
 
 APP=

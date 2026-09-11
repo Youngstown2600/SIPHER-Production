@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET="${1:-${SAK_WINDOWS_TARGET:-win10}}"
+TARGET="${1:-${SIPHER_WINDOWS_TARGET:-win10}}"
 shift || true
 INSTALL_DEPS=1
 RUN_TESTS=1
@@ -83,10 +83,10 @@ say "Configuring SIPHER 2.0 unified GUI + CLI ($LABEL / Qt $QT_MAJOR)"
 rm -rf "$APP_BUILD"
 cmake -S "$ROOT" -B "$APP_BUILD" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
-  -DSAK_QT_MAJOR="$QT_MAJOR" \
-  -DTRUNKMONKEY_BUILD_GUI=ON \
-  -DTRUNKMONKEY_BUILD_CLI=ON \
-  -DTRUNKMONKEY_BUILD_TESTS=ON
+  -DSIPHER_QT_MAJOR="$QT_MAJOR" \
+  -DSIPHER_BUILD_GUI=ON \
+  -DSIPHER_BUILD_CLI=ON \
+  -DSIPHER_BUILD_TESTS=ON
 cmake --build "$APP_BUILD" --parallel
 
 if (( RUN_TESTS )); then

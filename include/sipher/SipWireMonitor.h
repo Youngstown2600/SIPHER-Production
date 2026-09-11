@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <mutex>
 
-namespace trunkmonkey {
+namespace sipher {
 class Logger;
 class SipEngine;
 

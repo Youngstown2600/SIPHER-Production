@@ -13,7 +13,7 @@
 #include <utility>
 #include <limits>
 
-using namespace trunkmonkey;
+using namespace sipher;
 
 bool editSipProfileDialog(QWidget* parent,SipProfile& profile,const QString& profilePath,bool firstRun)
 {

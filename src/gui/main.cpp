@@ -1,11 +1,11 @@
 #include "MainWindow.h"
 #include "ProfileDialog.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/MultiCallManager.h"
-#include "trunkmonkey/Profile.h"
-#include "trunkmonkey/RuntimePaths.h"
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/Version.h"
+#include "sipher/Logger.h"
+#include "sipher/MultiCallManager.h"
+#include "sipher/Profile.h"
+#include "sipher/RuntimePaths.h"
+#include "sipher/SipEngine.h"
+#include "sipher/Version.h"
 #include <QApplication>
 #include <QColor>
 #include <QFont>
@@ -16,7 +16,7 @@
 #include <QPixmap>
 #include <QPen>
 #include <filesystem>
-using namespace trunkmonkey;
+using namespace sipher;
 static QIcon makeSipherIcon(){
     QPixmap pix(64,64);pix.fill(Qt::transparent);
     QPainter p(&pix);p.setRenderHint(QPainter::Antialiasing,false);
@@ -31,7 +31,7 @@ static QIcon makeSipherIcon(){
 }
 int sipherRunGui(int argc,char**argv){
     runtime::configurePortableEnvironment();
-    QApplication app(argc,argv);app.setApplicationName("SIPHER 2.0");app.setApplicationVersion(TRUNKMONKEY_VERSION);
+    QApplication app(argc,argv);app.setApplicationName("SIPHER 2.0");app.setApplicationVersion(SIPHER_VERSION);
     app.setWindowIcon(makeSipherIcon());
     try{runtime::ensureUserDirectories();}catch(const std::exception&error){QMessageBox::critical(nullptr,"SIPHER",QString::fromStdString(error.what()));return 2;}
     const std::filesystem::path executable=argc>0?std::filesystem::path(argv[0]):std::filesystem::path{};

@@ -1,9 +1,9 @@
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/SipTrace.h"
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
-using namespace trunkmonkey;
+using namespace sipher;
 
 namespace {
 void check(bool condition, const char* expression)

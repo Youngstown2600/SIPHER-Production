@@ -150,7 +150,7 @@
 # S.I.P.H.E.R. 2.0.0 — Diagnostics & Security Suite — 2026-08-16
 
 ## Unix r20 FreeBSD/Release test deadlock hotfix
-- Fixed `tm-pbx-audit-test` hanging in optimized (`NDEBUG`) builds by removing all socket/system-call side effects from `assert(...)` expressions.
+- Fixed `sipher-pbx-audit-test` hanging in optimized (`NDEBUG`) builds by removing all socket/system-call side effects from `assert(...)` expressions.
 - PBX audit test now uses always-active runtime checks so bind/getsockname/recvfrom validation works in Release and Debug builds.
 - Added a 30-second CTest timeout to `pbx-audit-test` as a fail-safe against future blocking regressions.
 
@@ -189,7 +189,7 @@
 - First stable S.I.P.H.E.R. 1.0 Unix package; application version `1.0.0`, SIP User-Agent `S.I.P.H.E.R./1.0`, builder revision `unix-r14-20260816-stable`.
 - Builder automatically prepares SIP/RTP packet capture: Linux uses `CAP_NET_RAW` + `CAP_NET_ADMIN` on the resolved capture helper; FreeBSD uses a backed-up persistent per-user `devfs` rule for `/dev/bpf*`. Added `--configure-capture`.
 - Builder adds a narrowly signature-matched ALC236 repair for the verified Project-2501 failure (`init_clear=1`, `ivref80`, NID25 verification at `0x24`) and refuses broad/unknown HDA rewrites.
-- PJSIP verbose output moved to `/tmp/trunkmonkey-<uid>/pjsip-engine.log`; dashboard-mode S.I.P.H.E.R. logging no longer writes asynchronously over the terminal UI.
+- PJSIP verbose output moved to `/tmp/sipher-<uid>/pjsip-engine.log`; dashboard-mode S.I.P.H.E.R. logging no longer writes asynchronously over the terminal UI.
 - CLI adds Alt+8 Engine Log, PageUp/PageDown scrolling, persistent expanded themes, and the compact monkey mark/header.
 - GUI default footprint reduced to 920x620 with a 720x500 minimum; Active Calls uses horizontal scrolling instead of expanding the whole window.
 - Added eight more GUI/CLI themes: Solarized, Dracula, Nord, Cyberpunk, Blood Moon, Ocean, Retro Blue, and Monochrome.
@@ -334,7 +334,7 @@
 - Added optional `--install`, `--no-install`, `--prefix`, and privilege handling for system installation.
 - Made PJSIP helper scripts POSIX `/bin/sh` compatible for FreeBSD as well as Linux.
 - Top-level builder automatically recognizes the standard local S.I.P.H.E.R. PJSIP prefix.
-- Kept `scripts/build-trunkmonkey.sh` as a compatibility wrapper.
+- Kept `scripts/build-sipher.sh` as a compatibility wrapper.
 
 ## 0.2.0-beta — initial source package
 
@@ -355,8 +355,8 @@
 
 ## Beta 0.2 post-install profile seeding fix — 2026-08-15
 
-- `build.sh` now seeds `~/.config/trunkmonkey/profile.conf` **after** a successful CLI/GUI system install instead of before installation.
-- The seeder prefers the installed template at `<prefix>/share/trunkmonkey/examples/profile.conf.example` and falls back to the source-tree example for development installs.
+- `build.sh` now seeds `~/.config/sipher/profile.conf` **after** a successful CLI/GUI system install instead of before installation.
+- The seeder prefers the installed template at `<prefix>/share/sipher/examples/profile.conf.example` and falls back to the source-tree example for development installs.
 - Existing user profiles are always preserved; the builder never overwrites SIP credentials/settings.
 - The generated profile directory is private (`0700`) and the profile is private (`0600`) on Unix.
 - The builder verifies that the seeded profile is non-empty and clearly reports the template source used.

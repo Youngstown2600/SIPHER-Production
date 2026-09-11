@@ -5,7 +5,7 @@ cd "$ROOT_DIR"
 PRODUCT="SIPHER"; VERSION="2.0"; SLUG="sipher"; BINARY_NAME="sipher"
 [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]] || { echo "build-termux.sh must run inside Termux." >&2; exit 2; }
 PREFIX=${PREFIX:-/data/data/com.termux/files/usr}
-PJSIP_PREFIX=${PJSIP_PREFIX:-$HOME/.local/trunkmonkey-pjsip}
+PJSIP_PREFIX=${PJSIP_PREFIX:-$HOME/.local/sipher-pjsip}
 BUILD_DIR=${BUILD_DIR:-$ROOT_DIR/build-termux}
 BUILD_CLI=1; BUILD_GUI=1; CLEAN=0; FORCE_PJSIP=0; AUTO_DEPS=1; INSTALL_MODE=yes; UNINSTALL=0
 explicit_target=0
@@ -48,14 +48,14 @@ export CC=clang CXX=clang++
 export TERMUX_SYS_PREFIX="$PREFIX"
 export PKG_CONFIG_PATH="$PJSIP_PREFIX/lib/pkgconfig:$PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CMAKE_PREFIX_PATH="$PREFIX:${CMAKE_PREFIX_PATH:-}"
-if [[ $FORCE_PJSIP -eq 1 ]]; then rm -f "$PJSIP_PREFIX/.trunkmonkey-pjsip-build"; fi
-if [[ ! -f "$PJSIP_PREFIX/.trunkmonkey-pjsip-build" ]] || ! pkg-config --exists 'libpjproject = 2.17' 2>/dev/null; then
+if [[ $FORCE_PJSIP -eq 1 ]]; then rm -f "$PJSIP_PREFIX/.sipher-pjsip-build"; fi
+if [[ ! -f "$PJSIP_PREFIX/.sipher-pjsip-build" ]] || ! pkg-config --exists 'libpjproject = 2.17' 2>/dev/null; then
   PJSIP_PREFIX="$PJSIP_PREFIX" "$ROOT_DIR/scripts/bootstrap-pjsip.sh"
 fi
 [[ $CLEAN -eq 0 ]] || rm -rf "$BUILD_DIR"
 CLI_OPT=OFF; GUI_OPT=OFF; [[ $BUILD_CLI -eq 0 ]] || CLI_OPT=ON; [[ $BUILD_GUI -eq 0 ]] || GUI_OPT=ON
 cmake -S . -B "$BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" \
-  -DTRUNKMONKEY_BUILD_CLI="$CLI_OPT" -DTRUNKMONKEY_BUILD_GUI="$GUI_OPT" -DTRUNKMONKEY_BUILD_TESTS=OFF
+  -DSIPHER_BUILD_CLI="$CLI_OPT" -DSIPHER_BUILD_GUI="$GUI_OPT" -DSIPHER_BUILD_TESTS=OFF
 cmake --build "$BUILD_DIR" --parallel
 if [[ "$INSTALL_MODE" == yes ]]; then cmake --install "$BUILD_DIR"; fi
 echo

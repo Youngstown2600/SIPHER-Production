@@ -11,6 +11,7 @@ trap 'rm -f "$TMPBASE"-*' EXIT INT TERM
 ./tests/sipher_2_0_unified_entry_source_test.sh
 ./tests/all_platform_builder_source_test.sh
 ./tests/exploit_fix_source_test.sh
+./tests/did_intel_source_test.sh
 ./tests/freebsd_audio_compat_test.sh
 
 compile_run(){ name=$1; shift; echo "==> $name"; "$CXX" -std=c++17 -Wall -Wextra -Wpedantic -Iinclude "$@" -o "$TMPBASE-$name"; "$TMPBASE-$name"; }

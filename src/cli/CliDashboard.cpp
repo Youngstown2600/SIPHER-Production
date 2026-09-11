@@ -1,5 +1,5 @@
 #include "CliDashboard.h"
-#include "trunkmonkey/Version.h"
+#include "sipher/Version.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -20,7 +20,7 @@
 #include <unistd.h>
 #endif
 
-namespace trunkmonkey::cli {
+namespace sipher::cli {
 namespace {
 
 std::string sanitizeTerminalText(const std::string& value)
@@ -125,14 +125,14 @@ CliDashboard::CliDashboard()
         if(std::string_view(force)=="1") enabled_=true;
     } else if(const char* previewForce=std::getenv("SIPCLIENT_FORCE_DASHBOARD")) {
         if(std::string_view(previewForce)=="1") enabled_=true;
-    } else if(const char* legacyForce=std::getenv("TRUNKMONKEY_FORCE_DASHBOARD")) {
+    } else if(const char* legacyForce=std::getenv("SIPHER_FORCE_DASHBOARD")) {
         if(std::string_view(legacyForce)=="1") enabled_=true;
     }
     if(const char* disable=std::getenv("SIPHER_NO_DASHBOARD")) {
         if(std::string_view(disable)=="1") enabled_=false;
     } else if(const char* previewDisable=std::getenv("SIPCLIENT_NO_DASHBOARD")) {
         if(std::string_view(previewDisable)=="1") enabled_=false;
-    } else if(const char* legacyDisable=std::getenv("TRUNKMONKEY_NO_DASHBOARD")) {
+    } else if(const char* legacyDisable=std::getenv("SIPHER_NO_DASHBOARD")) {
         if(std::string_view(legacyDisable)=="1") enabled_=false;
     }
 #ifdef _WIN32
@@ -147,7 +147,7 @@ CliDashboard::CliDashboard()
     setTheme("system");
     if(const char* envTheme=std::getenv("SIPHER_THEME")) setTheme(envTheme);
     else if(const char* previewTheme=std::getenv("SIPCLIENT_THEME")) setTheme(previewTheme);
-    else if(const char* envTheme=std::getenv("TRUNKMONKEY_THEME")) setTheme(envTheme);
+    else if(const char* envTheme=std::getenv("SIPHER_THEME")) setTheme(envTheme);
 }
 
 std::vector<std::string> CliDashboard::themeNames()
@@ -358,7 +358,7 @@ std::string CliDashboard::panel(const std::string& title,const std::vector<std::
 
 std::vector<std::string> CliDashboard::headerLines(const DashboardState& state,int width,bool compact) const
 {
-    const std::string version=TRUNKMONKEY_VERSION;
+    const std::string version=SIPHER_VERSION;
     std::vector<std::string> lines;
     const bool liveCall=std::any_of(state.calls.begin(),state.calls.end(),[](const CallSnapshot& c){return !c.disconnected;});
     if(!liveCall && !consoleTty_ && width>=103){
@@ -722,7 +722,7 @@ std::vector<std::string> CliDashboard::pageBarLines(DashboardPage page,int width
 {
     const std::vector<std::string> labels={"1 Line","2 Tap","3 Media","4 Calls","5 Switch","6 ID","7 Help","8 Wire","9 Blast"};
     const int available=std::max(16,width-4);std::vector<std::string> rows;
-    std::string row=paint(std::string("SIPHER ")+TRUNKMONKEY_VERSION,BRIGHT_YELLOW)+paint("  //  PHREAK DECK",DIM);
+    std::string row=paint(std::string("SIPHER ")+SIPHER_VERSION,BRIGHT_YELLOW)+paint("  //  PHREAK DECK",DIM);
     for(std::size_t i=0;i<labels.size();++i){
         const bool current=static_cast<int>(page)==static_cast<int>(i+1);
         const std::string item=current?paint("["+labels[i]+"]",BRIGHT_GREEN):paint(labels[i],BRIGHT_CYAN);
@@ -902,4 +902,4 @@ void CliDashboard::pauseForEnter(std::istream& in,std::ostream& out) const
     std::getline(in,ignored);
 }
 
-} // namespace trunkmonkey::cli
+} // namespace sipher::cli

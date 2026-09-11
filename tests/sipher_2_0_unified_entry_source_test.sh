@@ -3,7 +3,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
+grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
 grep -q 'project(SIPHERClient VERSION 2.0.0' CMakeLists.txt
 grep -q 'OUTPUT_NAME "sipher"' CMakeLists.txt
 grep -q 'SIPHER_UNIFIED_ENTRY=1' CMakeLists.txt

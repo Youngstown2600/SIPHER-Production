@@ -9,9 +9,11 @@ SIPHER 2.0 promotes the r19 Multi-SIP code line to a new major-version baseline 
 - Explicit overrides remain available: `sipher --cli`, `sipher --gui`, or `SIPHER_UI=cli|gui`.
 - r19 multiple-SIP-account support is retained, including simultaneous registrations and zero-account startup.
 - r18 DID Intelligence, carrier handoff/next-out analysis, Switch Audit+, and offline Legacy lab panels are retained.
-- DID Intelligence no longer requires IPQualityScore: the default provider is USACallerLookup's free JSON API (no key/signup) for US carrier/line-type/location plus FTC/community complaint signals.
-- Added **OPEN SPAMCALLS REPUTATION** to open the selected number's SpamCalls.net community page without scraping or depending on its HTML.
-- Carrier results are explicitly labeled as NANPA registry assignment; live current-carrier/LRN data remains a future pluggable-provider path.
+- DID Intelligence no longer requires IPQualityScore. A normal **DIP / LOOKUP DID** aggregates USACallerLookup (US numbering/FTC data), SpamCalls.net reputation, tellows reputation, and c-qui.fr original-carrier allocation for French numbers.
+- Added explicit **ENHANCED HLR / CURRENT CARRIER** lookup through Neutrino. It never runs automatically and only activates when `SIPHER_NEUTRINO_USER_ID` and `SIPHER_NEUTRINO_API_KEY` are supplied.
+- SpamCalls/tellows/c-qui HTML sources are parsed on a best-effort basis and fail independently so one provider cannot break the entire DID result.
+- Carrier results clearly distinguish registry/original allocation from live current-network data returned by an explicit HLR lookup.
+- The remaining pre-SIPHER runtime/build namespace has been removed: Unix config is `~/.config/sipher`, state is `~/.local/state/sipher`, managed PJSIP is `~/.local/sipher-pjsip`, and installed data/docs are under `share/sipher` / `share/doc/sipher`.
 
 ## r18 fixes carried forward
 

@@ -1,5 +1,5 @@
-#include "trunkmonkey/CaptureManager.h"
-#include "trunkmonkey/Logger.h"
+#include "sipher/CaptureManager.h"
+#include "sipher/Logger.h"
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -30,14 +30,14 @@
 #ifndef _WIN32
 extern char **environ;
 #endif
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 int portFromAddress(const std::string&a){if(a.empty())return 0;auto p=a.rfind(':');if(p==std::string::npos||p+1>=a.size())return 0;try{auto v=std::stoi(a.substr(p+1));return v>0&&v<=65535?v:0;}catch(...){return 0;}}
 #ifdef _WIN32
 std::vector<int> portsFromFilter(const std::string&filter){std::vector<int> out;std::regex r(R"(port\s+([0-9]{1,5}))",std::regex::icase);for(std::sregex_iterator i(filter.begin(),filter.end(),r),e;i!=e;++i){try{int p=std::stoi((*i)[1].str());if(p>0&&p<=65535&&std::find(out.begin(),out.end(),p)==out.end())out.push_back(p);}catch(...){}}return out;}
 std::string quoteWin(const std::string&s){std::string o="\"";for(char c:s){if(c=='\"')o+="\\\"";else o+=c;}o+='\"';return o;}
 bool fileExists(const std::string&p){std::error_code ec;return std::filesystem::exists(std::filesystem::u8path(p),ec);}
-std::string locateExe(const char*name){const char*portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(!portableRoot)portableRoot=std::getenv("SAK_PORTABLE_ROOT");if(portableRoot){auto p=(std::filesystem::path(portableRoot)/"tools"/name).string();if(fileExists(p))return p;}char buf[MAX_PATH];DWORD n=SearchPathA(nullptr,name,nullptr,MAX_PATH,buf,nullptr);if(n>0&&n<MAX_PATH)return std::string(buf,n);const char*windir=std::getenv("WINDIR");if(windir){auto p=std::string(windir)+"\\System32\\"+name;if(fileExists(p))return p;}for(const char*base:{"C:\\Program Files\\Wireshark\\","C:\\Program Files (x86)\\Wireshark\\"}){auto p=std::string(base)+name;if(fileExists(p))return p;}return{};}
+std::string locateExe(const char*name){const char*portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(!portableRoot)portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(portableRoot){auto p=(std::filesystem::path(portableRoot)/"tools"/name).string();if(fileExists(p))return p;}char buf[MAX_PATH];DWORD n=SearchPathA(nullptr,name,nullptr,MAX_PATH,buf,nullptr);if(n>0&&n<MAX_PATH)return std::string(buf,n);const char*windir=std::getenv("WINDIR");if(windir){auto p=std::string(windir)+"\\System32\\"+name;if(fileExists(p))return p;}for(const char*base:{"C:\\Program Files\\Wireshark\\","C:\\Program Files (x86)\\Wireshark\\"}){auto p=std::string(base)+name;if(fileExists(p))return p;}return{};}
 int runHidden(const std::string&command){std::vector<char> cmd(command.begin(),command.end());cmd.push_back('\0');STARTUPINFOA si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};if(!CreateProcessA(nullptr,cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi))return -1;WaitForSingleObject(pi.hProcess,INFINITE);DWORD code=1;GetExitCodeProcess(pi.hProcess,&code);CloseHandle(pi.hThread);CloseHandle(pi.hProcess);return static_cast<int>(code);}
 bool startHiddenProcess(const std::string&command,HANDLE&handle,DWORD&pid){std::vector<char> cmd(command.begin(),command.end());cmd.push_back('\0');STARTUPINFOA si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};if(!CreateProcessA(nullptr,cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,nullptr,&si,&pi))return false;CloseHandle(pi.hThread);handle=pi.hProcess;pid=pi.dwProcessId;return true;}
 bool startDesktopProcess(const std::string&command){std::vector<char> cmd(command.begin(),command.end());cmd.push_back('\0');STARTUPINFOA si{};si.cb=sizeof(si);PROCESS_INFORMATION pi{};if(!CreateProcessA(nullptr,cmd.data(),nullptr,nullptr,FALSE,CREATE_NEW_PROCESS_GROUP,nullptr,nullptr,&si,&pi))return false;CloseHandle(pi.hThread);CloseHandle(pi.hProcess);return true;}

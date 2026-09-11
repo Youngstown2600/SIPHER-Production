@@ -70,11 +70,11 @@ Open **6 — Audio & registration** and list/select the PJSIP devices. For deepe
 ./build.sh --audio-diagnose
 ```
 
-The verified FreeBSD ALC236/VREF80 repair and automatic headset-microphone routing from the TrunkMonkey core are retained.
+The verified FreeBSD ALC236/VREF80 repair and automatic headset-microphone routing from the SIPHER core are retained.
 
 ## PBX audit safety
 
-PBX audit workflows are for systems you own or are explicitly authorized to test. Active probes can trigger IDS/IPS, alarms, rate limits, or PBX protection controls. The security-audit functions remain bounded and preserve the safety limits from TrunkMonkey 2.0 r20.
+PBX audit workflows are for systems you own or are explicitly authorized to test. Active probes can trigger IDS/IPS, alarms, rate limits, or PBX protection controls. The security-audit functions remain bounded and preserve the safety limits from SIPHER 2.0 r20.
 
 
 ## Unix/Linux audio output selection

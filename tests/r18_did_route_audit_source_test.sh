@@ -2,12 +2,12 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
-grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
+grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
 grep -q 'USACallerLookup' src/gui/MainWindow.cpp
 grep -q 'www.usacallerlookup.com/wp-json/ucl/v1/number/' src/gui/MainWindow.cpp
-grep -q 'OPEN SPAMCALLS REPUTATION' src/gui/MainWindow.cpp
-grep -q 'spamcalls.net/en/num/' src/gui/MainWindow.cpp
+grep -q 'OPEN SPAMCALLS PAGE' src/gui/MainWindow.cpp
+grep -q 'spamcalls.net/en/num/' src/gui/DidIntelHelpers.cpp
 ! grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
 ! grep -q 'SIPHER_IPQS_API_KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
@@ -18,7 +18,7 @@ grep -q 'pkt_info.src_port' src/core/SipWireMonitor.cpp
 ! grep -q 'pkt_info.addr' src/core/SipWireMonitor.cpp
 ! grep -q 'auto emit=' src/gui/MainWindow.cpp
 grep -q 'appendHeaderList' src/gui/MainWindow.cpp
-grep -q 'peerAddress' include/trunkmonkey/SipTrace.h
+grep -q 'peerAddress' include/sipher/SipTrace.h
 grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp
 grep -q 'TOPOLOGY / INFORMATION EXPOSURE' src/gui/MainWindow.cpp
 grep -q '&Legacy' src/gui/MainWindow.cpp

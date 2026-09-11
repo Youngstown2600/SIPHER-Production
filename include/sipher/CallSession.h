@@ -1,6 +1,6 @@
 #pragma once
-#include "trunkmonkey/CallSnapshot.h"
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/CallSnapshot.h"
+#include "sipher/SipTrace.h"
 #include <pjsua2.hpp>
 #include <functional>
 #include <fstream>
@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-namespace trunkmonkey {
+namespace sipher {
 class Logger;
 class CallSession final : public pj::Call, public std::enable_shared_from_this<CallSession> {
 public:

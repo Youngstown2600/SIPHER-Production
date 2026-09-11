@@ -1,4 +1,4 @@
-#include "trunkmonkey/Logger.h"
+#include "sipher/Logger.h"
 #include <chrono>
 #include <ctime>
 #include <filesystem>
@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace trunkmonkey {
+namespace sipher {
 Logger::Logger(std::string path)
 {
     if (!path.empty()) {
@@ -76,4 +76,4 @@ void Logger::write(const char* level, const std::string& message)
         file_.flush();
     }
 }
-} // namespace trunkmonkey
+} // namespace sipher

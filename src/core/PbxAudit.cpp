@@ -1,5 +1,5 @@
-#include "trunkmonkey/PbxAudit.h"
-#include "trunkmonkey/RuntimePaths.h"
+#include "sipher/PbxAudit.h"
+#include "sipher/RuntimePaths.h"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -43,7 +43,7 @@
 extern char **environ;
 #endif
 
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 
 std::string lower(std::string s){for(char&c:s)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));return s;}
@@ -232,7 +232,7 @@ void parseStatus(AuditResponse&r)
 std::string sipRequest(const std::string& method,const std::string& uri,const std::string& host,AuditTransport transport,
                        const std::string& toUser={},const std::vector<std::string>& extra={})
 {
-    const auto branch="z9hG4bK-tm-"+token();const auto tag="tm-"+token(8);const auto cid=token(16)+"@sipher";
+    const auto branch="z9hG4bK-sipher-"+token();const auto tag="sipher-"+token(8);const auto cid=token(16)+"@sipher";
     std::ostringstream s;
     s<<method<<" "<<uri<<" SIP/2.0\r\n"
      <<"Via: SIP/2.0/"<<(transport==AuditTransport::Udp?"UDP":"TCP")<<" 0.0.0.0:5060;branch="<<branch<<";rport\r\n"
@@ -494,7 +494,7 @@ AuditResponse PbxAudit::authenticationAudit(const std::string&host,const std::st
 std::vector<AuditResponse> PbxAudit::digestOracleAudit(const std::string&host,const std::string&username,std::uint16_t port,AuditTransport transport,unsigned timeoutMs)
 {
     const auto user=username.empty()?"sipher-audit":username;
-    const auto invalid="tm-invalid-"+token(10);
+    const auto invalid="sipher-invalid-"+token(10);
     std::vector<AuditResponse> out;out.reserve(3);
     out.push_back(authenticationAudit(host,user,port,transport,timeoutMs));
     std::this_thread::sleep_for(std::chrono::milliseconds(120));
@@ -558,7 +558,7 @@ std::vector<AuditResponse> PbxAudit::parserAbuseAudit(const std::string&host,std
     add("Parser edge: CSeq/request mismatch",std::move(cseq));
 
     auto branch=sipRequest("OPTIONS","sip:"+host,host,transport);
-    if(const auto p=branch.find("branch=z9hG4bK-");p!=std::string::npos)branch.replace(p,std::strlen("branch=z9hG4bK-"),"branch=tm-");
+    if(const auto p=branch.find("branch=z9hG4bK-");p!=std::string::npos)branch.replace(p,std::strlen("branch=z9hG4bK-"),"branch=sipher-");
     add("Parser edge: non-RFC Via branch",std::move(branch));
 
     auto duplicate=sipRequest("OPTIONS","sip:"+host,host,transport);
@@ -692,7 +692,7 @@ AutomatedAuditResult PbxAudit::automatedAudit(const AutomatedAuditOptions& optio
         std::this_thread::sleep_for(std::chrono::milliseconds(120));
         auto repeat=authenticationAudit(options.host,user,options.port,options.transport,options.timeoutMs);repeat.testName="Digest challenge repeat";
         std::this_thread::sleep_for(std::chrono::milliseconds(120));
-        auto control=authenticationAudit(options.host,"tm-invalid-"+token(10),options.port,options.transport,options.timeoutMs);control.testName="Digest invalid-account control";
+        auto control=authenticationAudit(options.host,"sipher-invalid-"+token(10),options.port,options.transport,options.timeoutMs);control.testName="Digest invalid-account control";
         const auto n1=authParam(auth.authenticate,"nonce"),n2=authParam(repeat.authenticate,"nonce");
         if(!n1.empty()&&!n2.empty()){
             if(n1==n2)repeat.findings.push_back({"WARN","Digest nonce reused","The first authentication-stage output and repeated challenge returned the same nonce. Review nonce lifetime and replay protections."});
@@ -911,4 +911,4 @@ void PbxAudit::saveReport(const std::string&path,const std::string&text)
 #endif
 }
 
-} // namespace trunkmonkey
+} // namespace sipher

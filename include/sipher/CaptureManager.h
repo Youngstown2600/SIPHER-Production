@@ -1,5 +1,5 @@
 #pragma once
-#include "trunkmonkey/CallSnapshot.h"
+#include "sipher/CallSnapshot.h"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -8,7 +8,7 @@
 #else
 #include <sys/types.h>
 #endif
-namespace trunkmonkey {
+namespace sipher {
 class Logger;
 enum class CaptureKind { Sip, Rtp, Call };
 class CaptureManager {

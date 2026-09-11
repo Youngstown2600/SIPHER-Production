@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
-namespace trunkmonkey {
+namespace sipher {
 enum class SipDirection { Sent, Received };
 struct SipTraceEntry {
     std::uint64_t timestampMs{0};
@@ -15,7 +15,7 @@ struct SipTraceEntry {
     std::string reason;
     std::uint32_t cseq{0};
     // True only for an INVITE request that already has a To-tag, i.e. an
-    // in-dialog INVITE. This lets TrunkMonkey distinguish a real re-INVITE
+    // in-dialog INVITE. This lets SIPHER distinguish a real re-INVITE
     // from an authenticated/retried initial INVITE whose CSeq changed.
     bool inDialogRequest{false};
     // Immediate network peer observed at the PJSIP transport layer. For TX this

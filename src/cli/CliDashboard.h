@@ -1,14 +1,14 @@
 #pragma once
 
-#include "trunkmonkey/CallSnapshot.h"
-#include "trunkmonkey/Profile.h"
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/CallSnapshot.h"
+#include "sipher/Profile.h"
+#include "sipher/SipTrace.h"
 #include <cstddef>
 #include <iosfwd>
 #include <string>
 #include <vector>
 
-namespace trunkmonkey::cli {
+namespace sipher::cli {
 
 enum class DashboardPage { Main=1, SipLog=2, Media=3, Calls=4, SecurityAudit=5, Profile=6, Help=7, EngineLog=8, QueueActivity=9 };
 
@@ -92,4 +92,4 @@ private:
     Palette palette_;
 };
 
-} // namespace trunkmonkey::cli
+} // namespace sipher::cli

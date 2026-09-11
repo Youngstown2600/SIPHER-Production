@@ -1,5 +1,5 @@
-#include "trunkmonkey/CallSession.h"
-#include "trunkmonkey/Logger.h"
+#include "sipher/CallSession.h"
+#include "sipher/Logger.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 void protectFile(const std::string& path)
 {
@@ -525,4 +525,4 @@ void CallSession::onDtmfDigit(pj::OnDtmfDigitParam& param)
 {
     logger_.info("Call " + std::to_string(getId()) + " received DTMF: " + param.digit);
 }
-} // namespace trunkmonkey
+} // namespace sipher

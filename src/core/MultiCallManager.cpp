@@ -1,7 +1,7 @@
-#include "trunkmonkey/MultiCallManager.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/RuntimePaths.h"
+#include "sipher/MultiCallManager.h"
+#include "sipher/Logger.h"
+#include "sipher/SipEngine.h"
+#include "sipher/RuntimePaths.h"
 #include <pj/os.h>
 #include <chrono>
 #include <cstdlib>
@@ -16,7 +16,7 @@
 #endif
 #include <stdexcept>
 
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 std::string shellQuote(const std::string& value)
 {
@@ -43,7 +43,7 @@ std::string findExecutable(const std::string& name)
         while(std::getline(ss,dir,separator)){if(dir.empty())dir=".";const auto p=std::filesystem::path(dir)/executable;std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&!ec)return p.string();}
     }
 #ifdef _WIN32
-    const char* portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(!portableRoot)portableRoot=std::getenv("SAK_PORTABLE_ROOT");if(portableRoot){const auto p=std::filesystem::path(portableRoot)/"tools"/(name+".exe");std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&!ec)return p.string();}
+    const char* portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(!portableRoot)portableRoot=std::getenv("SIPHER_PORTABLE_ROOT");if(portableRoot){const auto p=std::filesystem::path(portableRoot)/"tools"/(name+".exe");std::error_code ec;if(std::filesystem::is_regular_file(p,ec)&&!ec)return p.string();}
 #endif
     return {};
 }
@@ -74,7 +74,7 @@ public:
             return;
         }
         std::memset(desc_, 0, sizeof(desc_));
-        const auto status = pj_thread_register("tm-queue-launch", desc_, &thread_);
+        const auto status = pj_thread_register("sipher-queue-launch", desc_, &thread_);
         if (status != PJ_SUCCESS) {
             throw std::runtime_error("pj_thread_register failed with status " + std::to_string(status));
         }
@@ -200,4 +200,4 @@ void MultiCallManager::run(MultiCallPlan plan)
     }
     launching_ = false;
 }
-} // namespace trunkmonkey
+} // namespace sipher

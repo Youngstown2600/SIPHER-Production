@@ -20,5 +20,5 @@ grep -q 'border-radius:14px' src/gui/ModernStyle.cpp
 grep -q 'CONTROL DECK' src/cli/CliDashboard.cpp
 grep -q 'u8"╭' src/cli/CliDashboard.cpp
 grep -q 'u8"❯ ' src/cli/CliDashboard.cpp
-grep -q '1.0.0-r16' include/trunkmonkey/Version.h
+grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
 echo "r16 modern GUI/CLI source contract passed"

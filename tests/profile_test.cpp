@@ -1,5 +1,5 @@
-#include "trunkmonkey/Profile.h"
-#include "trunkmonkey/TextPool.h"
+#include "sipher/Profile.h"
+#include "sipher/TextPool.h"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -19,7 +19,7 @@ struct TempDir {
     std::filesystem::path path;
     TempDir()
     {
-        path = std::filesystem::temp_directory_path() / "trunkmonkey-profile-test";
+        path = std::filesystem::temp_directory_path() / "sipher-profile-test";
         std::error_code ec;
         std::filesystem::remove_all(path, ec);
         if (!std::filesystem::create_directories(path, ec) && ec)
@@ -36,7 +36,7 @@ struct TempDir {
 int main()
 {
     try {
-        using namespace trunkmonkey;
+        using namespace sipher;
         namespace fs = std::filesystem;
         TempDir temp;
         const auto profilePath = temp.path / "profile-test.conf";

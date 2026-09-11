@@ -1,4 +1,4 @@
-#include "trunkmonkey/Profile.h"
+#include "sipher/Profile.h"
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 std::string trim(std::string s)
 {
@@ -242,4 +242,4 @@ void ProfileStore::save(const SipProfile& p, const std::string& path)
     (void)::chmod(path.c_str(), S_IRUSR | S_IWUSR);
 #endif
 }
-} // namespace trunkmonkey
+} // namespace sipher

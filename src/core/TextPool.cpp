@@ -1,8 +1,8 @@
-#include "trunkmonkey/TextPool.h"
+#include "sipher/TextPool.h"
 #include <cctype>
 #include <fstream>
 #include <stdexcept>
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 std::string trim(std::string s){
     while(!s.empty()&&std::isspace((unsigned char)s.front()))s.erase(s.begin());
@@ -22,4 +22,4 @@ std::string TextPool::next(){std::lock_guard<std::mutex> l(mutex_);if(values_.em
 bool TextPool::empty()const{std::lock_guard<std::mutex> l(mutex_);return values_.empty();}
 std::size_t TextPool::size()const{std::lock_guard<std::mutex> l(mutex_);return values_.size();}
 void TextPool::reset(){std::lock_guard<std::mutex> l(mutex_);cursor_=0;}
-} // namespace trunkmonkey
+} // namespace sipher

@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <string>
 
-namespace trunkmonkey {
+namespace sipher {
 enum class Transport { Udp, Tcp, Tls };
 enum class IdentityMode { From, Pai, Rpid, FromAndPai };
 
@@ -43,4 +43,4 @@ public:
     static bool createDefaultIfMissing(const std::string& path);
     static void save(const SipProfile& profile, const std::string& path);
 };
-} // namespace trunkmonkey
+} // namespace sipher

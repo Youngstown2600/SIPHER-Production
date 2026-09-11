@@ -1,7 +1,7 @@
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/SipTrace.h"
 #include <algorithm>
 #include <cctype>
-namespace trunkmonkey {
+namespace sipher {
 namespace {
 std::string upper(std::string s){std::transform(s.begin(),s.end(),s.begin(),[](unsigned char c){return (char)std::toupper(c);});return s;}
 }

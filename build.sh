@@ -10,13 +10,13 @@ BUILDER_REVISION="sipher-2.0-unified-multi-sip-20260911"
 # Refuse that situation early and make the remedy obvious.
 case "$ROOT_DIR" in
   */.local/share/Trash/*|*/.Trash/*|*/Trash/files/*)
-    if [ "${TRUNKMONKEY_ALLOW_TRASH_SOURCE:-0}" != 1 ]; then
+    if [ "${SIPHER_ALLOW_TRASH_SOURCE:-0}" != 1 ]; then
       echo "ERROR: SIPHER is being run from a directory that is physically inside Trash:" >&2
       echo "  $ROOT_DIR" >&2
       echo >&2
       echo "Your shell prompt may still show the old directory name after a file manager moved it." >&2
       echo "Open/cd into a freshly extracted SIPHER directory and run ./build.sh there." >&2
-      echo "Set TRUNKMONKEY_ALLOW_TRASH_SOURCE=1 only if this is intentional." >&2
+      echo "Set SIPHER_ALLOW_TRASH_SOURCE=1 only if this is intentional." >&2
       exit 2
     fi
     ;;
@@ -48,9 +48,9 @@ case "${XDG_STATE_HOME:-}" in
   /*) USER_STATE_BASE=${XDG_STATE_HOME%/} ;;
   *) USER_STATE_BASE="$USER_HOME/.local/state" ;;
 esac
-DEFAULT_PROFILE_PATH="$USER_CONFIG_BASE/trunkmonkey/profile.conf"
-PROFILE_TARGET=${TRUNKMONKEY_PROFILE:-$DEFAULT_PROFILE_PATH}
-PJSIP_PREFIX=${PJSIP_PREFIX:-$USER_HOME/.local/trunkmonkey-pjsip}
+DEFAULT_PROFILE_PATH="$USER_CONFIG_BASE/sipher/profile.conf"
+PROFILE_TARGET=${SIPHER_PROFILE:-$DEFAULT_PROFILE_PATH}
+PJSIP_PREFIX=${PJSIP_PREFIX:-$USER_HOME/.local/sipher-pjsip}
 PJSIP_SOURCE_DIR=${PJSIP_SOURCE_DIR:-$ROOT_DIR/third_party/pjproject}
 PRIV_METHOD=
 PKG_MANAGER=
@@ -512,7 +512,7 @@ qt6_widgets_available() {
   command -v cmake >/dev/null 2>&1 || return 1
   compiler_id=GNU
   [ "$OS_FAMILY" = freebsd ] && compiler_id=Clang
-  probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/trunkmonkey-qt-probe.XXXXXX") || return 1
+  probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/sipher-qt-probe.XXXXXX") || return 1
   if (cd "$probe_dir" && cmake --find-package -DNAME=Qt6Widgets -DCOMPILER_ID="$compiler_id" -DLANGUAGE=CXX -DMODE=EXIST >/dev/null 2>&1); then
     rm -rf "$probe_dir"
     return 0
@@ -975,7 +975,7 @@ configure_known_alc236_audio_fix() {
   case ",$config," in *,ivref80,*) ;; *) needs_fix=1 ;; esac
 
   persist_ok=0
-  if [ -r /etc/sysctl.conf ] && grep -q '^# BEGIN TRUNKMONKEY ALC236 HEADSET MIC$' /etc/sysctl.conf && \
+  if [ -r /etc/sysctl.conf ] && grep -q '^# BEGIN SIPHER ALC236 HEADSET MIC$' /etc/sysctl.conf && \
      grep -q "^dev.hdaa.${unit}.init_clear=1$" /etc/sysctl.conf && \
      grep -q "^dev.hdaa.${unit}.config=forcestereo,ivref80$" /etc/sysctl.conf; then
     persist_ok=1
@@ -999,30 +999,30 @@ configure_known_alc236_audio_fix() {
   fi
 
   stamp=$(date +%Y%m%d-%H%M%S)
-  [ ! -e /etc/sysctl.conf ] || run_privileged cp -p /etc/sysctl.conf "/etc/sysctl.conf.trunkmonkey-backup-$stamp"
-  tmp_sysctl=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-sysctl.conf.XXXXXX")
+  [ ! -e /etc/sysctl.conf ] || run_privileged cp -p /etc/sysctl.conf "/etc/sysctl.conf.sipher-backup-$stamp"
+  tmp_sysctl=$(mktemp "${TMPDIR:-/tmp}/sipher-sysctl.conf.XXXXXX")
   if [ -r /etc/sysctl.conf ]; then
     awk '
-      /^# BEGIN TRUNKMONKEY ALC236 HEADSET MIC$/ {skip=1; next}
-      /^# END TRUNKMONKEY ALC236 HEADSET MIC$/ {skip=0; next}
+      /^# BEGIN SIPHER ALC236 HEADSET MIC$/ {skip=1; next}
+      /^# END SIPHER ALC236 HEADSET MIC$/ {skip=0; next}
       !skip {print}
     ' /etc/sysctl.conf > "$tmp_sysctl"
   fi
   {
     echo ""
-    echo "# BEGIN TRUNKMONKEY ALC236 HEADSET MIC"
+    echo "# BEGIN SIPHER ALC236 HEADSET MIC"
     echo "# Verified ALC236 combo-jack mic repair: VREF80, preserved across reboot."
     echo "dev.hdaa.${unit}.init_clear=1"
     echo "dev.hdaa.${unit}.config=forcestereo,ivref80"
     echo "dev.hdaa.${unit}.reconfig=1"
-    echo "# END TRUNKMONKEY ALC236 HEADSET MIC"
+    echo "# END SIPHER ALC236 HEADSET MIC"
   } >> "$tmp_sysctl"
   run_privileged install -m 0644 "$tmp_sysctl" /etc/sysctl.conf
   rm -f "$tmp_sysctl"
 
   if [ "$known_bad_hints" -eq 1 ]; then
-    run_privileged cp -p /boot/device.hints "/boot/device.hints.trunkmonkey-backup-$stamp"
-    tmp_hints=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-device.hints.XXXXXX")
+    run_privileged cp -p /boot/device.hints "/boot/device.hints.sipher-backup-$stamp"
+    tmp_hints=$(mktemp "${TMPDIR:-/tmp}/sipher-device.hints.XXXXXX")
     awk '
       /^hint\.hdac\.0\.cad0\.nid18\.config="as=1 seq=0 device=Speaker"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
       /^hint\.hdac\.0\.cad0\.nid21\.config="as=1 seq=1 device=Headphones"$/ {print "# SIPHER 2.0 disabled known-bad override: "$0; next}
@@ -1242,7 +1242,7 @@ ensure_capture_dependencies() {
 }
 
 configure_capture_permissions() {
-  [ "${TRUNKMONKEY_SKIP_CAPTURE_PERMS:-0}" = 1 ] && return 0
+  [ "${SIPHER_SKIP_CAPTURE_PERMS:-0}" = 1 ] && return 0
 
   echo
   echo "============================================================"
@@ -1303,57 +1303,57 @@ configure_capture_permissions() {
   existing_name=$(sysrc -n devfs_system_ruleset 2>/dev/null || true)
   [ "$existing_name" = "NO" ] && existing_name=
   existing_id=
-  if [ -n "$existing_name" ] && [ "$existing_name" != trunkmonkey_bpf ]; then
+  if [ -n "$existing_name" ] && [ "$existing_name" != sipher_bpf ]; then
     existing_id=$(awk -v n="$existing_name" '
       $0 ~ "^\\[" n "=[0-9]+\\]" { line=$0; sub(/^.*=/,"",line); sub(/].*$/,"",line); print line; exit }
     ' /etc/devfs.rules /etc/defaults/devfs.rules 2>/dev/null || true)
   fi
 
-  if [ -n "$existing_name" ] && [ "$existing_name" != trunkmonkey_bpf ] && [ -z "$existing_id" ]; then
+  if [ -n "$existing_name" ] && [ "$existing_name" != sipher_bpf ] && [ -z "$existing_id" ]; then
     echo "ERROR: existing FreeBSD devfs_system_ruleset '$existing_name' could not be resolved to a numeric ruleset." >&2
     echo "       Refusing to replace it automatically. Review /etc/devfs.rules and rerun --configure-capture." >&2
     return 1
   fi
 
-  ruleset_id=$(awk '/^\[trunkmonkey_bpf=[0-9]+\]/{x=$0;sub(/^.*=/,"",x);sub(/].*$/,"",x);print x;exit}' /etc/devfs.rules 2>/dev/null || true)
+  ruleset_id=$(awk '/^\[sipher_bpf=[0-9]+\]/{x=$0;sub(/^.*=/,"",x);sub(/].*$/,"",x);print x;exit}' /etc/devfs.rules 2>/dev/null || true)
   if [ -z "$ruleset_id" ]; then
     ruleset_id=199
     used=$( { devfs rule showsets 2>/dev/null || true; sed -n 's/^\[[^=]*=\([0-9][0-9]*\)\].*/\1/p' /etc/devfs.rules /etc/defaults/devfs.rules 2>/dev/null || true; } | sort -nu )
     while printf '%s\n' "$used" | grep -qx "$ruleset_id"; do ruleset_id=$((ruleset_id-1)); [ "$ruleset_id" -ge 150 ] || { echo "ERROR: unable to reserve a devfs ruleset for SIPHER." >&2; return 1; }; done
   fi
 
-  tmp_rules=$(mktemp "${TMPDIR:-/tmp}/trunkmonkey-devfs.rules.XXXXXX")
+  tmp_rules=$(mktemp "${TMPDIR:-/tmp}/sipher-devfs.rules.XXXXXX")
   if [ -r /etc/devfs.rules ]; then
     awk '
-      /^# BEGIN TRUNKMONKEY BPF$/ {skip=1; next}
-      /^# END TRUNKMONKEY BPF$/ {skip=0; next}
+      /^# BEGIN SIPHER BPF$/ {skip=1; next}
+      /^# END SIPHER BPF$/ {skip=0; next}
       !skip {print}
     ' /etc/devfs.rules > "$tmp_rules"
   fi
   {
-    echo "# BEGIN TRUNKMONKEY BPF"
+    echo "# BEGIN SIPHER BPF"
     echo "# Managed by SIPHER 2.0 for non-root SIP/RTP packet capture."
-    echo "[trunkmonkey_bpf=$ruleset_id]"
+    echo "[sipher_bpf=$ruleset_id]"
     [ -z "$existing_id" ] || echo "add include $existing_id"
     echo "add path 'bpf*' user $capture_user mode 0600"
-    echo "# END TRUNKMONKEY BPF"
+    echo "# END SIPHER BPF"
   } >> "$tmp_rules"
 
   prepare_privileges_for "FreeBSD /dev/bpf packet capture permission setup"
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "  [dry-run] install updated /etc/devfs.rules with ruleset trunkmonkey_bpf=$ruleset_id"
-    echo "  [dry-run] sysrc devfs_system_ruleset=trunkmonkey_bpf"
+    echo "  [dry-run] install updated /etc/devfs.rules with ruleset sipher_bpf=$ruleset_id"
+    echo "  [dry-run] sysrc devfs_system_ruleset=sipher_bpf"
     echo "  [dry-run] service devfs restart"
     rm -f "$tmp_rules"
     return 0
   fi
 
   stamp=$(date +%Y%m%d-%H%M%S)
-  [ ! -e /etc/devfs.rules ] || run_privileged cp -p /etc/devfs.rules "/etc/devfs.rules.trunkmonkey-backup-$stamp"
-  [ ! -e /etc/rc.conf ] || run_privileged cp -p /etc/rc.conf "/etc/rc.conf.trunkmonkey-backup-$stamp"
+  [ ! -e /etc/devfs.rules ] || run_privileged cp -p /etc/devfs.rules "/etc/devfs.rules.sipher-backup-$stamp"
+  [ ! -e /etc/rc.conf ] || run_privileged cp -p /etc/rc.conf "/etc/rc.conf.sipher-backup-$stamp"
   run_privileged install -m 0644 "$tmp_rules" /etc/devfs.rules
   rm -f "$tmp_rules"
-  run_privileged sysrc devfs_system_ruleset=trunkmonkey_bpf >/dev/null
+  run_privileged sysrc devfs_system_ruleset=sipher_bpf >/dev/null
   run_privileged service devfs restart >/dev/null
 
   bpf_nodes=$(ls /dev/bpf* 2>/dev/null | head -5 || true)
@@ -1411,7 +1411,7 @@ have_pjsip() {
   # one of those runtime requirements.
   local_pc="$PJSIP_PREFIX/lib/pkgconfig/libpjproject.pc"
   [ -f "$local_pc" ] || return 1
-  marker="$PJSIP_PREFIX/.trunkmonkey-pjsip-build"
+  marker="$PJSIP_PREFIX/.sipher-pjsip-build"
   [ -f "$marker" ] || return 1
   [ "$(cat "$marker" 2>/dev/null || true)" = "$PJSIP_BUILD_ID" ] || return 1
   pc_prefix=$("$PKGCONF_BIN" --variable=prefix libpjproject 2>/dev/null || true)
@@ -1455,9 +1455,9 @@ validate_pjsip_static_link() {
   fi
 
   tmpbase=${TMPDIR:-/tmp}
-  tmplink=$(mktemp -d "$tmpbase/trunkmonkey-pjsip-link.XXXXXX") || return 1
+  tmplink=$(mktemp -d "$tmpbase/sipher-pjsip-link.XXXXXX") || return 1
   trap 'rm -rf "$tmplink"' 0 HUP INT TERM
-  cat > "$tmplink/check.cpp" <<'TM_PJSIP_LINK_EOF'
+  cat > "$tmplink/check.cpp" <<'SIPHER_PJSIP_LINK_EOF'
 #include <pjsua2.hpp>
 #include <pjsua-lib/pjsua.h>
 #include <iostream>
@@ -1479,22 +1479,22 @@ int main()
             const auto &dev = devices[i];
             if (dev.inputCount > 0) ++inputDevices;
             if (dev.outputCount > 0) ++outputDevices;
-            std::cout << "TM_AUDIO_DEVICE id=" << i
+            std::cout << "SIPHER_AUDIO_DEVICE id=" << i
                       << " driver=\"" << dev.driver << "\""
                       << " name=\"" << dev.name << "\""
                       << " input=" << dev.inputCount
                       << " output=" << dev.outputCount << "\n";
         }
-        std::cout << "TM_AUDIO_COUNTS devices=" << devices.size()
+        std::cout << "SIPHER_AUDIO_COUNTS devices=" << devices.size()
                   << " input=" << inputDevices
                   << " output=" << outputDevices << "\n";
     } catch (const pj::Error &err) {
-        std::cout << "TM_AUDIO_ERROR " << err.info() << "\n";
+        std::cout << "SIPHER_AUDIO_ERROR " << err.info() << "\n";
     }
     endpoint.libDestroy();
     return 0;
 }
-TM_PJSIP_LINK_EOF
+SIPHER_PJSIP_LINK_EOF
 
   # Intentional word splitting: these flags are generated by pkg-config from
   # the trusted libpjproject.pc installed by the PJSIP build.
@@ -1508,9 +1508,9 @@ TM_PJSIP_LINK_EOF
         rm -rf "$tmplink"; trap - 0 HUP INT TERM; return 1 ;;
     esac
   fi
-  tm_extra_ldflags=
+  sipher_extra_ldflags=
   if [ "$OS_FAMILY" = freebsd ]; then
-    tm_extra_ldflags="-L$FREEBSD_LOCALBASE/lib"
+    sipher_extra_ldflags="-L$FREEBSD_LOCALBASE/lib"
   fi
 
   echo "    Verifying complete static PJSIP link chain..."
@@ -1519,7 +1519,7 @@ TM_PJSIP_LINK_EOF
     echo "    FreeBSD LOCALBASE library path: $FREEBSD_LOCALBASE/lib"
   fi
   # shellcheck disable=SC2086
-  if ! "$cxx" -std=c++17 $pjcflags "$tmplink/check.cpp" -o "$tmplink/check" $tm_extra_ldflags $pjlibs >/dev/null 2>"$tmplink/link.err"; then
+  if ! "$cxx" -std=c++17 $pjcflags "$tmplink/check.cpp" -o "$tmplink/check" $sipher_extra_ldflags $pjlibs >/dev/null 2>"$tmplink/link.err"; then
     echo "PJSIP is installed, but its complete static dependency chain does not link." >&2
     echo "Command used by SIPHER:" >&2
     echo "  $PKGCONF_BIN --cflags --libs --static libpjproject" >&2
@@ -1532,16 +1532,16 @@ TM_PJSIP_LINK_EOF
 
   echo "    Static PJSIP link verification passed."
   if "$tmplink/check" >"$tmplink/runtime.out" 2>&1; then
-    audio_error=$(grep 'TM_AUDIO_ERROR' "$tmplink/runtime.out" | tail -1 || true)
+    audio_error=$(grep 'SIPHER_AUDIO_ERROR' "$tmplink/runtime.out" | tail -1 || true)
     if [ -n "$audio_error" ]; then
       echo "    [WARN] PJSIP audio enumeration reported: $audio_error"
     fi
-    device_lines=$(grep '^TM_AUDIO_DEVICE ' "$tmplink/runtime.out" || true)
+    device_lines=$(grep '^SIPHER_AUDIO_DEVICE ' "$tmplink/runtime.out" || true)
     if [ -n "$device_lines" ]; then
       echo "    PJSIP audio devices:"
-      printf '%s\n' "$device_lines" | sed 's/^TM_AUDIO_DEVICE /      /'
+      printf '%s\n' "$device_lines" | sed 's/^SIPHER_AUDIO_DEVICE /      /'
     fi
-    counts=$(grep 'TM_AUDIO_COUNTS' "$tmplink/runtime.out" | tail -1 || true)
+    counts=$(grep 'SIPHER_AUDIO_COUNTS' "$tmplink/runtime.out" | tail -1 || true)
     if [ -n "$counts" ]; then
       echo "    PJSIP audio enumeration: $counts"
       pjin=$(printf '%s\n' "$counts" | sed -n 's/.* input=\([0-9][0-9]*\).*/\1/p')
@@ -1567,7 +1567,7 @@ build_pjsip() {
   else
     if [ "$OS_FAMILY" = freebsd ]; then
       PJSIP_PREFIX="$PJSIP_PREFIX" PJSIP_SOURCE_DIR="$PJSIP_SOURCE_DIR" \
-      TRUNKMONKEY_PJSIP_CC="$FREEBSD_CC" TRUNKMONKEY_PJSIP_CXX="$FREEBSD_CXX" \
+      SIPHER_PJSIP_CC="$FREEBSD_CC" SIPHER_PJSIP_CXX="$FREEBSD_CXX" \
         "$ROOT_DIR/scripts/bootstrap-pjsip.sh"
     else
       PJSIP_PREFIX="$PJSIP_PREFIX" PJSIP_SOURCE_DIR="$PJSIP_SOURCE_DIR" \
@@ -1667,17 +1667,17 @@ build_selected() {
   if [ "$OS_FAMILY" = freebsd ]; then
     run_cmd cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      -DTRUNKMONKEY_BUILD_GUI="$GUI_OPT" \
-      -DTRUNKMONKEY_BUILD_CLI="$CLI_OPT" \
-      -DTRUNKMONKEY_BUILD_TESTS=ON \
+      -DSIPHER_BUILD_GUI="$GUI_OPT" \
+      -DSIPHER_BUILD_CLI="$CLI_OPT" \
+      -DSIPHER_BUILD_TESTS=ON \
       -DCMAKE_CXX_COMPILER="$FREEBSD_CXX" \
-      -DTRUNKMONKEY_FREEBSD_LOCALBASE="$FREEBSD_LOCALBASE"
+      -DSIPHER_FREEBSD_LOCALBASE="$FREEBSD_LOCALBASE"
   else
     run_cmd cmake -S "$ROOT_DIR" -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      -DTRUNKMONKEY_BUILD_GUI="$GUI_OPT" \
-      -DTRUNKMONKEY_BUILD_CLI="$CLI_OPT" \
-      -DTRUNKMONKEY_BUILD_TESTS=ON
+      -DSIPHER_BUILD_GUI="$GUI_OPT" \
+      -DSIPHER_BUILD_CLI="$CLI_OPT" \
+      -DSIPHER_BUILD_TESTS=ON
   fi
   run_cmd cmake --build "$BUILD_DIR" --parallel "$JOBS"
   run_cmd ctest --test-dir "$BUILD_DIR" --output-on-failure
@@ -1701,7 +1701,7 @@ seed_user_profile() {
     return 0
   fi
 
-  installed_example="$INSTALL_PREFIX/share/trunkmonkey/examples/profile.conf.example"
+  installed_example="$INSTALL_PREFIX/share/sipher/examples/profile.conf.example"
   source_example="$ROOT_DIR/examples/profile.conf.example"
   profile_source=$source_example
   if [ -r "$installed_example" ]; then
@@ -1749,7 +1749,7 @@ seed_user_profile() {
 uninstall_previous() {
   echo
   echo "==> Removing installed SIPHER from $INSTALL_PREFIX"
-  targets="$INSTALL_PREFIX/bin/sipher $INSTALL_PREFIX/bin/sipher-gui $INSTALL_PREFIX/bin/trunkmonkey-cli $INSTALL_PREFIX/bin/trunkmonkey-gui $INSTALL_PREFIX/share/trunkmonkey $INSTALL_PREFIX/share/doc/trunkmonkey" # includes legacy pre-2.0 names for cleanup
+  targets="$INSTALL_PREFIX/bin/sipher $INSTALL_PREFIX/bin/sipher-gui $INSTALL_PREFIX/bin/sipher-cli $INSTALL_PREFIX/share/sipher $INSTALL_PREFIX/share/doc/sipher" # includes legacy pre-2.0 names for cleanup
   found=0
   for target in $targets; do [ -e "$target" ] && found=1; done
   if [ "$found" -eq 0 ]; then
@@ -1768,8 +1768,8 @@ uninstall_previous() {
   if [ "$purge" -eq 0 ] && [ -t 0 ] && [ "$DRY_RUN" -eq 0 ]; then
     echo
     echo "User configuration and diagnostics are preserved by default:"
-    echo "  $USER_CONFIG_BASE/trunkmonkey"
-    echo "  $USER_STATE_BASE/trunkmonkey"
+    echo "  $USER_CONFIG_BASE/sipher"
+    echo "  $USER_STATE_BASE/sipher"
     printf 'Also remove this user\047s SIPHER profile/settings/logs? [y/N] '
     IFS= read -r answer
     case "$answer" in y|Y|yes|YES|Yes) purge=1 ;; esac
@@ -1777,9 +1777,9 @@ uninstall_previous() {
   if [ "$purge" -eq 1 ]; then
     echo "  Removing user configuration/state..."
     if [ "$DRY_RUN" -eq 1 ]; then
-      echo "  [dry-run] rm -rf $USER_CONFIG_BASE/trunkmonkey $USER_STATE_BASE/trunkmonkey"
+      echo "  [dry-run] rm -rf $USER_CONFIG_BASE/sipher $USER_STATE_BASE/sipher"
     else
-      rm -rf "$USER_CONFIG_BASE/trunkmonkey" "$USER_STATE_BASE/trunkmonkey"
+      rm -rf "$USER_CONFIG_BASE/sipher" "$USER_STATE_BASE/sipher"
     fi
   else
     echo "  User profile/settings/logs preserved."
@@ -1817,8 +1817,8 @@ install_selected() {
   if [ "$BUILD_CLI" -eq 1 ] && [ "$BUILD_GUI" -eq 1 ]; then
     echo "  UI selection: TTY/terminal launches CLI; desktop launches GUI; --cli/--gui override."
   fi
-  echo "  User profile: ${XDG_CONFIG_HOME:-$USER_HOME/.config}/trunkmonkey/profile.conf"
-  echo "  Examples:     $INSTALL_PREFIX/share/trunkmonkey/examples"
+  echo "  User profile: ${XDG_CONFIG_HOME:-$USER_HOME/.config}/sipher/profile.conf"
+  echo "  Examples:     $INSTALL_PREFIX/share/sipher/examples"
 }
 
 while [ "$#" -gt 0 ]; do

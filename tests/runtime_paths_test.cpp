@@ -1,4 +1,4 @@
-#include "trunkmonkey/RuntimePaths.h"
+#include "sipher/RuntimePaths.h"
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
@@ -19,8 +19,8 @@ int main()
 {
     try {
         namespace fs = std::filesystem;
-        using namespace trunkmonkey;
-        const auto base = fs::temp_directory_path() / "trunkmonkey-runtime-paths-test";
+        using namespace sipher;
+        const auto base = fs::temp_directory_path() / "sipher-runtime-paths-test";
         std::error_code ec;
         fs::remove_all(base, ec);
         fs::create_directories(base / "config-root", ec);
@@ -36,8 +36,8 @@ int main()
         check(setenv("XDG_STATE_HOME", (base / "state-root").string().c_str(), 1) == 0,
               "set XDG_STATE_HOME");
 #endif
-        check(runtime::configDir() == base / "config-root" / "trunkmonkey", "config directory path");
-        check(runtime::stateDir() == base / "state-root" / "trunkmonkey", "state directory path");
+        check(runtime::configDir() == base / "config-root" / "sipher", "config directory path");
+        check(runtime::stateDir() == base / "state-root" / "sipher", "state directory path");
         runtime::ensureUserDirectories();
         check(fs::is_directory(runtime::configDir()), "config directory is created");
         check(fs::is_directory(runtime::stateDir() / "logs"), "log directory is created");

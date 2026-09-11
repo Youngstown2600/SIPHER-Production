@@ -1,7 +1,7 @@
 #pragma once
-#include "trunkmonkey/CallSnapshot.h"
-#include "trunkmonkey/Profile.h"
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/CallSnapshot.h"
+#include "sipher/Profile.h"
+#include "sipher/SipTrace.h"
 #include <pjsua2.hpp>
 #include <atomic>
 #include <cstdint>
@@ -10,7 +10,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
-namespace trunkmonkey {
+namespace sipher {
 class CallSession; class CaptureManager; class Logger; class SipAccount; class SipWireMonitor;
 enum class CaptureKind;
 struct AudioDeviceInfo { int id{-1}; std::string driver; std::string name; unsigned inputCount{0}; unsigned outputCount{0}; };

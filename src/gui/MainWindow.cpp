@@ -1,15 +1,16 @@
 #include "MainWindow.h"
 #include "ProfileDialog.h"
 #include "ModernStyle.h"
-#include "trunkmonkey/CallSnapshot.h"
-#include "trunkmonkey/CaptureManager.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/MultiCallManager.h"
-#include "trunkmonkey/PbxAudit.h"
-#include "trunkmonkey/RuntimePaths.h"
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/SipTrace.h"
-#include "trunkmonkey/TextPool.h"
+#include "DidIntelHelpers.h"
+#include "sipher/CallSnapshot.h"
+#include "sipher/CaptureManager.h"
+#include "sipher/Logger.h"
+#include "sipher/MultiCallManager.h"
+#include "sipher/PbxAudit.h"
+#include "sipher/RuntimePaths.h"
+#include "sipher/SipEngine.h"
+#include "sipher/SipTrace.h"
+#include "sipher/TextPool.h"
 #include <QAbstractItemView>
 #include <algorithm>
 #include <QAction>
@@ -45,6 +46,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QMenu>
 #include <QPlainTextEdit>
 #include <QRegularExpression>
@@ -65,7 +67,7 @@
 #include <QStringList>
 #include <vector>
 #include <utility>
-using namespace trunkmonkey;
+using namespace sipher;
 static std::vector<std::string> loadList(const QString&p){if(p.isEmpty())return{};TextPool t;t.load(p.toStdString());return t.values();}
 static QString showAddr(const std::string&s){return s.empty()?QStringLiteral("--"):QString::fromStdString(s);}
 
@@ -188,7 +190,7 @@ void MainWindow::buildUi(){
     theme_->addItem("System","system");theme_->addItem("Midnight","midnight");theme_->addItem("Slate","slate");theme_->addItem("Ocean","ocean");theme_->addItem("Arctic","arctic");theme_->addItem("Solarized","solarized");theme_->addItem("Monochrome","monochrome");theme_->addItem("Cobalt","cobalt");theme_->addItem("Amber","amber");theme_->addItem("High Contrast","high-contrast");
     theme_->insertSeparator(theme_->count());
     theme_->addItem("Black Ice","black-ice");theme_->addItem("Night Vision","night-vision");theme_->addItem("Blue Box","blue-box");theme_->addItem("Red Box","red-box");theme_->addItem("2600","2600");theme_->addItem("WarGames","wargames");theme_->addItem("Phosphor","phosphor");theme_->addItem("Cyberpunk","cyberpunk");theme_->addItem("Blood Moon","blood-moon");theme_->addItem("Terminal Gold","terminal-gold");
-    const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());QSettings themeSettings(settingsPath,QSettings::IniFormat);const QString savedTheme=themeSettings.value(QStringLiteral("ui/theme"),QStringLiteral("system")).toString().toCaseFolded();int themeIndex=theme_->findData(savedTheme);if(themeIndex<0)themeIndex=0;theme_->setCurrentIndex(themeIndex);
+    const QString settingsPath=QString::fromStdString(sipher::runtime::settingsPath().string());QSettings themeSettings(settingsPath,QSettings::IniFormat);const QString savedTheme=themeSettings.value(QStringLiteral("ui/theme"),QStringLiteral("system")).toString().toCaseFolded();int themeIndex=theme_->findData(savedTheme);if(themeIndex<0)themeIndex=0;theme_->setCurrentIndex(themeIndex);
     connect(theme_,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this](int){applyTheme(theme_->currentData().toString());});
     side->addWidget(theme_);
     auto*sideProfile=new QPushButton(QStringLiteral("SIP ACCOUNTS"),sidebar);connect(sideProfile,&QPushButton::clicked,this,&MainWindow::manageAccounts);side->addWidget(sideProfile);
@@ -225,10 +227,10 @@ void MainWindow::buildUi(){
     auto*didPage=new QWidget;auto*didLayout=new QVBoxLayout(didPage);
     auto*didGroup=new QGroupBox("DID / NUMBER INTELLIGENCE",didPage);auto*didBox=new QVBoxLayout(didGroup);auto*didForm=new QFormLayout;
     didNumber_=new QLineEdit;didNumber_->setPlaceholderText("DID / telephone number, preferably E.164 (for example +13305551212)");
-    didCountry_=new QComboBox;didCountry_->setEditable(true);didCountry_->addItems({"US","CA","GB","AU","DE","FR","JP"});didCountry_->setCurrentText("US");didCountry_->setToolTip("USACallerLookup currently provides the built-in API lookup for US 10-digit numbers. SpamCalls.net can be opened for broader international community reputation checks.");
+    didCountry_=new QComboBox;didCountry_->setEditable(true);didCountry_->addItems({"US","CA","GB","AU","DE","FR","JP"});didCountry_->setCurrentText("US");didCountry_->setToolTip("Country hint used when the number is not already entered in +E.164 form.");
     didForm->addRow("DID / Number",didNumber_);didForm->addRow("Country hint",didCountry_);didBox->addLayout(didForm);
-    auto*didNote=new QLabel("Default lookup uses the free USACallerLookup JSON API — no API key or signup required — for NANPA registry carrier/line-type data plus FTC/community complaint signals. Carrier data reflects numbering-registry assignment and may not show the current carrier after porting. Complaint records are reputation signals only: spoofed caller ID can cause an innocent number to receive reports.");didNote->setWordWrap(true);didBox->addWidget(didNote);
-    auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*spamButton=new QPushButton("OPEN SPAMCALLS REPUTATION");spamButton->setToolTip("Open this number on SpamCalls.net in your default browser. SIPHER does not scrape or depend on SpamCalls.net HTML.");connect(spamButton,&QPushButton::clicked,this,&MainWindow::openSpamCalls);didButtons->addWidget(spamButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
+    auto*didNote=new QLabel("DIP / LOOKUP DID aggregates independent carrier and reputation sources: USACallerLookup for US numbering/FTC data, SpamCalls.net and tellows for community reputation, and c-qui.fr for French original-carrier allocation. ENHANCED HLR uses Neutrino only when explicitly clicked and requires SIPHER_NEUTRINO_USER_ID and SIPHER_NEUTRINO_API_KEY. Reputation reports are signals, not proof of fraud; spoofed caller ID can implicate an innocent number.");didNote->setWordWrap(true);didBox->addWidget(didNote);
+    auto*didButtons=new QHBoxLayout;auto*lookupButton=new QPushButton("DIP / LOOKUP DID");lookupButton->setProperty("role","primary");connect(lookupButton,&QPushButton::clicked,this,&MainWindow::lookupDid);didButtons->addWidget(lookupButton);auto*hlrButton=new QPushButton("ENHANCED HLR / CURRENT CARRIER");hlrButton->setToolTip("Explicit Neutrino HLR lookup. This may consume paid API credits and never runs automatically.");connect(hlrButton,&QPushButton::clicked,this,&MainWindow::lookupNeutrinoHlr);didButtons->addWidget(hlrButton);auto*spamButton=new QPushButton("OPEN SPAMCALLS PAGE");connect(spamButton,&QPushButton::clicked,this,&MainWindow::openSpamCalls);didButtons->addWidget(spamButton);auto*copyRoute=new QPushButton("USE NUMBER FOR NEXT-OUT");connect(copyRoute,&QPushButton::clicked,this,[this](){if(routeDestination_)routeDestination_->setText(didNumber_?didNumber_->text():QString{});});didButtons->addWidget(copyRoute);didButtons->addStretch();didBox->addLayout(didButtons);
     didOutput_=new QPlainTextEdit;didOutput_->setReadOnly(true);didOutput_->setPlaceholderText("DID carrier and reputation results appear here.");didOutput_->setMaximumBlockCount(2000);didBox->addWidget(didOutput_,1);didLayout->addWidget(didGroup,1);
 
     auto*routeGroup=new QGroupBox("CARRIER HANDOFF / NEXT-OUT",didPage);auto*routeBox=new QVBoxLayout(routeGroup);auto*routeForm=new QFormLayout;routeDestination_=new QLineEdit;routeDestination_->setPlaceholderText("Number or SIP URI to analyze without placing a call");routeForm->addRow("Destination",routeDestination_);routeBox->addLayout(routeForm);
@@ -319,7 +321,7 @@ void MainWindow::refresh(){
         profileSummary_->setText(summary);
     }
     if(activityLog_){QString summary=QString("SIP accounts: %1\nRegistration: %2\nCalls known: %3\n%4\nLog file: %5")
-        .arg(static_cast<qulonglong>(accountStates.size())).arg(QString::fromStdString(engine_.registrationText())).arg((int)engine_.calls().size()).arg(QString::fromStdString(engine_.captureStatus())).arg(QString::fromStdString(trunkmonkey::runtime::logPath().string()));if(activityLog_->toPlainText()!=summary)activityLog_->setPlainText(summary);}
+        .arg(static_cast<qulonglong>(accountStates.size())).arg(QString::fromStdString(engine_.registrationText())).arg((int)engine_.calls().size()).arg(QString::fromStdString(engine_.captureStatus())).arg(QString::fromStdString(sipher::runtime::logPath().string()));if(activityLog_->toPlainText()!=summary)activityLog_->setPlainText(summary);}
     int keep=pendingSelectId_>=0?pendingSelectId_:selectedCallId();pendingSelectId_=-1;
     auto v=engine_.calls();calls_->blockSignals(true);calls_->setRowCount((int)v.size());int row=0,selectRow=-1;for(auto&x:v){
         QString codec=x.codecName.empty()?"--":QString::fromStdString(x.codecName)+(x.codecClockRate?QString("/%1").arg(x.codecClockRate):QString{});
@@ -511,111 +513,66 @@ void MainWindow::lookupDid()
     if(!didNumber_||!didOutput_||!network_)return;
     const QString entered=didNumber_->text().trimmed();
     if(entered.isEmpty()){QMessageBox::information(this,"DID Intelligence","Enter a DID / telephone number first.");return;}
-
-    QString digits;digits.reserve(entered.size());for(const QChar c:entered){if(c.isDigit())digits.append(c);}
-    if(digits.size()==11&&digits.startsWith('1'))digits.remove(0,1);
     const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QStringLiteral("US");
-    if(country!="US"){
-        QMessageBox::information(this,"DID Intelligence","The built-in no-key USACallerLookup provider currently accepts US 10-digit numbers. You can still use OPEN SPAMCALLS REPUTATION for community reports on other supported countries.");
-        return;
+    const auto number=didintel::normalizeNumber(entered,country);
+    if(!number.valid){QMessageBox::information(this,"DID Intelligence",number.error);return;}
+
+    const int serial=++didLookupSerial_;
+    didOutput_->setPlainText(QString("SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n================================================\nQuery:      %1\nNormalized: +%2\nCountry:    %3\n\nProviders are queried independently; a failure from one source does not invalidate the others.\n").arg(entered,number.e164Digits,number.country));
+    statusBar()->showMessage("Running DID intelligence providers...",5000);
+
+    auto getProvider=[this,serial](const QString&provider,const QUrl&url,auto parser){
+        QNetworkRequest request(url);request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0 DID-Intel"));request.setRawHeader("Accept-Language","en-US,en;q=0.8");
+        auto*reply=network_->get(request);
+        connect(reply,&QNetworkReply::finished,this,[this,reply,serial,provider,parser](){
+            const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();const QString errorText=reply->errorString();reply->deleteLater();if(serial!=didLookupSerial_||!didOutput_)return;
+            QString section="\n\n[ "+provider+" ]\n"+QString(provider.size()+4,QChar('-'))+"\n";
+            if(error!=QNetworkReply::NoError)section+=QString("Lookup failed (HTTP %1): %2").arg(httpStatus).arg(errorText);
+            else section+=parser(payload);
+            didOutput_->appendPlainText(section);
+        });
+    };
+
+    // Free US carrier / numbering registry + FTC complaint information.
+    if(number.country=="US"&&number.nationalDigits.size()==10){
+        getProvider("USACallerLookup",QUrl(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+number.nationalDigits),[entered,number](const QByteArray&payload){return didintel::parseUsaCallerLookup(payload,entered,number);});
+    }else{
+        didOutput_->appendPlainText("\n\n[ USACallerLookup ]\n-------------------\nSkipped: provider is used only for US 10-digit numbering data.");
     }
-    if(digits.size()!=10){QMessageBox::information(this,"DID Intelligence","USACallerLookup requires a valid 10-digit US number (a leading +1 or 1 is accepted by SIPHER).");return;}
 
-    const QUrl url(QStringLiteral("https://www.usacallerlookup.com/wp-json/ucl/v1/number/")+digits);
-    QNetworkRequest request(url);request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0"));
-    didOutput_->setPlainText(QString("Looking up %1...\n\nProvider: USACallerLookup\nAuthentication: none required\nData: NANPA registry + FTC Do Not Call complaints + community reports").arg(entered));
-    auto*reply=network_->get(request);
-    connect(reply,&QNetworkReply::finished,this,[this,reply,entered,digits](){
-        const QByteArray payload=reply->readAll();const auto networkError=reply->error();const QString networkErrorText=reply->errorString();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();reply->deleteLater();
-        if(networkError!=QNetworkReply::NoError){
-            didOutput_->setPlainText(QString("DID lookup failed for %1\n\nProvider: USACallerLookup\nHTTP status: %2\nNetwork/API error: %3").arg(entered).arg(httpStatus).arg(networkErrorText));return;
-        }
-        QJsonParseError parseError{};const auto doc=QJsonDocument::fromJson(payload,&parseError);if(parseError.error!=QJsonParseError::NoError||!doc.isObject()){didOutput_->setPlainText(QString("DID lookup returned an unreadable response for %1\n\n%2").arg(entered,parseError.errorString()));return;}
-        const QJsonObject o=doc.object();
-        const QJsonObject location=o.value("location").toObject();
-        const QJsonObject prefix=o.value("prefix").toObject();
-        const QJsonObject numbering=o.value("numbering").toObject();
-        QJsonObject complaints=o.value("complaints").toObject();if(complaints.isEmpty())complaints=o.value("ftc_complaints").toObject();
-        const QJsonObject attribution=o.value("attribution").toObject();
+    // Community reputation providers recovered from the phoneintel workflow.
+    getProvider("SpamCalls.net",QUrl(didintel::spamCallsUrl(number)),[number](const QByteArray&payload){return didintel::parseSpamCalls(payload,number);});
+    getProvider("tellows",QUrl(didintel::tellowsUrl(number)),[number](const QByteArray&payload){return didintel::parseTellows(payload,number);});
 
-        auto firstString=[](const QJsonObject&obj,std::initializer_list<const char*>keys)->QString{for(const char*key:keys){const QJsonValue v=obj.value(QLatin1String(key));if(v.isString()&&!v.toString().trimmed().isEmpty())return v.toString();}return QStringLiteral("N/A");};
-        auto firstInt=[](const QJsonObject&obj,std::initializer_list<const char*>keys,int fallback=-1)->int{for(const char*key:keys){const QJsonValue v=obj.value(QLatin1String(key));if(v.isDouble())return v.toInt();if(v.isString()){bool ok=false;const int n=v.toString().toInt(&ok);if(ok)return n;}}return fallback;};
-        auto boolText=[](const QJsonValue&v)->QString{if(v.isBool())return v.toBool()?QStringLiteral("YES"):QStringLiteral("NO");if(v.isDouble())return v.toInt()!=0?QStringLiteral("YES"):QStringLiteral("NO");return QStringLiteral("N/A");};
-        auto stringList=[](const QJsonValue&v)->QString{if(v.isArray()){QStringList out;for(const auto&item:v.toArray()){if(item.isString())out<<item.toString();else if(item.isObject()){const auto io=item.toObject();QString label=io.value("subject").toString();if(label.isEmpty())label=io.value("name").toString();if(label.isEmpty())label=io.value("type").toString();if(!label.isEmpty())out<<label;}}return out.isEmpty()?QStringLiteral("N/A"):out.join(", ");}if(v.isString())return v.toString();return QStringLiteral("N/A");};
+    // French allocation/original carrier source.
+    if(number.country=="FR"){
+        getProvider("c-qui.fr",QUrl(didintel::cQuiUrl(number)),[number](const QByteArray&payload){return didintel::parseCQui(payload,number);});
+    }
 
-        QString carrier=firstString(o,{"carrier","carrier_name"});
-        QString lineType=firstString(o,{"line_type","type"});
-        const QJsonValue carrierValue=o.value("carrier");
-        if(carrierValue.isObject()){
-            const QJsonObject co=carrierValue.toObject();
-            carrier=firstString(co,{"name","carrier","company"});
-            if(lineType=="N/A")lineType=firstString(co,{"line_type","type"});
-        }
-        if(carrier=="N/A")carrier=firstString(prefix,{"carrier","carrier_name","company"});
-        if(carrier=="N/A")carrier=firstString(numbering,{"carrier","carrier_name","company"});
-        if(lineType=="N/A")lineType=firstString(prefix,{"line_type","type"});
-        if(lineType=="N/A")lineType=firstString(numbering,{"line_type","type"});
-        QString city=firstString(location,{"city","rate_center"});if(city=="N/A")city=firstString(prefix,{"city","rate_center"});if(city=="N/A")city=firstString(numbering,{"city","rate_center"});if(city=="N/A")city=firstString(o,{"city","rate_center"});
-        QString state=firstString(location,{"state","region"});if(state=="N/A")state=firstString(prefix,{"state","region"});if(state=="N/A")state=firstString(numbering,{"state","region"});if(state=="N/A")state=firstString(o,{"state","region"});
-        QString timezone=firstString(location,{"timezone","time_zone"});if(timezone=="N/A")timezone=firstString(prefix,{"timezone","time_zone"});if(timezone=="N/A")timezone=firstString(numbering,{"timezone","time_zone"});if(timezone=="N/A")timezone=firstString(o,{"timezone","time_zone"});
-        const int total=firstInt(complaints,{"total","count","complaint_count"},firstInt(o,{"complaint_count","complaints_total"},0));
-        const int robocallPct=firstInt(complaints,{"robocall_percent","robocall_percentage","robocall_pct"},firstInt(o,{"robocall_percent","robocall_percentage"},-1));
-        const int communityCount=firstInt(o,{"community_report_count","community_reports_count"},-1);
-        const QString firstReported=firstString(complaints,{"first_reported","first_date","first_complaint_date"});
-        const QString lastReported=firstString(complaints,{"last_reported","last_date","last_complaint_date"});
-        QString subjects=stringList(complaints.value("top_subjects"));if(subjects=="N/A")subjects=stringList(complaints.value("subjects"));
-        QString states=stringList(complaints.value("states"));
-        const QString sourceUrl=firstString(attribution,{"url","source_url","number_url"});
-        const bool tollFree=o.value("toll_free").toBool(false);
+    didOutput_->appendPlainText("\n\nSafety note: carrier allocations and community spam reports can disagree. Porting changes the serving carrier, and caller-ID spoofing can attach complaints to an innocent subscriber. Use ENHANCED HLR / CURRENT CARRIER when a live mobile-network lookup is actually required.");
+}
 
-        QString reputation;
-        if(total<=0)reputation="No FTC complaint records were returned for this number at lookup time.";
-        else if(total<5)reputation=QString("FTC complaint history present (%1 report%2). Treat as a signal, not a verdict.").arg(total).arg(total==1?"":"s");
-        else if(total<20)reputation=QString("Elevated complaint history (%1 reports). Review the complaint subjects and SpamCalls community reputation before trusting the ANI.").arg(total);
-        else reputation=QString("Heavy complaint history (%1 reports). This is a strong reputation warning, but spoofed caller ID can still implicate an innocent number.").arg(total);
-
-        QString out;
-        out+="SIPHER 2.0 — DID / NUMBER INTELLIGENCE\n";
-        out+="================================================\n";
-        out+=QString("Query:              %1\n").arg(entered);
-        out+=QString("Normalized:         +1%1\n").arg(digits);
-        out+="Provider:           USACallerLookup (free / no API key)\n";
-        out+=QString("Carrier:            %1\n").arg(carrier);
-        out+=QString("Line type:          %1\n").arg(lineType);
-        out+=QString("Rate center/city:   %1\n").arg(city);
-        out+=QString("State:              %1\n").arg(state);
-        out+=QString("Time zone:          %1\n").arg(timezone);
-        out+=QString("Toll free:          %1\n").arg(tollFree?"YES":"NO");
-        out+="\nREPUTATION / COMPLAINT SIGNALS\n------------------------------\n";
-        out+=QString("FTC complaints:     %1\n").arg(total);
-        if(robocallPct>=0)out+=QString("Reported robocall:   %1%\n").arg(robocallPct);
-        else out+=QString("Robocall flag:      %1\n").arg(boolText(complaints.value("robocall")));
-        out+=QString("First reported:     %1\n").arg(firstReported);
-        out+=QString("Last reported:      %1\n").arg(lastReported);
-        out+=QString("Reporting states:   %1\n").arg(states);
-        out+=QString("Top subjects:       %1\n").arg(subjects);
-        if(communityCount>=0)out+=QString("Community reports:  %1\n").arg(communityCount);
-        else if(o.value("community_reports").isArray())out+=QString("Community reports:  %1\n").arg(o.value("community_reports").toArray().size());
-        out+=QString("\nREPUTATION SUMMARY\n------------------\n%1\n").arg(reputation);
-        out+="\nCarrier note: this provider uses NANPA numbering-registry data; a ported number may currently be served by a different carrier. Use a live LRN/MNP provider when current serving-carrier information is required.\n";
-        out+="\nSafety note: complaint/reputation data shows reports associated with the displayed caller ID. It is not proof that the subscriber committed fraud, because ANI/caller ID can be spoofed.\n";
-        if(sourceUrl!="N/A")out+=QString("\nProvider page: %1\n").arg(sourceUrl);
-        out+="SpamCalls.net: use OPEN SPAMCALLS REPUTATION for a separate community-reputation view. SIPHER opens the site in your browser and does not scrape its HTML.\n";
-        didOutput_->setPlainText(out);statusBar()->showMessage("DID intelligence lookup complete",5000);
-    });
+void MainWindow::lookupNeutrinoHlr()
+{
+    if(!didNumber_||!didOutput_||!network_)return;
+    const QString entered=didNumber_->text().trimmed();if(entered.isEmpty()){QMessageBox::information(this,"Enhanced HLR","Enter a DID / telephone number first.");return;}
+    const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QStringLiteral("US");const auto number=didintel::normalizeNumber(entered,country);if(!number.valid){QMessageBox::information(this,"Enhanced HLR",number.error);return;}
+    const QByteArray userId=qgetenv("SIPHER_NEUTRINO_USER_ID"),apiKey=qgetenv("SIPHER_NEUTRINO_API_KEY");
+    if(userId.isEmpty()||apiKey.isEmpty()){
+        QMessageBox::information(this,"Enhanced HLR","Neutrino HLR is optional and never runs automatically. Set SIPHER_NEUTRINO_USER_ID and SIPHER_NEUTRINO_API_KEY in the environment, restart SIPHER, then click this button again.");return;
+    }
+    const int serial=++didLookupSerial_;didOutput_->setPlainText(QString("SIPHER 2.0 — ENHANCED HLR / CURRENT CARRIER\n================================================\nQuery: +%1\n\nSubmitting an explicit Neutrino HLR lookup...\n").arg(number.e164Digits));
+    QNetworkRequest request(QUrl(QStringLiteral("https://neutrinoapi.net/hlr-lookup")));request.setHeader(QNetworkRequest::UserAgentHeader,QStringLiteral("SIPHER/2.0 DID-Intel"));request.setRawHeader("User-ID",userId);request.setRawHeader("API-Key",apiKey);request.setHeader(QNetworkRequest::ContentTypeHeader,QStringLiteral("application/x-www-form-urlencoded"));
+    QUrlQuery form;form.addQueryItem("number","+"+number.e164Digits);form.addQueryItem("country-code",QString{});auto*reply=network_->post(request,form.query(QUrl::FullyEncoded).toUtf8());
+    connect(reply,&QNetworkReply::finished,this,[this,reply,serial,number](){const QByteArray payload=reply->readAll();const auto error=reply->error();const int httpStatus=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();const QString errorText=reply->errorString();reply->deleteLater();if(serial!=didLookupSerial_||!didOutput_)return;if(error!=QNetworkReply::NoError){didOutput_->appendPlainText(QString("\nNeutrino lookup failed (HTTP %1): %2").arg(httpStatus).arg(errorText));return;}didOutput_->appendPlainText("\n[ Neutrino HLR ]\n----------------\n"+didintel::parseNeutrinoHlr(payload,number)+"\n\nThis was an explicit live HLR request and may consume API credits.");statusBar()->showMessage("Enhanced HLR lookup complete",5000);});
 }
 
 void MainWindow::openSpamCalls()
 {
     if(!didNumber_)return;
-    const QString entered=didNumber_->text().trimmed();
-    if(entered.isEmpty()){QMessageBox::information(this,"SpamCalls Reputation","Enter a DID / telephone number first.");return;}
-    QString digits;digits.reserve(entered.size());for(const QChar c:entered){if(c.isDigit())digits.append(c);}
-    if(digits.isEmpty()){QMessageBox::information(this,"SpamCalls Reputation","The number does not contain any digits.");return;}
-    if(digits.size()==10&&(didCountry_?didCountry_->currentText().trimmed().toUpper():QStringLiteral("US"))=="US")digits.prepend('1');
-    const QUrl url(QStringLiteral("https://spamcalls.net/en/num/")+digits);
-    if(!QDesktopServices::openUrl(url))QMessageBox::warning(this,"SpamCalls Reputation",QString("Could not open %1 in the default browser.").arg(url.toString()));
-    else statusBar()->showMessage("Opened SpamCalls.net community reputation page",5000);
+    const QString entered=didNumber_->text().trimmed();if(entered.isEmpty()){QMessageBox::information(this,"SpamCalls Reputation","Enter a DID / telephone number first.");return;}
+    const QString country=didCountry_?didCountry_->currentText().trimmed().toUpper():QStringLiteral("US");const auto number=didintel::normalizeNumber(entered,country);if(!number.valid){QMessageBox::information(this,"SpamCalls Reputation",number.error);return;}
+    const QUrl url(didintel::spamCallsUrl(number));if(!QDesktopServices::openUrl(url))QMessageBox::warning(this,"SpamCalls Reputation",QString("Could not open %1 in the default browser.").arg(url.toString()));else statusBar()->showMessage("Opened SpamCalls.net community reputation page",5000);
 }
 
 void MainWindow::analyzeNextOut()
@@ -787,7 +744,7 @@ void MainWindow::manageAccounts()
 
 void MainWindow::applyTheme(const QString&t){
     const QString themeId=SipherModernStyle::normalizeThemeKey(t);
-    const QString settingsPath=QString::fromStdString(trunkmonkey::runtime::settingsPath().string());
+    const QString settingsPath=QString::fromStdString(sipher::runtime::settingsPath().string());
     QSettings settings(settingsPath,QSettings::IniFormat);
     settings.setValue(QStringLiteral("ui/theme"),themeId);
     qApp->setStyleSheet(SipherModernStyle::styleSheet(themeId));

@@ -6,7 +6,7 @@ SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 DEFAULT_PJSIP_SOURCE="$ROOT_DIR/third_party/pjproject"
 USER_HOME=${HOME:-$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)}
-PREFIX=${2:-$USER_HOME/.local/trunkmonkey-pjsip}
+PREFIX=${2:-$USER_HOME/.local/sipher-pjsip}
 
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
   echo "Usage: $0 /path/to/pjproject [install-prefix]" >&2
@@ -15,10 +15,10 @@ fi
 
 SRC=$(CDPATH= cd -- "$SRC" && pwd)
 mkdir -p "$PREFIX"
-# Invalidate any previous TrunkMonkey compatibility stamp before touching the
+# Invalidate any previous SIPHER compatibility stamp before touching the
 # installation. If configure/build/install fails, the next top-level build will
 # treat the prefix as stale instead of trusting a partially updated install.
-rm -f "$PREFIX/.trunkmonkey-pjsip-build"
+rm -f "$PREFIX/.sipher-pjsip-build"
 
 HOST_OS=$(uname -s)
 case "$HOST_OS" in
@@ -26,35 +26,35 @@ case "$HOST_OS" in
     if [ -n "${TERMUX_VERSION:-}" ] || case "${PREFIX:-}" in *com.termux*) true;; *) false;; esac; then
       HOST_OS=Termux
       MAKE=make
-      TM_CC=${CC:-clang}
-      TM_CXX=${CXX:-clang++}
+      SIPHER_CC=${CC:-clang}
+      SIPHER_CXX=${CXX:-clang++}
     else
       MAKE=make
-      TM_CC=${CC:-cc}
-      TM_CXX=${CXX:-c++}
+      SIPHER_CC=${CC:-cc}
+      SIPHER_CXX=${CXX:-c++}
     fi
     ;;
   Darwin)
     MAKE=make
-    TM_CC=${CC:-clang}
-    TM_CXX=${CXX:-clang++}
+    SIPHER_CC=${CC:-clang}
+    SIPHER_CXX=${CXX:-clang++}
     ;;
   FreeBSD)
     MAKE=gmake
-    TM_CC=${TRUNKMONKEY_PJSIP_CC:-/usr/bin/cc}
-    TM_CXX=${TRUNKMONKEY_PJSIP_CXX:-/usr/bin/c++}
-    [ -x "$TM_CC" ] || { echo "FreeBSD base C compiler not found: $TM_CC" >&2; exit 1; }
-    [ -x "$TM_CXX" ] || { echo "FreeBSD base C++ compiler not found: $TM_CXX" >&2; exit 1; }
-    "$TM_CXX" --version 2>/dev/null | grep -qi 'clang' || {
-      echo "FreeBSD PJSUA2 must be built with base Clang/libc++; got: $TM_CXX" >&2
+    SIPHER_CC=${SIPHER_PJSIP_CC:-/usr/bin/cc}
+    SIPHER_CXX=${SIPHER_PJSIP_CXX:-/usr/bin/c++}
+    [ -x "$SIPHER_CC" ] || { echo "FreeBSD base C compiler not found: $SIPHER_CC" >&2; exit 1; }
+    [ -x "$SIPHER_CXX" ] || { echo "FreeBSD base C++ compiler not found: $SIPHER_CXX" >&2; exit 1; }
+    "$SIPHER_CXX" --version 2>/dev/null | grep -qi 'clang' || {
+      echo "FreeBSD PJSUA2 must be built with base Clang/libc++; got: $SIPHER_CXX" >&2
       exit 1
     }
     ;;
   MINGW*|MSYS*)
     HOST_OS=Windows
     MAKE=make
-    TM_CC=${CC:-gcc}
-    TM_CXX=${CXX:-g++}
+    SIPHER_CC=${CC:-gcc}
+    SIPHER_CXX=${CXX:-g++}
     ;;
   *) echo "Unsupported OS for this helper: $HOST_OS" >&2; exit 2 ;;
 esac
@@ -90,7 +90,7 @@ if [ ! -f "$CALL_CPP" ]; then
   exit 1
 fi
 
-tmp_call="$CALL_CPP.trunkmonkey.$$"
+tmp_call="$CALL_CPP.sipher.$$"
 awk '
   BEGIN { replacing=0; replaced=0; depth=0 }
   !replacing && $0 == "Call::~Call()" {
@@ -99,7 +99,7 @@ awk '
       exit 41
     }
     print "{"
-    print "    /* TrunkMonkey compatibility: only touch a PJSUA call slot while"
+    print "    /* SIPHER compatibility: only touch a PJSUA call slot while"
     print "     * the library is initialized and this wrapper still owns it. */"
     print "    bool owns_call = false;"
     print "    const pjsua_state state = pjsua_get_state();"
@@ -144,7 +144,7 @@ awk '
   }
 ' "$CALL_CPP" > "$tmp_call" || {
   rm -f "$tmp_call"
-  echo "Unable to replace PJSIP 2.17 Call destructor with TrunkMonkey lifetime guard." >&2
+  echo "Unable to replace PJSIP 2.17 Call destructor with SIPHER lifetime guard." >&2
   exit 1
 }
 mv "$tmp_call" "$CALL_CPP"
@@ -152,14 +152,14 @@ mv "$tmp_call" "$CALL_CPP"
 if ! grep -q 'state == PJSUA_STATE_RUNNING' "$CALL_CPP" 2>/dev/null || \
    ! grep -q 'owns_call && isActive()' "$CALL_CPP" 2>/dev/null || \
    ! grep -q 'pjsua_call_get_user_data(id) == this' "$CALL_CPP" 2>/dev/null; then
-  echo "Unable to verify TrunkMonkey PJSUA2 Call destructor lifetime fix." >&2
+  echo "Unable to verify SIPHER PJSUA2 Call destructor lifetime fix." >&2
   exit 1
 fi
 
 # A forced PJSIP rebuild may change platform/backend options. PJSIP's GNU
 # configure output embeds absolute source paths in generated files such as
-# build.mak. If the TrunkMonkey directory is renamed or moved, "make distclean"
-# may be unable to parse that stale build.mak at all. The default TrunkMonkey
+# build.mak. If the SIPHER directory is renamed or moved, "make distclean"
+# may be unable to parse that stale build.mak at all. The default SIPHER
 # pjproject checkout is a disposable build cache, so clean all untracked and
 # ignored generated state directly with git before reconfiguring. Tracked source
 # files (and any deliberate tracked edits) are left untouched.
@@ -177,7 +177,7 @@ elif [ -f build.mak ]; then
       git -C "$SRC" clean -fdX
     else
       echo "Refusing to delete generated files from a non-git custom PJSIP source tree." >&2
-      echo "Clean that source tree manually, or use TrunkMonkey's default third_party/pjproject checkout." >&2
+      echo "Clean that source tree manually, or use SIPHER's default third_party/pjproject checkout." >&2
       exit 1
     fi
   fi
@@ -190,7 +190,7 @@ fi
 
 cat > pjlib/include/pj/config_site.h <<'CONFIG'
 #pragma once
-/* TrunkMonkey requires up to 50 simultaneous independent calls. */
+/* SIPHER requires up to 50 simultaneous independent calls. */
 #define PJSUA_MAX_CALLS 64
 /* PJSIP recommends roughly three IO-queue handles per PJSUA call. */
 #define PJ_IOQUEUE_MAX_HANDLES 256
@@ -200,7 +200,7 @@ CONFIG
 if [ "$HOST_OS" = FreeBSD ]; then
   cat >> pjlib/include/pj/config_site.h <<'CONFIG'
 /* PJSIP 2.17's legacy WebRTC AEC archive is not reliably linkable on FreeBSD/x86_64
- * (missing WebRtc_GetCPUInfo/SSE2 glue in pjmedia-test). TrunkMonkey does not
+ * (missing WebRtc_GetCPUInfo/SSE2 glue in pjmedia-test). SIPHER does not
  * require this optional AEC; PortAudio + Speex AEC remain available. */
 #undef PJMEDIA_HAS_WEBRTC_AEC
 #define PJMEDIA_HAS_WEBRTC_AEC 0
@@ -209,7 +209,7 @@ if [ "$HOST_OS" = FreeBSD ]; then
 CONFIG
 fi
 
-# Build static PJSIP objects as position-independent code. TrunkMonkey is
+# Build static PJSIP objects as position-independent code. SIPHER is
 # normally linked as a PIE on modern Linux/FreeBSD toolchains; PIC avoids text
 # relocation warnings and makes the static archives safer to consume.
 PIC_CFLAGS="${CFLAGS:+$CFLAGS }-fPIC"
@@ -234,8 +234,8 @@ if [ "$HOST_OS" = FreeBSD ]; then
   done
 
   echo "Configuring PJSIP for FreeBSD with base Clang/libc++ + external PortAudio..."
-  echo "  CC=$TM_CC"
-  echo "  CXX=$TM_CXX"
+  echo "  CC=$SIPHER_CC"
+  echo "  CXX=$SIPHER_CXX"
   echo "  Deterministic features: PortAudio/Opus/bcg729/libuuid enabled; WebRTC/UPnP/AMR/SILK/video helpers disabled"
   echo "  IO queue: PJSIP default backend (experimental kqueue is intentionally not forced)"
 
@@ -245,7 +245,7 @@ if [ "$HOST_OS" = FreeBSD ]; then
   CXXFLAGS="-fPIC -stdlib=libc++ -I$LOCALBASE/include" \
   CPPFLAGS="-I$LOCALBASE/include" \
   LDFLAGS="-L$LOCALBASE/lib" \
-  CC="$TM_CC" CXX="$TM_CXX" \
+  CC="$SIPHER_CC" CXX="$SIPHER_CXX" \
     ./configure --prefix="$PREFIX" --disable-video --with-external-pa \
       --with-opus="$LOCALBASE" --with-bcg729="$LOCALBASE" \
       --disable-libwebrtc --disable-upnp \
@@ -256,12 +256,12 @@ if [ "$HOST_OS" = FreeBSD ]; then
   # PJSIP build.mak records the compilers applications are expected to use.
   # Verify configure actually honored the pinned FreeBSD base Clang toolchain
   # before spending time compiling static archives.
-  grep -Fq "export APP_CC := $TM_CC" build.mak 2>/dev/null || {
-    echo "FreeBSD PJSIP configure did not preserve CC=$TM_CC in build.mak." >&2
+  grep -Fq "export APP_CC := $SIPHER_CC" build.mak 2>/dev/null || {
+    echo "FreeBSD PJSIP configure did not preserve CC=$SIPHER_CC in build.mak." >&2
     exit 1
   }
-  grep -Fq "export APP_CXX := $TM_CXX" build.mak 2>/dev/null || {
-    echo "FreeBSD PJSIP configure did not preserve CXX=$TM_CXX in build.mak." >&2
+  grep -Fq "export APP_CXX := $SIPHER_CXX" build.mak 2>/dev/null || {
+    echo "FreeBSD PJSIP configure did not preserve CXX=$SIPHER_CXX in build.mak." >&2
     exit 1
   }
   grep -q -- '-stdlib=libc++' build.mak 2>/dev/null || {
@@ -274,7 +274,7 @@ if [ "$HOST_OS" = FreeBSD ]; then
   # produces an ABI-mixed process and unresolved std::__cxx11 symbols. Rewrite
   # only the generated build.mak after configure; upstream source stays intact.
   if grep -q -- '-lstdc++' build.mak 2>/dev/null; then
-    tmp_mak="build.mak.trunkmonkey.$$"
+    tmp_mak="build.mak.sipher.$$"
     sed 's/-lstdc++/-lc++/g' build.mak > "$tmp_mak"
     mv "$tmp_mak" build.mak
   fi
@@ -289,28 +289,28 @@ if [ "$HOST_OS" = FreeBSD ]; then
 
 elif [ "$HOST_OS" = Darwin ]; then
   echo "Configuring PJSIP for macOS with Apple Clang/CoreAudio..."
-  CC="$TM_CC" CXX="$TM_CXX" ./configure --prefix="$PREFIX" --disable-video
+  CC="$SIPHER_CC" CXX="$SIPHER_CXX" ./configure --prefix="$PREFIX" --disable-video
 elif [ "$HOST_OS" = Termux ]; then
   echo "Configuring PJSIP for native Termux/Android..."
   TERMUX_PREFIX=${TERMUX_SYS_PREFIX:-/data/data/com.termux/files/usr}
   PA_OPT=
   if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists portaudio-2.0 2>/dev/null; then PA_OPT=--with-external-pa; fi
   CFLAGS="-fPIC -I$TERMUX_PREFIX/include ${CFLAGS:-}" CXXFLAGS="-fPIC -I$TERMUX_PREFIX/include ${CXXFLAGS:-}" \
-  LDFLAGS="-L$TERMUX_PREFIX/lib ${LDFLAGS:-}" CC="$TM_CC" CXX="$TM_CXX" \
+  LDFLAGS="-L$TERMUX_PREFIX/lib ${LDFLAGS:-}" CC="$SIPHER_CC" CXX="$SIPHER_CXX" \
     ./configure --prefix="$PREFIX" --disable-video $PA_OPT
 elif [ "$HOST_OS" = Windows ]; then
   echo "Configuring PJSIP for Windows/MinGW-w64..."
-  CFLAGS="${CFLAGS:-}-O2" CXXFLAGS="${CXXFLAGS:-}-O2" CC="$TM_CC" CXX="$TM_CXX" \
+  CFLAGS="${CFLAGS:-}-O2" CXXFLAGS="${CXXFLAGS:-}-O2" CC="$SIPHER_CC" CXX="$SIPHER_CXX" \
     ./configure --prefix="$PREFIX" --disable-video
 else
-  CFLAGS="$PIC_CFLAGS" CXXFLAGS="$PIC_CXXFLAGS" CC="$TM_CC" CXX="$TM_CXX" \
+  CFLAGS="$PIC_CFLAGS" CXXFLAGS="$PIC_CXXFLAGS" CC="$SIPHER_CC" CXX="$SIPHER_CXX" \
     ./configure --prefix="$PREFIX" --disable-video
 fi
 
 "$MAKE" dep
-# TrunkMonkey consumes the libraries only. PJSIP's default `make all` also
+# SIPHER consumes the libraries only. PJSIP's default `make all` also
 # links sample/test executables, which can fail for optional components that
-# TrunkMonkey never uses. Upstream documents `make lib` for library-only builds.
+# SIPHER never uses. Upstream documents `make lib` for library-only builds.
 "$MAKE" -j"$JOBS" lib
 
 if [ "$HOST_OS" = FreeBSD ]; then
@@ -351,23 +351,23 @@ mkdir -p "$PREFIX"
 
 case "$HOST_OS" in
   Linux)
-    TM_OS=linux
+    SIPHER_OS=linux
     BUILD_ID="2.17-tm64-pic-linux-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
     ;;
   Darwin)
-    TM_OS=macos
+    SIPHER_OS=macos
     BUILD_ID="2.17-tm64-macos-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
     ;;
   Termux)
-    TM_OS=termux
+    SIPHER_OS=termux
     BUILD_ID="2.17-tm64-termux-$(uname -m 2>/dev/null || echo unknown)-v9-exploitfix1"
     ;;
   Windows)
-    TM_OS=windows
+    SIPHER_OS=windows
     BUILD_ID="2.17-sak64-windows-mingw-$(uname -m 2>/dev/null || echo x86_64)-v1-exploitfix1"
     ;;
   FreeBSD)
-    TM_OS=freebsd
+    SIPHER_OS=freebsd
     pc="$PREFIX/lib/pkgconfig/libpjproject.pc"
     [ -f "$pc" ] || { echo "PJSIP install did not create $pc" >&2; exit 1; }
     if grep -q -- '-lstdc++' "$pc"; then
@@ -385,13 +385,13 @@ case "$HOST_OS" in
       grep -q -- "$required" "$pc" || { echo "FreeBSD PJSIP install is missing required linkage: $required" >&2; exit 1; }
     done
     abi=$(uname -K 2>/dev/null || uname -r 2>/dev/null || echo unknown)
-    cxxver=$($TM_CXX --version 2>/dev/null | sed -n '1s/.*clang version \([^ ]*\).*/\1/p')
+    cxxver=$($SIPHER_CXX --version 2>/dev/null | sed -n '1s/.*clang version \([^ ]*\).*/\1/p')
     [ -n "$cxxver" ] || cxxver=unknown
     cxxver=$(printf '%s' "$cxxver" | tr -c 'A-Za-z0-9._-' '_')
     BUILD_ID="2.17-tm64-pic-freebsd-$(uname -m 2>/dev/null || echo unknown)-libcxx-${abi}-${cxxver}-v9-exploitfix1"
     ;;
 esac
-printf '%s\n' "$BUILD_ID" > "$PREFIX/.trunkmonkey-pjsip-build"
+printf '%s\n' "$BUILD_ID" > "$PREFIX/.sipher-pjsip-build"
 
 echo
 echo "PJSIP installed to $PREFIX"

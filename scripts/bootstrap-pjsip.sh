@@ -5,7 +5,7 @@ ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 USER_HOME=${HOME:-$ROOT_DIR}
 VERSION=${PJSIP_VERSION:-2.17}
 DEST=${PJSIP_SOURCE_DIR:-$ROOT_DIR/third_party/pjproject}
-PREFIX=${PJSIP_PREFIX:-$USER_HOME/.local/trunkmonkey-pjsip}
+PREFIX=${PJSIP_PREFIX:-$USER_HOME/.local/sipher-pjsip}
 
 source_version()
 {
@@ -54,12 +54,12 @@ if [ ! -d "$DEST" ] || [ -z "$(ls -A "$DEST" 2>/dev/null || true)" ]; then
 elif [ -d "$DEST/.git" ]; then
   current_tag=$(git -C "$DEST" describe --tags --exact-match 2>/dev/null || true)
   if [ "$current_tag" != "$VERSION" ]; then
-    echo "Existing PJSIP checkout is '$current_tag' but TrunkMonkey requires tag '$VERSION'." >&2
+    echo "Existing PJSIP checkout is '$current_tag' but SIPHER requires tag '$VERSION'." >&2
     echo "Remove $DEST or set PJSIP_SOURCE_DIR to a clean PJSIP $VERSION source tree." >&2
     exit 1
   fi
   if [ "$DEST" = "$ROOT_DIR/third_party/pjproject" ]; then
-    # This directory is TrunkMonkey-managed. Restore exact upstream 2.17 source
+    # This directory is SIPHER-managed. Restore exact upstream 2.17 source
     # before the build helper reapplies its small compatibility patch.
     git -C "$DEST" reset --hard "$VERSION" >/dev/null
     git -C "$DEST" clean -ffdx >/dev/null
@@ -73,7 +73,7 @@ else
   fi
   detected=$(source_version "$DEST" || true)
   if [ "$detected" != "$VERSION" ]; then
-    echo "Existing non-Git PJSIP source reports version '$detected'; TrunkMonkey requires '$VERSION'." >&2
+    echo "Existing non-Git PJSIP source reports version '$detected'; SIPHER requires '$VERSION'." >&2
     echo "Remove $DEST or set PJSIP_SOURCE_DIR to a clean PJSIP $VERSION source tree." >&2
     exit 1
   fi
@@ -82,11 +82,11 @@ else
 
   # A clean release tarball is safe to build directly. If this managed default
   # source tree contains generated configure state, however, it may embed the
-  # absolute path of an older TrunkMonkey extraction. Replace it atomically with
+  # absolute path of an older SIPHER extraction. Replace it atomically with
   # a clean checkout rather than trusting stale build.mak/config.status files.
   if [ "$DEST" = "$ROOT_DIR/third_party/pjproject" ] &&      { [ -f "$DEST/build.mak" ] || [ -f "$DEST/config.status" ]; }; then
     if command -v git >/dev/null 2>&1; then
-      backup="$DEST.trunkmonkey-stale.$$"
+      backup="$DEST.sipher-stale.$$"
       echo "Managed non-Git PJSIP tree contains generated build state; refreshing it safely..."
       rm -rf "$backup"
       mv "$DEST" "$backup"
@@ -100,7 +100,7 @@ else
       fi
     else
       echo "The managed non-Git PJSIP tree contains stale generated build state." >&2
-      echo "Install git so TrunkMonkey can refresh it safely, or replace $DEST with a clean PJSIP $VERSION source tree." >&2
+      echo "Install git so SIPHER can refresh it safely, or replace $DEST with a clean PJSIP $VERSION source tree." >&2
       exit 1
     fi
   fi
@@ -109,6 +109,6 @@ fi
 "$ROOT_DIR/scripts/build-pjsip.sh" "$DEST" "$PREFIX"
 
 echo
-echo "PJSIP is ready for TrunkMonkey:"
+echo "PJSIP is ready for SIPHER:"
 echo "  $PREFIX"
 echo "The top-level ./build.sh detects this prefix automatically."

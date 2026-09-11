@@ -10,7 +10,7 @@ The r18 Linux/PJSIP 2.17 receive-peer fix, Qt `emit` macro fix, and corrected CT
 Live Main call view: Alt+1 remains uncluttered while idle. During an active call it automatically adds `LIVE WIRE // CALL TAP` with the called/remote number, live elapsed time, call state, codec, local/remote RTP addresses, packet/loss/jitter/RTT/MOS data, mute/media state, and direct call-control commands. Main refreshes once per second during a call and restores the idle layout automatically after hangup.
 # r17 Underground Phone-Phreak / Signal Lab — 2026-08-20
 
-S.I.P.H.E.R. now intentionally contrasts with TrunkMonkey's carrier-operations look. Shared themes: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. Exclusive themes: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. All behavior-bearing r15 Full VoIP PCAP, audio, and audit code remains preserved.
+S.I.P.H.E.R. now intentionally contrasts with SIPHER's carrier-operations look. Shared themes: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. Exclusive themes: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. All behavior-bearing r15 Full VoIP PCAP, audio, and audit code remains preserved.
 
 # r16 Modern GUI / CLI — 2026-08-20
 
@@ -73,7 +73,7 @@ Builder revision: `sipher-r10-20260818-dial-prefix-sip-tx`.
 
 # S.I.P.H.E.R. 1.0.0 r8 — Chained Security Audit + FreeBSD pthread Fix
 
-- Fixed the FreeBSD/Clang `pthread_create` linker failure in `tm-capture-manager-test` by linking the standalone CaptureManager test target to CMake `Threads::Threads`.
+- Fixed the FreeBSD/Clang `pthread_create` linker failure in `sipher-capture-manager-test` by linking the standalone CaptureManager test target to CMake `Threads::Threads`.
 - Added **Automated Chained Audit** so service evidence flows into fingerprinting, auth/oracle interpretation, transport/TLS checks, vulnerability metadata correlation, and one prioritized report.
 - Added HIGH/WARN/PASS/INFO posture counts and deduplicated remediation guidance.
 - Added posture checks for detailed banner/version disclosure, private topology-address disclosure, optional SIP method exposure, UDP/TCP cleartext transport surface, Digest algorithm posture, TLS legacy protocol/cipher indicators, and TLS certificate trust/identity validation.
@@ -93,25 +93,25 @@ Builder revision: `sipher-r10-20260818-dial-prefix-sip-tx`.
 
 # S.I.P.H.E.R. 1.0.0 r6 — Rebrand
 
-S.I.P.H.E.R. — **SIP Inspection, Protocol Handling, Enumeration & Recon** — By GITSC. This release renames S.a.K. while preserving the same SIP/RTP/PBX feature set, 26 themes, CLI/GUI workflows, and legacy TrunkMonkey configuration compatibility. Executables are now `sipher` and `sipher-gui`. The r6 branding refresh adds the supplied block-terminal S.I.P.H.E.R. logo to the CLI, an adaptive 80x25-style layout, a matching GUI banner/application icon, and a compact top-left CLI brand badge.
+S.I.P.H.E.R. — **SIP Inspection, Protocol Handling, Enumeration & Recon** — By GITSC. This release renames SIPHER while preserving the same SIP/RTP/PBX feature set, 26 themes, CLI/GUI workflows, and legacy SIPHER configuration compatibility. Executables are now `sipher` and `sipher-gui`. The r6 branding refresh adds the supplied block-terminal S.I.P.H.E.R. logo to the CLI, an adaptive 80x25-style layout, a matching GUI banner/application icon, and a compact top-left CLI brand badge.
 
 # S.I.P.H.E.R. 1.0.0 r4
 
 S.I.P.H.E.R. By GITSC. This release focuses on CLI parity, responsive terminal behavior, security-audit visibility, PBX fingerprinting/public vulnerability correlation, and theme expansion.
 
-- Call commands accept a TrunkMonkey-style leading slash: `/dial`, `/answer`, `/hangup`, `/hangup-all`, `/hold`, `/resume`, `/mute`, `/unmute`, `/dtmf`, `/calls`, and the rest of the advanced parser also accepts `/`.
+- Call commands accept a SIPHER-style leading slash: `/dial`, `/answer`, `/hangup`, `/hangup-all`, `/hold`, `/resume`, `/mute`, `/unmute`, `/dtmf`, `/calls`, and the rest of the advanced parser also accepts `/`.
 - New CLI Security Audit page on Alt+5; Profile is Alt+6, Help Alt+7, Engine Log Alt+8, Queue/Activity Alt+9.
 - CLI redraws on SIGWINCH while waiting at `select>` and preserves partially typed input across the resize. Console TTYs use an automatically compact layout.
 - PBX fingerprinting identifies common SIP/PBX/SBC products and versions from disclosed banners and lists remotely disclosed SIP capabilities.
 - Vulnerability correlation uses NIST NVD CVE API 2.0 plus official Exploit-DB CSV metadata. It does not execute exploit code. `NVD_API_KEY` is optional.
 - Ten new themes were added to CLI and GUI: Blue Box, Red Box, Beige Box, 2600, WarGames, CRT Green, VT220, Cobalt, Vaporwave, and Stealth.
-- Visible branding is `S.I.P.H.E.R. By GITSC`. Existing `trunkmonkey` internal namespaces/config paths remain for backward compatibility.
+- Visible branding is `S.I.P.H.E.R. By GITSC`. Existing `sipher` internal namespaces/config paths remain for backward compatibility.
 
 # S.I.P.H.E.R. 1.0.0 — SIP Inspection, Protocol Handling, Enumeration & Recon
 
-This is a user-interface repackaging of the TrunkMonkey 2.0.0 r20 core. No feature modules or themes were removed. The CLI now defaults to guided Operator Mode with numbered workflows while retaining the original advanced command parser. The GUI is branded S.I.P.H.E.R. By GITSC and keeps the existing compact layout and all diagnostic/security controls.
+This is a user-interface repackaging of the SIPHER 2.0.0 r20 core. No feature modules or themes were removed. The CLI now defaults to guided Operator Mode with numbered workflows while retaining the original advanced command parser. The GUI is branded S.I.P.H.E.R. By GITSC and keeps the existing compact layout and all diagnostic/security controls.
 
-The installed binary names are `sipher` and `sipher-gui`. Existing `~/.config/trunkmonkey`, `~/.local/state/trunkmonkey`, managed PJSIP, temporary diagnostics, and FreeBSD repair markers are intentionally retained for compatibility with known-good installations.
+The installed binary names are `sipher` and `sipher-gui`. Existing `~/.config/sipher`, `~/.local/state/sipher`, managed PJSIP, temporary diagnostics, and FreeBSD repair markers are intentionally retained for compatibility with known-good installations.
 
 ---
 
@@ -143,7 +143,7 @@ The installed binary names are `sipher` and `sipher-gui`. Existing `~/.config/tr
 - FreeBSD packet capture setup creates a persistent, per-user `devfs` rule for `/dev/bpf*`, preserving an existing resolvable ruleset and backing up system files before changes.
 - Adds standalone `./build.sh --configure-capture` repair/setup mode.
 - Builder retains the verified FreeBSD ALC236 headset-mic repair path: it only applies the `init_clear=1` + `ivref80` correction when the exact known hardware/pin signature is detected, backs up files first, and verifies NID25 reaches pin-control `0x24`. Unknown audio hardware is diagnosed but not rewritten.
-- PJSIP console logging is redirected away from the interactive CLI into private `/tmp/trunkmonkey-<uid>/pjsip-engine.log`; S.I.P.H.E.R.'s asynchronous logger is also silenced on the dashboard so calls cannot overwrite the interface.
+- PJSIP console logging is redirected away from the interactive CLI into private `/tmp/sipher-<uid>/pjsip-engine.log`; S.I.P.H.E.R.'s asynchronous logger is also silenced on the dashboard so calls cannot overwrite the interface.
 - Adds an **Alt+8 Engine Log** page with PageUp/PageDown and `log-up`, `log-down`, `log-tail` navigation.
 - GUI opens at a smaller 920x620 footprint (720x500 minimum) and uses horizontally scrollable call tables rather than forcing an oversized main window.
 - CLI and GUI theme collections now include Hacker, Matrix, Phosphor, Midnight, Amber, Ice, Solarized, Dracula, Nord, Cyberpunk, Blood Moon, Ocean, Retro Blue, Monochrome, and classic/system variants.
@@ -213,7 +213,7 @@ The package retains the WaffleHouse-style top-level `build.sh` workflow:
 - Root escalation for missing system-package installation and, if selected, the final system installation step; compilation remains unprivileged.
 - S.I.P.H.E.R.-specific `--pjsip` action for a local PJSIP 2.17 build configured with `PJSUA_MAX_CALLS=64`.
 - Automatic detection of the standard local PJSIP pkg-config directory.
-- Legacy `scripts/build-trunkmonkey.sh` retained as a compatibility wrapper.
+- Legacy `scripts/build-sipher.sh` retained as a compatibility wrapper.
 
 ## Validated in the build workspace
 
@@ -297,8 +297,8 @@ Validation in the assembly workspace includes GCC and Clang warning-as-error bui
 
 ## Beta 0.2 post-install profile seeding fix — 2026-08-15
 
-- `build.sh` now seeds `~/.config/trunkmonkey/profile.conf` **after** a successful CLI/GUI system install instead of before installation.
-- The seeder prefers the installed template at `<prefix>/share/trunkmonkey/examples/profile.conf.example` and falls back to the source-tree example for development installs.
+- `build.sh` now seeds `~/.config/sipher/profile.conf` **after** a successful CLI/GUI system install instead of before installation.
+- The seeder prefers the installed template at `<prefix>/share/sipher/examples/profile.conf.example` and falls back to the source-tree example for development installs.
 - Existing user profiles are always preserved; the builder never overwrites SIP credentials/settings.
 - The generated profile directory is private (`0700`) and the profile is private (`0600`) on Unix.
 - The builder verifies that the seeded profile is non-empty and clearly reports the template source used.
@@ -337,5 +337,5 @@ The Unix release tests no longer use C/C++ `assert()` for validation. `RelWithDe
 - r11: managed PJSIP now sets `PJ_IOQUEUE_MAX_HANDLES=256` for the 64-call compile-time ceiling and validates it before building S.I.P.H.E.R..
 
 ## r6 build hotfix
-- Fixed Linux/FreeBSD full-build failure in `SipEngine.cpp` by explicitly including `trunkmonkey/Version.h` before using `SIPHER_USER_AGENT`.
+- Fixed Linux/FreeBSD full-build failure in `SipEngine.cpp` by explicitly including `sipher/Version.h` before using `SIPHER_USER_AGENT`.
 - No SIP/RTP behavior changed; this is a compile-time visibility fix only.

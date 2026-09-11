@@ -27,7 +27,7 @@ The default DID lookup requires **no API key or signup**. SIPHER calls the publi
 
 r17 deliberately moves SIPHER away from the polished carrier-console look. The GUI is now a dark phreak rail with carrier-access navigation, signal-tap language, the embedded blue SIPHER logo, hard-edged controls, and monospace telemetry. The CLI keeps the exact wide banner but changes the shell to double-line phreak frames, a `PHREAK DECK` rail, and the `phreak>` prompt. The r15 Full VoIP/capture/audio/audit core remains byte-for-byte protected.
 
-**Theme model:** 20 synchronized GUI/CLI themes. Shared with TrunkMonkey: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. SIPHER-only: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. Legacy r16 theme keys map to the closest current palette.
+**Theme model:** 20 synchronized GUI/CLI themes. Shared with SIPHER: System, Midnight, Slate, Ocean, Arctic, Solarized, Monochrome, Cobalt, Amber, High Contrast. SIPHER-only: Black Ice, Night Vision, Blue Box, Red Box, 2600, WarGames, Phosphor, Cyberpunk, Blood Moon, Terminal Gold. Legacy r16 theme keys map to the closest current palette.
 
 `tests/run_r17_regression.sh` runs the core-preservation gate plus profile, SIP trace, runtime-path, dashboard, capture-manager, PBX-audit, and FreeBSD audio compatibility tests.
 
@@ -52,13 +52,13 @@ r12 adds default-on automatic local audio rerouting during an active SIP call. L
 Use `audio-auto on|off`, `audio-status`, and `audio-reopen` from the CLI. The GUI exposes **Automatically Follow Headset / System Audio** plus Audio Status and Reopen/Refresh actions.
 
 
-SIPHER is a usability-first repackaging of the proven TrunkMonkey 2.0 r20 core. **No features were removed.** The goal of SIPHER 1.0 is to make the same softphone, diagnostics, queue testing, packet capture, audio routing, themes, and bounded PBX audit tools usable by a Tier-1 NOC technician without requiring them to memorize commands.
+SIPHER is a usability-first repackaging of the proven SIPHER 2.0 r20 core. **No features were removed.** The goal of SIPHER 1.0 is to make the same softphone, diagnostics, queue testing, packet capture, audio routing, themes, and bounded PBX audit tools usable by a Tier-1 NOC technician without requiring them to memorize commands.
 
 ## SIPHER 1.0 r5 highlights
 
 - Visible branding: **SIPHER By GITSC**, with the block-terminal logo in the CLI and matching GUI banner/icon.
 - Responsive CLI: live terminal-resize redraws, compact virtual-console/TTY layout, and multi-line Alt-key navigation.
-- TrunkMonkey-style slash commands for calls, including `/dial`, `/answer`, `/hangup`, `/hangup-all`, `/hold`, `/resume`, `/mute`, `/unmute`, `/dtmf`, and `/calls`.
+- SIPHER-style slash commands for calls, including `/dial`, `/answer`, `/hangup`, `/hangup-all`, `/hold`, `/resume`, `/mute`, `/unmute`, `/dtmf`, and `/calls`.
 - Dedicated **Alt+5 Security Audit** screen; Alt+6 Profile, Alt+7 Help, Alt+8 Engine Log, Alt+9 Queue/Activity.
 - `audit-fingerprint` identifies common SIP/PBX/SBC products and disclosed versions/capabilities from SIP responses.
 - `audit-vulns` correlates the fingerprint with **NIST NVD CVE API 2.0** and official **Exploit-DB metadata**. It never executes exploit code.
@@ -83,7 +83,7 @@ The CLI dashboard now presents numbered guided workflows:
 
 Type `menu` at any time to reopen the guided menu. Every previous advanced command is still available directly, and all 36 CLI/GUI themes are available.
 
-The existing runtime/config directories are intentionally retained for compatibility with TrunkMonkey installations (`~/.config/trunkmonkey`, `~/.local/state/trunkmonkey`, and `/tmp/trunkmonkey-<uid>`), so existing profiles and known-good FreeBSD audio fixes continue to work.
+The existing runtime/config directories are intentionally retained for compatibility with SIPHER installations (`~/.config/sipher`, `~/.local/state/sipher`, and `/tmp/sipher-<uid>`), so existing profiles and known-good FreeBSD audio fixes continue to work.
 
 ## Build
 
@@ -198,7 +198,7 @@ NO_COLOR=1 sipher
 
 ### Engine log without dashboard flooding
 
-PJSIP's verbose engine output is written to the private per-user temporary path `/tmp/trunkmonkey-<uid>/pjsip-engine.log` instead of stdout/stderr. Use **Alt+8** or `engine-log` to view it inside the CLI. PageUp/PageDown (or `log-up`/`log-down`) scroll through the retained lines, and `log-tail` jumps back to live output. The temporary log naturally disappears on systems that clear `/tmp` at boot.
+PJSIP's verbose engine output is written to the private per-user temporary path `/tmp/sipher-<uid>/pjsip-engine.log` instead of stdout/stderr. Use **Alt+8** or `engine-log` to view it inside the CLI. PageUp/PageDown (or `log-up`/`log-down`) scroll through the retained lines, and `log-tail` jumps back to live output. The temporary log naturally disappears on systems that clear `/tmp` at boot.
 
 ### Independent-call rule
 
@@ -260,7 +260,7 @@ The default capture interface is `any` where supported. On FreeBSD, select the a
 A normal CLI or GUI build now creates the user's SIP profile automatically when it does not already exist:
 
 ```text
-~/.config/trunkmonkey/profile.conf
+~/.config/sipher/profile.conf
 ```
 
 `XDG_CONFIG_HOME` and `SIPHER_PROFILE` are honored. The builder copies `examples/profile.conf.example`, creates the SIPHER config directory privately, sets the profile to mode `0600`, and **never overwrites an existing profile**.
@@ -371,7 +371,7 @@ The dependency check is target-aware: a CLI-only build does not install Qt, whil
 The older command remains as a compatibility wrapper:
 
 ```sh
-./scripts/build-trunkmonkey.sh
+./scripts/build-sipher.sh
 ```
 
 With no arguments it builds both CLI and GUI without installing them.
@@ -419,7 +419,7 @@ The earlier Unix beta received a full Linux/FreeBSD source audit after the first
 - Safer queue-test worker registration/unregistration with PJLIB and deterministic cancellation/join during shutdown.
 - SIP wire-monitor shutdown synchronization, bounded unmatched-dialog buffering, bounded raw SIP retention, and late SIP Call-ID correlation.
 - `posix_spawn()` packet-capture launch instead of post-thread `fork()` logic, with Linux/FreeBSD capture-tool path handling and graceful stop escalation.
-- Per-user Unix runtime paths: configuration under `$XDG_CONFIG_HOME/trunkmonkey` (normally `~/.config/trunkmonkey`) and logs/state under `$XDG_STATE_HOME/trunkmonkey` (normally `~/.local/state/trunkmonkey`). App-owned directories are private and profile/log/SIP-trace files are created with owner-only permissions.
+- Per-user Unix runtime paths: configuration under `$XDG_CONFIG_HOME/sipher` (normally `~/.config/sipher`) and logs/state under `$XDG_STATE_HOME/sipher` (normally `~/.local/state/sipher`). App-owned directories are private and profile/log/SIP-trace files are created with owner-only permissions.
 - Guards that preserve completed-call SIP/history data without invoking live PJSUA2 operations after a call has disconnected.
 - Correct media-active reporting for non-foreground queue calls: media state is independent from whether a call is attached to the local headset.
 
@@ -428,9 +428,9 @@ The earlier Unix beta received a full Linux/FreeBSD source audit after the first
 Default locations are:
 
 ```text
-Profile/config:  ~/.config/trunkmonkey/
-Settings:        ~/.config/trunkmonkey/trunkmonkey.ini
-Logs/state:      ~/.local/state/trunkmonkey/
+Profile/config:  ~/.config/sipher/
+Settings:        ~/.config/sipher/sipher.ini
+Logs/state:      ~/.local/state/sipher/
 ```
 
 `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, and `SIPHER_PROFILE` are honored when set to usable paths. This keeps an optional `/usr/local/bin` installation read-only and avoids trying to write configuration beside the executable.
@@ -577,7 +577,7 @@ SIPHER 2.0.0 includes the shared GUI/CLI theme family:
 - Ice
 - Classic Light
 
-Use the Theme selector in the main window. The selection is saved with Qt `QSettings` to the local `config/trunkmonkey.ini` file and restored the next time SIPHER starts. System clears the application stylesheet and follows the desktop/Qt platform theme.
+Use the Theme selector in the main window. The selection is saved with Qt `QSettings` to the local `config/sipher.ini` file and restored the next time SIPHER starts. System clears the application stylesheet and follows the desktop/Qt platform theme.
 
 ## Later targets
 
@@ -602,7 +602,7 @@ On Unix, the builder now verifies the exact static PJSIP dependency chain before
 
 ## First install profile seeding
 
-When a CLI and/or GUI build is installed system-wide through `build.sh`, the builder creates the current user's default profile at `~/.config/trunkmonkey/profile.conf` (or the XDG / `SIPHER_PROFILE` override) **after the install succeeds**. It copies the installed `profile.conf.example` and never overwrites an existing profile. The installed CLI/GUI can then launch into SIPHER's built-in SIP Profile editor without requiring the user to create the file manually.
+When a CLI and/or GUI build is installed system-wide through `build.sh`, the builder creates the current user's default profile at `~/.config/sipher/profile.conf` (or the XDG / `SIPHER_PROFILE` override) **after the install succeeds**. It copies the installed `profile.conf.example` and never overwrites an existing profile. The installed CLI/GUI can then launch into SIPHER's built-in SIP Profile editor without requiring the user to create the file manually.
 
 ### If the source directory was moved or deleted while a terminal was open
 

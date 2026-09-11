@@ -1,7 +1,7 @@
-#include "trunkmonkey/SipWireMonitor.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/SipTrace.h"
+#include "sipher/SipWireMonitor.h"
+#include "sipher/Logger.h"
+#include "sipher/SipEngine.h"
+#include "sipher/SipTrace.h"
 #include <pjsua-lib/pjsua.h>
 #include <pjsip/sip_msg.h>
 #include <pj/sock.h>
@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace trunkmonkey {
+namespace sipher {
 SipWireMonitor* SipWireMonitor::active_ = nullptr;
 std::mutex SipWireMonitor::activeMutex_;
 
@@ -72,7 +72,7 @@ void SipWireMonitor::start()
     }
 
     module_ = {};
-    module_.name = pj_str(const_cast<char*>("mod-trunkmonkey-trace"));
+    module_.name = pj_str(const_cast<char*>("mod-sipher-trace"));
     module_.id = -1;
     module_.priority = PJSIP_MOD_PRIORITY_TRANSPORT_LAYER - 1;
     module_.on_rx_request = &SipWireMonitor::onRxRequest;
@@ -211,4 +211,4 @@ void SipWireMonitor::process(pjsip_msg* msg, bool sent, const char* raw, std::si
 
     engine_.onSipMessage(std::move(entry));
 }
-} // namespace trunkmonkey
+} // namespace sipher

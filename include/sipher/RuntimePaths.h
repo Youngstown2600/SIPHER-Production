@@ -1,7 +1,7 @@
 #pragma once
 #include <filesystem>
 
-namespace trunkmonkey::runtime {
+namespace sipher::runtime {
 std::filesystem::path configDir();
 std::filesystem::path stateDir();
 std::filesystem::path settingsPath();

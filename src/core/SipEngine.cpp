@@ -1,11 +1,11 @@
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/CallSession.h"
-#include "trunkmonkey/CaptureManager.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/RuntimePaths.h"
-#include "trunkmonkey/SipAccount.h"
-#include "trunkmonkey/SipWireMonitor.h"
-#include "trunkmonkey/Version.h"
+#include "sipher/SipEngine.h"
+#include "sipher/CallSession.h"
+#include "sipher/CaptureManager.h"
+#include "sipher/Logger.h"
+#include "sipher/RuntimePaths.h"
+#include "sipher/SipAccount.h"
+#include "sipher/SipWireMonitor.h"
+#include "sipher/Version.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -23,7 +23,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace trunkmonkey {
+namespace sipher {
 static_assert(PJSUA_MAX_CALLS >= 50,
               "SIPHER requires PJSIP built with PJSUA_MAX_CALLS >= 50. Use scripts/build-pjsip.sh.");
 static_assert(PJ_IOQUEUE_MAX_HANDLES >= 192,
@@ -350,10 +350,10 @@ void SipEngine::initializeEndpoint(unsigned maxCalls)
 
             int captureId=requestedDevice("SIPHER_CAPTURE_DEVICE",true);
             if(captureId<0) captureId=requestedDevice("SIPCLIENT_CAPTURE_DEVICE",true);
-            if(captureId<0) captureId=requestedDevice("TRUNKMONKEY_CAPTURE_DEVICE",true);
+            if(captureId<0) captureId=requestedDevice("SIPHER_CAPTURE_DEVICE",true);
             int playbackId=requestedDevice("SIPHER_PLAYBACK_DEVICE",false);
             if(playbackId<0) playbackId=requestedDevice("SIPCLIENT_PLAYBACK_DEVICE",false);
-            if(playbackId<0) playbackId=requestedDevice("TRUNKMONKEY_PLAYBACK_DEVICE",false);
+            if(playbackId<0) playbackId=requestedDevice("SIPHER_PLAYBACK_DEVICE",false);
 
 #ifdef __FreeBSD__
             // FreeBSD snd_hda/OSS commonly exposes a laptop as a duplex pcm0
@@ -1663,4 +1663,4 @@ void SipEngine::onCallUpdated(int id)
         // the live wrapper is allowed to die without any further PJSUA2 calls.
     }
 }
-} // namespace trunkmonkey
+} // namespace sipher

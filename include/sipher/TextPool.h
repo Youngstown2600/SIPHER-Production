@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace trunkmonkey {
+namespace sipher {
 class TextPool {
 public:
     void load(const std::string& path);
@@ -19,4 +19,4 @@ private:
     std::vector<std::string> values_;
     std::size_t cursor_{0};
 };
-} // namespace trunkmonkey
+} // namespace sipher

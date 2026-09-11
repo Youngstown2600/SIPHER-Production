@@ -1,14 +1,14 @@
 #include "CliDashboard.h"
-#include "trunkmonkey/CaptureManager.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/MultiCallManager.h"
-#include "trunkmonkey/PbxAudit.h"
-#include "trunkmonkey/Profile.h"
-#include "trunkmonkey/RuntimePaths.h"
-#include "trunkmonkey/SipEngine.h"
-#include "trunkmonkey/SipTrace.h"
-#include "trunkmonkey/TextPool.h"
-#include "trunkmonkey/Version.h"
+#include "sipher/CaptureManager.h"
+#include "sipher/Logger.h"
+#include "sipher/MultiCallManager.h"
+#include "sipher/PbxAudit.h"
+#include "sipher/Profile.h"
+#include "sipher/RuntimePaths.h"
+#include "sipher/SipEngine.h"
+#include "sipher/SipTrace.h"
+#include "sipher/TextPool.h"
+#include "sipher/Version.h"
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -37,11 +37,11 @@
 #include <unistd.h>
 #endif
 
-using namespace trunkmonkey;
-using trunkmonkey::cli::CliDashboard;
-using trunkmonkey::cli::DashboardNotice;
-using trunkmonkey::cli::DashboardState;
-using trunkmonkey::cli::DashboardPage;
+using namespace sipher;
+using sipher::cli::CliDashboard;
+using sipher::cli::DashboardNotice;
+using sipher::cli::DashboardState;
+using sipher::cli::DashboardPage;
 
 namespace {
 constexpr unsigned kMaxCalls=50;
@@ -705,7 +705,7 @@ bool readInteractiveCommand(bool dashboardEnabled,std::string& line,int& altPage
 
 void plainBanner()
 {
-    std::cout<<"\nSIPHER "<<TRUNKMONKEY_VERSION<<"\n"
+    std::cout<<"\nSIPHER "<<SIPHER_VERSION<<"\n"
              <<"SIP / RTP Troubleshooting & PBX Diagnostics\n"
              <<"Type 'menu' for guided workflows or 'help' for advanced commands.\n\n";
 }

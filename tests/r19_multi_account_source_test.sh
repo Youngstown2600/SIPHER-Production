@@ -3,18 +3,18 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-grep -q 'TRUNKMONKEY_VERSION "2.0"' include/trunkmonkey/Version.h
-grep -q 'void start(unsigned maxCalls=50)' include/trunkmonkey/SipEngine.h
-grep -q 'std::map<std::string,std::unique_ptr<ManagedAccount>> accounts_' include/trunkmonkey/SipEngine.h
-grep -q 'addAccount(const SipProfile' include/trunkmonkey/SipEngine.h
-grep -q 'removeAccount(const std::string& accountId)' include/trunkmonkey/SipEngine.h
-grep -q 'setActiveAccount(const std::string& accountId)' include/trunkmonkey/SipEngine.h
+grep -q 'SIPHER_VERSION "2.0"' include/sipher/Version.h
+grep -q 'void start(unsigned maxCalls=50)' include/sipher/SipEngine.h
+grep -q 'std::map<std::string,std::unique_ptr<ManagedAccount>> accounts_' include/sipher/SipEngine.h
+grep -q 'addAccount(const SipProfile' include/sipher/SipEngine.h
+grep -q 'removeAccount(const std::string& accountId)' include/sipher/SipEngine.h
+grep -q 'setActiveAccount(const std::string& accountId)' include/sipher/SipEngine.h
 grep -q 'No SIP accounts configured' src/core/SipEngine.cpp
 grep -q 'natUpdateStunServers' src/core/SipEngine.cpp
-grep -q 'accountId_' include/trunkmonkey/SipAccount.h
+grep -q 'accountId_' include/sipher/SipAccount.h
 grep -q 'engine_.onRegistrationState(accountId_' src/core/SipAccount.cpp
 grep -q 'engine_.onIncomingCall(accountId_' src/core/SipAccount.cpp
-grep -q 'std::string accountId;' include/trunkmonkey/CallSnapshot.h
+grep -q 'std::string accountId;' include/sipher/CallSnapshot.h
 
 grep -q 'SIP &Accounts...' src/gui/MainWindow.cpp
 grep -q 'MANAGE SIP ACCOUNTS' src/gui/MainWindow.cpp
@@ -27,7 +27,7 @@ grep -q 'accountsDir' src/gui/main.cpp
 
 grep -q 'DID / NUMBER INTELLIGENCE' src/gui/MainWindow.cpp
 grep -q 'USACallerLookup' src/gui/MainWindow.cpp
-grep -q 'OPEN SPAMCALLS REPUTATION' src/gui/MainWindow.cpp
+grep -q 'OPEN SPAMCALLS PAGE' src/gui/MainWindow.cpp
 ! grep -q 'IPQS-KEY' src/gui/MainWindow.cpp
 grep -q 'CARRIER HANDOFF / NEXT-OUT' src/gui/MainWindow.cpp
 grep -q 'UDP/TCP TRANSPORT PARITY' src/gui/MainWindow.cpp

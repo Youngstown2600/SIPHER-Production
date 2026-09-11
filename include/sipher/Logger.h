@@ -2,7 +2,7 @@
 #include <fstream>
 #include <mutex>
 #include <string>
-namespace trunkmonkey {
+namespace sipher {
 class Logger {
 public:
     explicit Logger(std::string path={});

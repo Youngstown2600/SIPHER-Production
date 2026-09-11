@@ -1,9 +1,9 @@
-#include "trunkmonkey/SipAccount.h"
-#include "trunkmonkey/Logger.h"
-#include "trunkmonkey/SipEngine.h"
+#include "sipher/SipAccount.h"
+#include "sipher/Logger.h"
+#include "sipher/SipEngine.h"
 #include <utility>
 
-namespace trunkmonkey {
+namespace sipher {
 SipAccount::SipAccount(SipEngine& engine, Logger& logger, std::string accountId)
     : engine_(engine), logger_(logger), accountId_(std::move(accountId))
 {
@@ -29,4 +29,4 @@ void SipAccount::onIncomingCall(pj::OnIncomingCallParam& param)
     logger_.info("Incoming SIP call account="+accountId_+" id=" + std::to_string(param.callId));
     engine_.onIncomingCall(accountId_, *this, param.callId);
 }
-} // namespace trunkmonkey
+} // namespace sipher
